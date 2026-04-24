@@ -21,7 +21,6 @@ const FIREBASE_URL = 'https://fixon-83263-default-rtdb.firebaseio.com/fixon_data
 
 async function loadData() {
   try {
-    const fetch = (await import('node-fetch')).default || globalThis.fetch;
     const res = await fetch(FIREBASE_URL);
     const text = await res.text();
     if (text && text !== 'null') {
@@ -38,7 +37,6 @@ async function loadData() {
 
 async function saveData() {
   try {
-    const fetch = (await import('node-fetch')).default || globalThis.fetch;
     await fetch(FIREBASE_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

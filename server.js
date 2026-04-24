@@ -140,6 +140,16 @@ app.get('/api/admin/users', (req, res) => {
   res.json({ success: true, users: allUsers });
 });
 
+// Admin: get user count
+app.get('/api/admin/users/count', (req, res) => {
+  res.json({
+    success: true,
+    totalUsers: registeredUsers.length,
+    activeUsers: Object.keys(users).length,
+    newUsersToday: registeredUsers.filter(u => new Date(u.createdAt).toDateString() === new Date().toDateString()).length
+  });
+});
+
 // Admin: get stats
 app.get('/api/admin/stats', (req, res) => {
   const completed = bookings.filter(b => b.status === 'completed').length;

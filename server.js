@@ -17,30 +17,47 @@ const io = new Server(server, {
 // ── Persistent file storage ──────────────────────────────────
 const DATA_FILE = path.join(__dirname, 'fixon_data.json');
 
-function loadData() {
+const FIREBASE_URL = 'https://fixon-83263-default-rtdb.firebaseio.com/fixon_data.json';
+
+async function loadData() {
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(raw);
+    const fetch = (await import('node-fetch')).default || globalThis.fetch;
+    const res = await fetch(FIREBASE_URL);
+    const text = await res.text();
+    if (text && text !== 'null') {
+      const parsed = JSON.parse(text);
+      if (parsed.users) Object.assign(users, parsed.users);
+      if (parsed.bookings) bookings.push(...parsed.bookings);
+      if (parsed.messages) messages.push(...parsed.messages);
+      if (parsed.registeredUsers) registeredUsers.push(...parsed.registeredUsers);
     }
-  } catch {}
-  return { users: {}, bookings: [], messages: [], registeredUsers: [] };
+  } catch (error) {
+    console.error('🔥 Firebase Load Error:', error);
+  }
 }
 
-function saveData() {
+async function saveData() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, bookings, messages, registeredUsers }, null, 2));
-  } catch {}
+    const fetch = (await import('node-fetch')).default || globalThis.fetch;
+    await fetch(FIREBASE_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users, bookings, messages, registeredUsers })
+    });
+  } catch (error) {
+    console.error('🔥 Firebase Save Error:', error);
+  }
 }
 
-const saved = loadData();
+// Ensure loadData runs
+loadData().then(() => console.log('🔥 Initial Firebase data loaded!'));
 
 // ── In-memory stores ─────────────────────────────────────────
-const users = saved.users || {};           // userId → live location tracking
+const users = {};           // userId → live location tracking
 const workers = {};                        // workerId → { _id, name, lat, lng }
-let messages = saved.messages || [];
-let bookings = saved.bookings || [];
-let registeredUsers = saved.registeredUsers || [];  // real sign-ups
+let messages = [];
+let bookings = [];
+let registeredUsers = [];  // real sign-ups
 
 // Auto-save every 30 seconds
 setInterval(saveData, 30000);

@@ -29,6 +29,8 @@ async function loadData() {
       if (parsed.bookings) bookings.push(...parsed.bookings);
       if (parsed.messages) messages.push(...parsed.messages);
       if (parsed.registeredUsers) registeredUsers.push(...parsed.registeredUsers);
+      if (parsed.adminWorkers) adminWorkers.push(...parsed.adminWorkers);
+      if (parsed.services) services = parsed.services;
     }
   } catch (error) {
     console.error('🔥 Firebase Load Error:', error);
@@ -40,7 +42,7 @@ async function saveData() {
     await fetch(FIREBASE_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ users, bookings, messages, registeredUsers })
+      body: JSON.stringify({ users, bookings, messages, registeredUsers, adminWorkers, services })
     });
   } catch (error) {
     console.error('🔥 Firebase Save Error:', error);
@@ -52,10 +54,21 @@ loadData().then(() => console.log('🔥 Initial Firebase data loaded!'));
 
 // ── In-memory stores ─────────────────────────────────────────
 const users = {};           // userId → live location tracking
-const workers = {};                        // workerId → { _id, name, lat, lng }
+const workers = {};         // workerId → { _id, name, lat, lng } (live location)
 let messages = [];
 let bookings = [];
-let registeredUsers = [];  // real sign-ups
+let registeredUsers = [];   // real sign-ups
+let adminWorkers = [];      // workers managed from admin panel
+let services = [
+  { _id: 'SV1', name: 'Plumbing',     icon: '🔧', color: '#7C3AED', price: 499,  active: true },
+  { _id: 'SV2', name: 'Electrical',   icon: '⚡', color: '#F59E0B', price: 599,  active: true },
+  { _id: 'SV3', name: 'Cleaning',     icon: '🧹', color: '#10B981', price: 1299, active: true },
+  { _id: 'SV4', name: 'AC Repair',    icon: '❄️', color: '#06B6D4', price: 799,  active: true },
+  { _id: 'SV5', name: 'Carpentry',    icon: '🪚', color: '#EC4899', price: 699,  active: true },
+  { _id: 'SV6', name: 'Painting',     icon: '🎨', color: '#EF4444', price: 2499, active: true },
+  { _id: 'SV7', name: 'Pest Control', icon: '🐛', color: '#8B5CF6', price: 999,  active: true },
+  { _id: 'SV8', name: 'CCTV Setup',   icon: '📹', color: '#059669', price: 3499, active: true },
+];
 
 // Auto-save every 30 seconds
 setInterval(saveData, 30000);
@@ -342,6 +355,78 @@ app.get('/api/stats/customers', (req, res) => {
     active: Object.values(users).filter(u => u.lat).length,
     users: Object.values(users),
   });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  WORKERS ROUTES (Admin Panel CRUD)
+// ══════════════════════════════════════════════════════════════
+
+app.get('/api/workers', (req, res) => {
+  res.json({ success: true, workers: adminWorkers });
+});
+
+app.post('/api/workers', (req, res) => {
+  const w = { _id: 'W' + Date.now(), ...req.body, active: true, createdAt: new Date().toISOString() };
+  adminWorkers.push(w);
+  saveData();
+  io.emit('worker_added', w);
+  res.json({ success: true, worker: w });
+});
+
+app.put('/api/workers/:id', (req, res) => {
+  const idx = adminWorkers.findIndex(w => w._id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false });
+  adminWorkers[idx] = { ...adminWorkers[idx], ...req.body };
+  saveData();
+  io.emit('worker_updated', adminWorkers[idx]);
+  res.json({ success: true, worker: adminWorkers[idx] });
+});
+
+app.delete('/api/workers/:id', (req, res) => {
+  adminWorkers = adminWorkers.filter(w => w._id !== req.params.id);
+  saveData();
+  res.json({ success: true });
+});
+
+app.patch('/api/workers/:id/toggle', (req, res) => {
+  const w = adminWorkers.find(w => w._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false });
+  w.active = !w.active;
+  saveData();
+  res.json({ success: true, worker: w });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  SERVICES ROUTES (Admin Panel CRUD → Mobile App reads)
+// ══════════════════════════════════════════════════════════════
+
+app.get('/api/services', (req, res) => {
+  res.json({ success: true, services: services.filter(s => s.active !== false) });
+});
+
+app.get('/api/admin/services', (req, res) => {
+  res.json({ success: true, services });
+});
+
+app.post('/api/admin/services', (req, res) => {
+  const s = { _id: 'SV' + Date.now(), ...req.body, active: true };
+  services.push(s);
+  saveData();
+  res.json({ success: true, service: s });
+});
+
+app.put('/api/admin/services/:id', (req, res) => {
+  const idx = services.findIndex(s => s._id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false });
+  services[idx] = { ...services[idx], ...req.body };
+  saveData();
+  res.json({ success: true, service: services[idx] });
+});
+
+app.delete('/api/admin/services/:id', (req, res) => {
+  services = services.filter(s => s._id !== req.params.id);
+  saveData();
+  res.json({ success: true });
 });
 
 // ══════════════════════════════════════════════════════════════

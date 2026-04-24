@@ -440,7 +440,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ── Start ───────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 FixoN Server running at http://localhost:${PORT}`);
   console.log(`   Admin panel : http://localhost:3000`);

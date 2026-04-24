@@ -1,15 +1,21 @@
 {
-  "name": "fixon-admin",
+  "name": "fixon-backend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.6.0",
     "chart.js": "^4.4.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
     "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
@@ -17,7 +23,6 @@
     "react-hot-toast": "^2.4.1",
     "react-leaflet": "^4.2.1",
     "react-scripts": "5.0.1",
-    "socket.io": "^4.8.3",
     "socket.io-client": "^4.7.2",
     "web-vitals": "^2.1.4"
   },

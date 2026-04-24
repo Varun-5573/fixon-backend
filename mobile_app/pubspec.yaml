@@ -1,0 +1,57 @@
+name: fixon_app
+description: FixoN - Home Services Platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # HTTP & API
+  http: ^1.1.0
+  dio: ^5.4.0
+  
+  # Storage
+  shared_preferences: ^2.2.2
+  
+  # UI
+  google_fonts: ^6.1.0
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.1
+  
+  # Maps & Location
+  google_maps_flutter: ^2.5.3
+  geolocator: ^11.0.0
+  geocoding: ^3.0.0
+  permission_handler: ^11.3.0
+  
+  # Socket
+  socket_io_client: ^2.0.3+1
+  
+  # Notifications
+  flutter_local_notifications: ^17.1.2
+  
+  # Image
+  image_picker: ^1.0.7
+  
+  # Icons
+  iconsax: ^0.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

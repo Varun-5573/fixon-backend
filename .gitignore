@@ -1,0 +1,11 @@
+node_modules/
+.env
+fixon_data.json
+build/
+.dart_tool/
+mobile_app/build/
+mobile_app/.dart_tool/
+mobile_app/android/.gradle/
+mobile_app/android/local.properties
+*.log
+.DS_Store

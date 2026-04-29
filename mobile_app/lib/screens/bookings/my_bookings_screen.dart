@@ -4,13 +4,14 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../utils/constants.dart';
+import 'booking_tracking_screen.dart';
 
-const _statusColors = {
-  'pending': AppColors.accent, 'accepted': AppColors.primary, 'ongoing': AppColors.secondary,
-  'completed': AppColors.success, 'cancelled': AppColors.error
+final _statusColors = {
+  'pending': AppColors.accent, 'accepted': AppColors.primary, 'on_the_way': AppColors.warning, 
+  'ongoing': AppColors.secondary, 'completed': AppColors.success, 'cancelled': AppColors.error
 };
 const _statusIcons = {
-  'pending': '⏰', 'accepted': '✅', 'ongoing': '🔧', 'completed': '🎉', 'cancelled': '❌'
+  'pending': '⏰', 'accepted': '✅', 'on_the_way': '🏍️', 'ongoing': '🛠️', 'completed': '🎉', 'cancelled': '❌'
 };
 
 class MyBookingsScreen extends StatefulWidget {
@@ -65,7 +66,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
         Expanded(
           child: Consumer<BookingProvider>(
             builder: (ctx, bp, _) {
-              if (bp.loading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+              if (bp.loading) return Center(child: CircularProgressIndicator(color: AppColors.primary));
               return TabBarView(
                 controller: _tabs,
                 children: _tabLabels.map((label) {
@@ -136,7 +137,7 @@ class _BookingCard extends StatelessWidget {
 
         // Worker
         if (worker != null) ...[
-          const Divider(color: AppColors.border, height: 16),
+          Divider(color: AppColors.border, height: 16),
           Row(children: [
             Container(width: 36, height: 36,
               decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
@@ -154,38 +155,49 @@ class _BookingCard extends StatelessWidget {
             ),
           ]),
         ] else if (status == 'pending') ...[
-          const Divider(color: AppColors.border, height: 16),
+          Divider(color: AppColors.border, height: 16),
           Text('🔍 Finding the best worker for you...', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
           const SizedBox(height: 8),
           LinearProgressIndicator(backgroundColor: AppColors.card2, color: AppColors.primary, borderRadius: BorderRadius.circular(4)),
         ],
 
         // Price
-        const Divider(color: AppColors.border, height: 20),
+        Divider(color: AppColors.border, height: 20),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('Amount', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
           Text('₹${booking['price'] ?? 0}', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.success)),
         ]),
 
         // Action buttons
-        if (status == 'completed') ...[
-          const SizedBox(height: 12),
-          Row(children: [
+        const SizedBox(height: 16),
+        Row(children: [
+          if (status != 'cancelled' && status != 'completed')
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BookingTrackingScreen(booking: booking))),
+              icon: const Icon(Icons.location_searching_rounded, size: 16),
+              label: Text('Track Booking', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), 
+                padding: const EdgeInsets.symmetric(vertical: 12)
+              ),
+            )),
+          if (status == 'completed') ...[
             Expanded(child: OutlinedButton.icon(
               onPressed: () {},
               icon: const Icon(Icons.star_outline, size: 16),
               label: Text('Rate', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
-              style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: const BorderSide(color: AppColors.accent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: AppColors.accent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
             )),
             const SizedBox(width: 10),
             Expanded(child: ElevatedButton.icon(
               onPressed: () {},
               icon: const Icon(Icons.refresh, size: 16),
               label: Text('Rebook', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
-              style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 10)),
+              style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
             )),
-          ]),
-        ],
+          ],
+        ]),
       ]),
     );
   }
@@ -196,3 +208,5 @@ class _BookingCard extends StatelessWidget {
     Expanded(child: Text(text, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub), maxLines: 1, overflow: TextOverflow.ellipsis)),
   ]);
 }
+
+

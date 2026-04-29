@@ -72,7 +72,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Container(width: 48, height: 48, decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
-                      child: Center(child: Text(n['icon'] as String, style: const TextStyle(fontSize: 24)))),
+                      child: Center(child: Text(n['icon'] as String, style: TextStyle(fontSize: 24)))),
                     const SizedBox(width: 14),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
@@ -94,3 +94,4 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 }
+

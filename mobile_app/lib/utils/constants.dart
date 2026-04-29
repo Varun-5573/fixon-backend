@@ -2,40 +2,63 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 class AppColors {
-  static const Color primary     = Color(0xFF7C3AED);
-  static const Color primaryLight= Color(0xFF9D5AF7);
-  static const Color secondary   = Color(0xFF06B6D4);
-  static const Color accent      = Color(0xFFF59E0B);
-  static const Color success     = Color(0xFF10B981);
-  static const Color error       = Color(0xFFEF4444);
-  static const Color warning     = Color(0xFFF59E0B);
+  static Color primary     = const Color(0xFF7C3AED);
+  static Color primaryLight= const Color(0xFF9D5AF7);
+  static Color secondary   = const Color(0xFF06B6D4);
+  static Color accent      = const Color(0xFFF59E0B);
+  static Color success     = const Color(0xFF10B981);
+  static Color error       = const Color(0xFFEF4444);
+  static Color warning     = const Color(0xFFF59E0B);
 
-  static const Color bg          = Color(0xFF060612);
-  static const Color surface     = Color(0xFF0D0D22);
-  static const Color card        = Color(0xFF13132B);
-  static const Color card2       = Color(0xFF1A1A35);
-  static const Color border      = Color(0x12FFFFFF);
+  static Color bg          = const Color(0xFF060612);
+  static Color surface     = const Color(0xFF0D0D22);
+  static Color card        = const Color(0xFF13132B);
+  static Color card2       = const Color(0xFF1A1A35);
+  static Color border      = const Color(0x12FFFFFF);
 
-  static const Color text        = Color(0xFFF0F0FF);
-  static const Color textSub     = Color(0xFF7880A8);
-  static const Color textDim     = Color(0x4DFFFFFF);
+  static Color text        = const Color(0xFFF0F0FF);
+  static Color textSub     = const Color(0xFF7880A8);
+  static Color textDim     = const Color(0x4DFFFFFF);
 
-  static const LinearGradient primaryGradient = LinearGradient(
+  static LinearGradient get primaryGradient => LinearGradient(
     colors: [primary, primaryLight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient bgGradient = LinearGradient(
-    colors: [Color(0xFF0D0528), Color(0xFF060612)],
+  static LinearGradient get bgGradient => LinearGradient(
+    colors: bg == const Color(0xFF060612) ? [const Color(0xFF0D0528), const Color(0xFF060612)] : [const Color(0xFFF8FAFC), const Color(0xFFF0F4F8)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
+
+  static void updateTheme(bool isDark) {
+    if (isDark) {
+      bg = const Color(0xFF060612);
+      surface = const Color(0xFF0D0D22);
+      card = const Color(0xFF13132B);
+      card2 = const Color(0xFF1A1A35);
+      border = const Color(0x12FFFFFF);
+      text = const Color(0xFFF0F0FF);
+      textSub = const Color(0xFF7880A8);
+      textDim = const Color(0x4DFFFFFF);
+    } else {
+      bg = const Color(0xFFF8FAFC);
+      surface = const Color(0xFFFFFFFF);
+      card = const Color(0xFFFFFFFF);
+      card2 = const Color(0xFFF1F5F9);
+      border = const Color(0xFFE2E8F0);
+      text = const Color(0xFF0F172A);
+      textSub = const Color(0xFF64748B);
+      textDim = const Color(0x400F172A);
+    }
+  }
 }
 
-// Web → localhost, Android APK → hotspot Wi-Fi IP
-const String kServerIp = '10.114.61.161';
-const String kBaseUrl = kIsWeb ? 'http://localhost:5000' : 'http://$kServerIp:5000';
+// Production Cloud Backend
+// Production Cloud Backend
+const String kServerIp = 'fixon-backend-production.up.railway.app';
+const String kBaseUrl = 'https://fixon-backend-production.up.railway.app';
 
 const List<Map<String, dynamic>> kServices = [
   {'name': 'Plumbing',      'icon': '🔧', 'color': 0xFF7C3AED, 'price': 499},

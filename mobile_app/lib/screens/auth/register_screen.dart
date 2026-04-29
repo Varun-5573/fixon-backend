@@ -39,7 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -48,7 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const SizedBox(height: 20),
                 IconButton(onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back_ios, color: AppColors.text)),
+                  icon: Icon(Icons.arrow_back_ios, color: AppColors.text)),
                 const SizedBox(height: 16),
                 Text('Create Account 🚀', style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.text)),
                 const SizedBox(height: 6),
@@ -66,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextField(
                     controller: field['ctrl'] as TextEditingController,
                     keyboardType: field['type'] as TextInputType,
-                    style: const TextStyle(color: AppColors.text),
+                    style: TextStyle(color: AppColors.text),
                     decoration: InputDecoration(hintText: field['hint'] as String, prefixIcon: Icon(field['icon'] as IconData, color: AppColors.textSub)),
                   ),
                   const SizedBox(height: 16),
@@ -77,10 +77,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextField(
                   controller: _passwordCtrl,
                   obscureText: _obscure,
-                  style: const TextStyle(color: AppColors.text),
+                  style: TextStyle(color: AppColors.text),
                   decoration: InputDecoration(
                     hintText: 'Min 6 characters',
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textSub),
+                    prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSub),
                     suffixIcon: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textSub),
                       onPressed: () => setState(() => _obscure = !_obscure),
@@ -124,3 +124,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

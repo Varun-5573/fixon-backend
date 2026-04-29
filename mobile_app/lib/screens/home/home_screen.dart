@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart'; // ignore: unused_import
 import '../../providers/location_provider.dart';
 import '../../utils/constants.dart';
 import '../booking/service_detail_screen.dart';
+import 'qr_scanner_screen.dart';
 import '../bookings/my_bookings_screen.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -33,7 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Auto-fetch GPS location once home screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initLocation());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initLocation();
+      _loadServices(); // Load live services from server
+    });
   }
 
   Future<void> _initLocation() async {
@@ -46,9 +52,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() { _searchCtrl.dispose(); super.dispose(); }
 
+  List<Map<String, dynamic>> _services = kServices; // fallback to hardcoded
+
+  Future<void> _loadServices() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$kBaseUrl/api/services'),
+      ).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(res.body);
+      if (data['success'] == true && data['services'] != null) {
+        setState(() {
+          _services = List<Map<String, dynamic>>.from(
+            (data['services'] as List).map((s) => Map<String, dynamic>.from(s))
+          );
+        });
+      }
+    } catch (e) {
+      // Use hardcoded fallback
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredServices => _search.isEmpty
-      ? kServices
-      : kServices.where((s) => s['name'].toString().toLowerCase().contains(_search.toLowerCase())).toList();
+      ? _services
+      : _services.where((s) => s['name'].toString().toLowerCase().contains(_search.toLowerCase())).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: IndexedStack(
             index: _tab,
@@ -73,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: _tab == 0 ? FloatingActionButton.extended(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen())),
         backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.support_agent_rounded, color: Colors.white),
+        icon: Icon(Icons.support_agent_rounded, color: Colors.white),
         label: Text('Live Support', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white)),
       ) : null,
       bottomNavigationBar: _buildBottomNav(),
@@ -146,14 +172,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ]),
               ),
               GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScannerScreen())),
+                child: Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+                  child: Icon(Icons.qr_code_scanner, color: AppColors.primary, size: 22),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
                 onTap: () => setState(() => _tab = 2),
                 child: Container(
                   width: 44, height: 44,
                   decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-                  child: const Icon(Icons.notifications_outlined, color: AppColors.text, size: 22),
+                  child: Icon(Icons.notifications_outlined, color: AppColors.text, size: 22),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => setState(() => _tab = 3),
                 child: Container(
@@ -190,11 +225,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 34, height: 34,
                     decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
                     child: loc.loading
-                        ? const Padding(
+                        ? Padding(
                             padding: EdgeInsets.all(8),
                             child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                           )
-                        : const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 18),
+                        : Icon(Icons.location_on_rounded, color: AppColors.primary, size: 18),
                   ),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -206,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                     ),
                   ])),
-                  const Icon(Icons.refresh_rounded, color: AppColors.textSub, size: 16),
+                  Icon(Icons.refresh_rounded, color: AppColors.textSub, size: 16),
                 ]),
               ),
             ),
@@ -218,13 +253,13 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
           child: TextField(
             controller: _searchCtrl,
-            style: const TextStyle(color: AppColors.text),
+            style: TextStyle(color: AppColors.text),
             onChanged: (v) => setState(() => _search = v),
             decoration: InputDecoration(
               hintText: '🔍  Search services...',
-              prefixIcon: const Icon(Icons.search, color: AppColors.textSub),
+              prefixIcon: Icon(Icons.search, color: AppColors.textSub),
               suffixIcon: _search.isNotEmpty
-                  ? IconButton(icon: const Icon(Icons.clear, color: AppColors.textSub, size: 18), onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); })
+                  ? IconButton(icon: Icon(Icons.clear, color: AppColors.textSub, size: 18), onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); })
                   : null,
             ),
           ),
@@ -289,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(_search.isEmpty ? '🛠️ Our Services' : '🔍 Search Results',
                 style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.text)),
-              if (_search.isEmpty) Text('${kServices.length} services',
+              if (_search.isEmpty) Text('${_services.length} services',
                 style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
             ],
           ),
@@ -302,7 +337,13 @@ class _HomeScreenState extends State<HomeScreen> {
             delegate: SliverChildBuilderDelegate(
               (ctx, i) {
                 final s = _filteredServices[i];
-                final color = Color(s['color'] as int);
+                Color color = AppColors.primary;
+                if (s['color'] is int) color = Color(s['color'] as int);
+                else if (s['color'] is String) {
+                  String hex = s['color'].toString().replaceAll('#', '');
+                  if (hex.length == 6) hex = 'FF$hex';
+                  color = Color(int.tryParse(hex, radix: 16) ?? 0xFF7C3AED);
+                }
                 return GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ServiceDetailScreen(service: s))),
                   child: AnimatedContainer(
@@ -318,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           width: 58, height: 58,
                           decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
-                          child: Center(child: Text(s['icon'] as String, style: const TextStyle(fontSize: 28))),
+                          child: Center(child: Text(s['icon'] as String, style: TextStyle(fontSize: 28))),
                         ),
                         const SizedBox(height: 10),
                         Text(s['name'] as String, textAlign: TextAlign.center,
@@ -349,3 +390,5 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Evening';
   }
 }
+
+

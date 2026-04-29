@@ -60,14 +60,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   Future<void> _startSequence() async {
     // Step 1: Logo appears with spring bounce
     await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
     _logoCtrl.forward();
 
     // Step 2: Text letter-by-letter reveal
     await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
     _textCtrl.forward();
 
     // Step 3: Stay → then exit
     await Future.delayed(const Duration(milliseconds: 2800));
+    if (!mounted) return;
     _exitCtrl.forward();
 
     await Future.delayed(const Duration(milliseconds: 700));
@@ -252,7 +255,7 @@ class _AnimatedLogo extends StatelessWidget {
             width: 110, height: 110,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [AppColors.primary, Color(0xFF9D5AF7), AppColors.secondary],
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
@@ -276,8 +279,8 @@ class _AnimatedTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const fix = 'Fix';
-    const on  = 'oN';
+    const fix = 'FIX';
+    const on  = 'ON';
     return AnimatedBuilder(
       animation: ctrl,
       builder: (_, __) {
@@ -307,14 +310,45 @@ class _AnimLetter extends StatelessWidget {
   final Color color;
   const _AnimLetter({required this.char, required this.progress, required this.color});
 
-  @override
   Widget build(BuildContext context) {
     final curved = Curves.elasticOut.transform(progress);
+    final isFix = color == AppColors.primary;
+    
+    Widget textNode = Text(
+      char, 
+      style: GoogleFonts.montserrat(
+        fontSize: 52, 
+        fontWeight: FontWeight.w900, 
+        fontStyle: FontStyle.italic,
+        color: isFix ? Colors.white : Colors.white,
+        letterSpacing: -1,
+        height: 1,
+        shadows: isFix ? [
+          Shadow(color: const Color(0xFF7C3AED).withOpacity(0.8), offset: const Offset(2.6, 2.6)),
+          Shadow(color: const Color(0xFF06B6D4).withOpacity(0.5), offset: const Offset(5.2, 5.2)),
+        ] : [
+          Shadow(color: const Color(0xFF06B6D4).withOpacity(0.3), blurRadius: 10)
+        ],
+      ),
+    );
+
+    if (!isFix) {
+      textNode = ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => LinearGradient(
+          colors: [Color(0xFF06B6D4), Color(0xFF7C3AED)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+        child: textNode,
+      );
+    }
+
     return Opacity(
       opacity: progress,
       child: Transform.translate(
         offset: Offset(0, 30 * (1 - curved)),
-        child: Text(char, style: GoogleFonts.outfit(fontSize: 52, fontWeight: FontWeight.w900, color: color, height: 1)),
+        child: textNode,
       ),
     );
   }
@@ -337,7 +371,7 @@ class _LoadingBar extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(3),
-              gradient: const LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
+              gradient: LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
             ),
           ),
         ),
@@ -365,3 +399,5 @@ class _Particle {
   final Color color;
   const _Particle({required this.x, required this.y, required this.size, required this.speed, required this.opacity, required this.color, required this.angle});
 }
+
+

@@ -3,17 +3,17 @@ import toast from 'react-hot-toast';
 import { adminApi } from '../services/api';
 
 const DEFAULT_SERVICES = [
-  { _id: '1', name: 'Plumbing', icon: '🔧', category: 'Maintenance', price: 499, description: 'Pipe repairs, leak fixing, installation', active: true, bookings: 47 },
-  { _id: '2', name: 'Electrical', icon: '⚡', category: 'Maintenance', price: 599, description: 'Wiring, switch repair, fan installation', active: true, bookings: 38 },
-  { _id: '3', name: 'Deep Cleaning', icon: '🧹', category: 'Cleaning', price: 1299, description: 'Full home deep cleaning service', active: true, bookings: 55 },
-  { _id: '4', name: 'AC Repair', icon: '❄️', category: 'Appliances', price: 799, description: 'AC servicing, gas refill, repair', active: true, bookings: 61 },
-  { _id: '5', name: 'Carpentry', icon: '🪚', category: 'Maintenance', price: 699, description: 'Furniture repair & wood work', active: true, bookings: 28 },
-  { _id: '6', name: 'Painting', icon: '🎨', category: 'Home Improvement', price: 2499, description: 'Interior & exterior painting', active: false, bookings: 23 },
-  { _id: '7', name: 'Pest Control', icon: '🐛', category: 'Cleaning', price: 999, description: 'Cockroach, rat & insect removal', active: true, bookings: 19 },
-  { _id: '8', name: 'CCTV Installation', icon: '📹', category: 'Security', price: 3499, description: 'Security camera setup & wiring', active: true, bookings: 14 },
+  { _id: '1', name: 'Plumbing', icon: '🔧', category: 'Maintenance', price: 499, description: 'Pipe repairs, leak fixing, installation', active: true, bookings: 47, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: '2', name: 'Electrical', icon: '⚡', category: 'Maintenance', price: 599, description: 'Wiring, switch repair, fan installation', active: true, bookings: 38, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
+  { _id: '3', name: 'Deep Cleaning', icon: '🧹', category: 'Cleaning', price: 1299, description: 'Full home deep cleaning service', active: true, bookings: 55, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
+  { _id: '4', name: 'AC Repair', icon: '❄️', category: 'Appliances', price: 799, description: 'AC servicing, gas refill, repair', active: true, bookings: 61, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: '5', name: 'Carpentry', icon: '🪚', category: 'Maintenance', price: 699, description: 'Furniture repair & wood work', active: true, bookings: 28, packages: [] },
+  { _id: '6', name: 'Painting', icon: '🎨', category: 'Home Improvement', price: 2499, description: 'Interior & exterior painting', active: false, bookings: 23, packages: [] },
+  { _id: '7', name: 'Pest Control', icon: '🐛', category: 'Cleaning', price: 999, description: 'Cockroach, rat & insect removal', active: true, bookings: 19, packages: [] },
+  { _id: '8', name: 'CCTV Installation', icon: '📹', category: 'Security', price: 3499, description: 'Security camera setup & wiring', active: true, bookings: 14, packages: [] },
 ];
 
-const empty = { name: '', icon: '🔧', category: '', price: '', description: '', active: true };
+const empty = { name: '', icon: '🔧', category: '', price: '', description: '', active: true, packages: [] };
 
 export default function ServicesPage() {
   const [services, setServices] = useState(DEFAULT_SERVICES);
@@ -30,10 +30,18 @@ export default function ServicesPage() {
   }, []);
 
   const openAdd = () => { setForm(empty); setModal('add'); };
-  const openEdit = (s) => { setForm({ ...s }); setModal('edit'); };
+  const openEdit = (s) => { 
+    setForm({ 
+      category: 'Maintenance', 
+      description: '', 
+      packages: [], // Ensure default
+      ...s 
+    }); 
+    setModal('edit'); 
+  };
 
   const save = async () => {
-    if (!form.name || !form.price || !form.category) return toast.error('Fill all required fields');
+    if (!form.name || !form.price) return toast.error('Fill all required fields (Name, Price)');
     setSaving(true);
     try {
       if (modal === 'add') {
@@ -112,7 +120,10 @@ export default function ServicesPage() {
                   <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 2 }}>{s.category}</div>
                 </div>
               </div>
-              <span className={`badge badge-${s.active ? 'active' : 'inactive'}`}>{s.active ? 'Active' : 'Inactive'}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                <span className={`badge badge-${s.active ? 'active' : 'inactive'}`}>{s.active ? 'Active' : 'Inactive'}</span>
+                {s.packages?.length > 0 && <span className="badge" style={{ background: 'var(--primary-light)', padding: '2px 8px', fontSize: 10 }}>{s.packages.length} Packages</span>}
+              </div>
             </div>
             <div style={{ padding: '0 20px 20px' }}>
               <p style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 14, lineHeight: 1.5 }}>{s.description}</p>
@@ -153,8 +164,8 @@ export default function ServicesPage() {
                   <input className="input" placeholder="e.g. Plumbing Repair" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Category *</label>
-                  <select className="input select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                  <label>Category</label>
+                  <select className="input select" value={form.category || ''} onChange={e => setForm({ ...form, category: e.target.value })}>
                     <option value="">Select...</option>
                     {['Maintenance', 'Cleaning', 'Appliances', 'Home Improvement', 'Security'].map(c => <option key={c}>{c}</option>)}
                   </select>
@@ -172,8 +183,45 @@ export default function ServicesPage() {
               </div>
               <div className="form-group">
                 <label>Description</label>
-                <textarea className="input" rows={3} placeholder="Service description..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ resize: 'vertical' }} />
+                <textarea className="input" rows={2} placeholder="Service description..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ resize: 'vertical' }} />
               </div>
+
+              {/* Packages Section */}
+              <div style={{ background: 'var(--card2)', padding: 16, borderRadius: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <label style={{ margin: 0, fontWeight: 800, fontSize: 13, color: 'var(--primary-light)' }}>💼 Pricing Packages</label>
+                  <button className="btn btn-sm btn-secondary" onClick={() => {
+                    const pkgs = [...(form.packages || [])];
+                    pkgs.push({ name: '', price: '' });
+                    setForm({ ...form, packages: pkgs });
+                  }}>+ Add Package</button>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {(!form.packages || form.packages.length === 0) && (
+                    <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-sub)', padding: '10px 0' }}>No custom packages added. Basic price will be used.</div>
+                  )}
+                  {(form.packages || []).map((pkg, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <input className="input" style={{ flex: 2 }} placeholder="Package Name (e.g. Basic)" value={pkg.name} onChange={e => {
+                        const pkgs = [...form.packages];
+                        pkgs[idx].name = e.target.value;
+                        setForm({ ...form, packages: pkgs });
+                      }} />
+                      <input className="input" style={{ flex: 1 }} type="number" placeholder="Price" value={pkg.price} onChange={e => {
+                        const pkgs = [...form.packages];
+                        pkgs[idx].price = e.target.value;
+                        setForm({ ...form, packages: pkgs });
+                      }} />
+                      <button className="btn btn-sm btn-danger btn-icon" onClick={() => {
+                        const pkgs = form.packages.filter((_, i) => i !== idx);
+                        setForm({ ...form, packages: pkgs });
+                      }}>🗑</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" id="svc-active" checked={form.active} onChange={e => setForm({ ...form, active: e.target.checked })} style={{ width: 16, height: 16 }} />
                 <label htmlFor="svc-active" style={{ margin: 0, textTransform: 'none', fontSize: 13 }}>Active (visible to customers)</label>

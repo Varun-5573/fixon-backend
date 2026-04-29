@@ -95,13 +95,25 @@ class BookingProvider extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 8));
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      if (data['success'] == true) return true;
+      
+      if (data['success'] == true) {
+        // Success - add the server's booking object or build one if missing
+        _bookings.insert(0, data['booking'] ?? {
+          '_id': 'BK${DateTime.now().millisecondsSinceEpoch}',
+          ...bookingData,
+          'status': 'pending',
+          'workerId': null,
+        });
+        notifyListeners();
+        return true;
+      }
     } catch (e) {
       debugPrint('⚠️ createBooking error: $e');
     }
-    // Demo mode — add locally so user sees the booking immediately
+    
+    // Offline / Demo mode fallback
     _bookings.insert(0, {
-      '_id': 'new_${DateTime.now().millisecondsSinceEpoch}',
+      '_id': 'offline_${DateTime.now().millisecondsSinceEpoch}',
       ...bookingData,
       'status': 'pending',
       'workerId': null,

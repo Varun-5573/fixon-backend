@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final auth = context.watch<AuthProvider>();
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: SlideTransition(
             position: _slideAnim,
@@ -93,8 +93,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   TextField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: AppColors.text),
-                    decoration: const InputDecoration(hintText: 'your@email.com', prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSub)),
+                    style: TextStyle(color: AppColors.text),
+                    decoration: InputDecoration(hintText: 'your@email.com', prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSub)),
                   ),
                   const SizedBox(height: 18),
 
@@ -104,10 +104,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   TextField(
                     controller: _passwordCtrl,
                     obscureText: _obscure,
-                    style: const TextStyle(color: AppColors.text),
+                    style: TextStyle(color: AppColors.text),
                     decoration: InputDecoration(
                       hintText: '••••••••',
-                      prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textSub),
+                      prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSub),
                       suffixIcon: IconButton(
                         icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textSub),
                         onPressed: () => setState(() => _obscure = !_obscure),
@@ -157,10 +157,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                   // Divider
                   Row(children: [
-                    const Expanded(child: Divider(color: AppColors.border)),
+                    Expanded(child: Divider(color: AppColors.border)),
                     Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text('OR', style: GoogleFonts.inter(color: AppColors.textSub, fontSize: 12))),
-                    const Expanded(child: Divider(color: AppColors.border)),
+                    Expanded(child: Divider(color: AppColors.border)),
                   ]),
 
                   const SizedBox(height: 20),
@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       label: Text('Continue with Google', style: GoogleFonts.inter(color: AppColors.text, fontWeight: FontWeight.w600)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: AppColors.border),
+                        side: BorderSide(color: AppColors.border),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
@@ -200,3 +200,4 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Widget _label(String text) => Text(text, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSub, letterSpacing: 0.5));
 }
+

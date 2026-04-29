@@ -1,14 +1,39 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../utils/constants.dart';
+import '../../utils/strings.dart';
 import '../auth/login_screen.dart';
+import 'edit_profile_screen.dart';
+import 'saved_payment_methods_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String? _base64Image;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfilePhoto();
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _base64Image = prefs.getString('profile_photo');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Profile 👤', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
+        Text('${AppStrings.profile} 👤', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
         const SizedBox(height: 24),
 
         // Profile Card
@@ -33,10 +58,18 @@ class ProfileScreen extends StatelessWidget {
           child: Row(children: [
             Container(
               width: 70, height: 70,
-              decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 16)]),
-              child: Center(child: Text((user['name'] ?? 'U').toString()[0].toUpperCase(),
-                style: GoogleFonts.outfit(fontSize: 30, fontWeight: FontWeight.w900, color: Colors.white))),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient, 
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 16)],
+                image: _base64Image != null
+                    ? DecorationImage(image: MemoryImage(base64Decode(_base64Image!)), fit: BoxFit.cover)
+                    : null,
+              ),
+              child: _base64Image == null
+                  ? Center(child: Text((user['name'] ?? 'U').toString()[0].toUpperCase(),
+                      style: GoogleFonts.outfit(fontSize: 30, fontWeight: FontWeight.w900, color: Colors.white)))
+                  : null,
             ),
             const SizedBox(width: 18),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -62,7 +95,7 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
             child: Column(children: [
-              Text(s['icon']!, style: const TextStyle(fontSize: 22)),
+              Text(s['icon']!, style: TextStyle(fontSize: 22)),
               const SizedBox(height: 6),
               Text(s['value']!, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.text)),
               Text(s['label']!, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSub)),
@@ -73,33 +106,127 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 22),
 
         // Menu Items
-        _section('Account', [
-          _MenuItem(icon: Icons.person_outline, label: 'Edit Profile', color: AppColors.primary, onTap: () {}),
-          _MenuItem(icon: Icons.location_on_outlined, label: 'Saved Addresses', color: AppColors.secondary, onTap: () {}),
-          _MenuItem(icon: Icons.payment_outlined, label: 'Payment Methods', color: AppColors.success, onTap: () {}),
+        _section(AppStrings.account, [
+          _MenuItem(icon: Icons.person_outline, label: AppStrings.editProfile, color: AppColors.primary, onTap: () async {
+            final changed = await Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+            if (changed == true) {
+              _loadProfilePhoto();
+            }
+          }),
+          _MenuItem(icon: Icons.location_on_outlined, label: AppStrings.savedAddresses, color: AppColors.secondary, onTap: () {}),
+          _MenuItem(icon: Icons.payment_outlined, label: AppStrings.paymentMethods, color: AppColors.success, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPaymentMethodsScreen()));
+          }),
         ]),
 
         const SizedBox(height: 14),
 
-        _section('Preferences', [
+        _section(AppStrings.preferences, [
           _MenuItem(
             icon: theme.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-            label: theme.isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            label: theme.isDark ? AppStrings.switchToLight : AppStrings.switchToDark,
             color: AppColors.accent,
             trailing: Switch(value: theme.isDark, onChanged: (_) => context.read<ThemeProvider>().toggle(), activeColor: AppColors.primary),
             onTap: () => context.read<ThemeProvider>().toggle(),
           ),
-          _MenuItem(icon: Icons.notifications_outlined, label: 'Notifications', color: AppColors.primary, onTap: () {}),
-          _MenuItem(icon: Icons.language_outlined, label: 'Language', color: AppColors.secondary, onTap: () {}),
+          _MenuItem(icon: Icons.notifications_outlined, label: AppStrings.notifications, color: AppColors.primary, onTap: () {}),
+          _MenuItem(icon: Icons.language_outlined, label: AppStrings.language, color: AppColors.secondary, onTap: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: AppColors.card,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              builder: (_) => Container(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Select Language', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.text)),
+                    const SizedBox(height: 20),
+                    ListTile(
+                      title: Text('English', style: TextStyle(color: AppColors.text, fontWeight: AppStrings.lang == 'en' ? FontWeight.bold : null)),
+                      trailing: AppStrings.lang == 'en' ? Icon(Icons.check_circle, color: AppColors.primary) : null,
+                      onTap: () { AppStrings.setLang('en'); setState((){}); Navigator.pop(context); },
+                    ),
+                    Divider(color: AppColors.border),
+                    ListTile(
+                      title: Text('తెలుగు (Telugu)', style: TextStyle(color: AppColors.text, fontWeight: AppStrings.lang == 'te' ? FontWeight.bold : null)),
+                      trailing: AppStrings.lang == 'te' ? Icon(Icons.check_circle, color: AppColors.primary) : null,
+                      onTap: () { AppStrings.setLang('te'); setState((){}); Navigator.pop(context); },
+                    ),
+                     Divider(color: AppColors.border),
+                    ListTile(
+                      title: Text('हिंदी (Hindi)', style: TextStyle(color: AppColors.text, fontWeight: AppStrings.lang == 'hi' ? FontWeight.bold : null)),
+                      trailing: AppStrings.lang == 'hi' ? Icon(Icons.check_circle, color: AppColors.primary) : null,
+                      onTap: () { AppStrings.setLang('hi'); setState((){}); Navigator.pop(context); },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
         ]),
 
         const SizedBox(height: 14),
 
-        _section('Support', [
-          _MenuItem(icon: Icons.help_outline, label: 'Help & FAQ', color: AppColors.secondary, onTap: () {}),
-          _MenuItem(icon: Icons.chat_bubble_outline, label: 'Contact Support', color: AppColors.primary, onTap: () {}),
-          _MenuItem(icon: Icons.star_outline, label: 'Rate FixoN', color: AppColors.accent, onTap: () {}),
-          _MenuItem(icon: Icons.share_outlined, label: 'Refer & Earn ₹200', color: AppColors.success, onTap: () {}),
+        _section(AppStrings.support, [
+          _MenuItem(icon: Icons.help_outline, label: AppStrings.helpFAQ, color: AppColors.secondary, onTap: () {}),
+          _MenuItem(icon: Icons.chat_bubble_outline, label: AppStrings.contactSupport, color: AppColors.primary, onTap: () {}),
+          _MenuItem(icon: Icons.star_outline, label: AppStrings.rateFixon, color: AppColors.accent, onTap: () {}),
+          _MenuItem(icon: Icons.share_outlined, label: AppStrings.referEarn, color: AppColors.success, onTap: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: AppColors.card,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              builder: (_) => Container(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 60, height: 60,
+                      decoration: BoxDecoration(color: AppColors.success.withOpacity(0.15), shape: BoxShape.circle),
+                      child: Icon(Icons.redeem, color: AppColors.success, size: 30),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Refer & Earn ₹200', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.text)),
+                    const SizedBox(height: 8),
+                    Text('Share your code with friends. When they book their first service, you both get ₹200 off!',
+                        textAlign: TextAlign.center, style: GoogleFonts.inter(color: AppColors.textSub)),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('FIXON-2026', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.primary)),
+                          Icon(Icons.copy, color: AppColors.primary, size: 20),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(Icons.share, color: Colors.white),
+                        label: Text('Share Now', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
         ]),
 
         const SizedBox(height: 14),
@@ -122,14 +249,14 @@ class ProfileScreen extends StatelessWidget {
               border: Border.all(color: AppColors.error.withOpacity(0.25)),
             ),
             child: Row(children: [
-              const Icon(Icons.logout, color: AppColors.error, size: 22),
+              Icon(Icons.logout, color: AppColors.error, size: 22),
               const SizedBox(width: 14),
-              Text('Logout', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.error)),
+              Text(AppStrings.logout, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.error)),
             ]),
           ),
         ),
         const SizedBox(height: 14),
-        Center(child: Text('FixoN v1.0.0 • Made with ❤️ in India', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textDim))),
+        Center(child: Text('${AppStrings.appName} ${AppStrings.version} • ${AppStrings.madeWithLove}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textDim))),
         const SizedBox(height: 20),
       ]),
     );
@@ -164,8 +291,9 @@ class _MenuItem extends StatelessWidget {
           child: Icon(icon, color: color, size: 18)),
         const SizedBox(width: 14),
         Expanded(child: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.text))),
-        trailing ?? const Icon(Icons.chevron_right, color: AppColors.textSub, size: 20),
+        trailing ?? Icon(Icons.chevron_right, color: AppColors.textSub, size: 20),
       ]),
     ),
   );
 }
+

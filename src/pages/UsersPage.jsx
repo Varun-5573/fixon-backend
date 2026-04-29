@@ -10,16 +10,16 @@ export default function UsersPage(props) {
 
   useEffect(() => {
     load();
+    // Auto-refresh every 10 seconds to catch new registrations
+    const poll = setInterval(load, 10000);
     if (props.socket) {
       props.socket.on('new_user', (newUser) => {
-        setUsers(prev => {
-          if (prev.find(u => u._id === newUser._id)) return prev;
-          toast.success(`🆕 New customer registered: ${newUser.name || 'Anonymous'}`);
-          return [newUser, ...prev];
-        });
+        load(); // Reload full list from server
+        toast.success(`🆕 New customer registered: ${newUser.name || 'Anonymous'}`);
       });
-      return () => props.socket.off('new_user');
+      return () => { clearInterval(poll); props.socket.off('new_user'); };
     }
+    return () => clearInterval(poll);
   }, [props.socket]);
 
   const load = async () => {

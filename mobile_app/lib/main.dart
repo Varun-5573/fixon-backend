@@ -36,7 +36,7 @@ class FixoNApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
-        return MaterialApp(
+        return MaterialApp(key: ValueKey(themeProvider.isDark),
           title: 'FixoN',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
@@ -53,7 +53,7 @@ class AppTheme {
   static ThemeData get darkTheme => ThemeData(
     brightness: Brightness.dark,
     scaffoldBackgroundColor: AppColors.bg,
-    colorScheme: const ColorScheme.dark(
+    colorScheme: ColorScheme.dark(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
       surface: AppColors.surface,
@@ -70,17 +70,17 @@ class AppTheme {
       fillColor: AppColors.card,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        borderSide: BorderSide(color: AppColors.primary, width: 2),
       ),
-      hintStyle: const TextStyle(color: AppColors.textSub),
+      hintStyle: TextStyle(color: AppColors.textSub),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -96,11 +96,60 @@ class AppTheme {
 
   static ThemeData get lightTheme => ThemeData(
     brightness: Brightness.light,
-    scaffoldBackgroundColor: const Color(0xFFF5F5FF),
-    colorScheme: const ColorScheme.light(
+    scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+    colorScheme: ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
+      surface: const Color(0xFFFFFFFF),
+      error: AppColors.error,
     ),
     textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
+      foregroundColor: Color(0xFF0F172A),
+    ),
+    cardColor: Colors.white,
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.primary, width: 2),
+      ),
+      hintStyle: const TextStyle(color: Color(0xFF64748B)),
+      labelStyle: const TextStyle(color: Color(0xFF64748B)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        textStyle: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+      ),
+    ),
+    listTileTheme: const ListTileThemeData(
+      tileColor: Colors.white,
+      textColor: Color(0xFF0F172A),
+      iconColor: Color(0xFF0F172A),
+    ),
+    dividerColor: const Color(0xFFE2E8F0),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? AppColors.primary : Colors.grey),
+      trackColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? AppColors.primary.withOpacity(0.3) : Colors.grey.shade300),
+    ),
   );
 }
+
+

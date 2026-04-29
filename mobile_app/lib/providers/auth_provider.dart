@@ -69,7 +69,7 @@ class AuthProvider extends ChangeNotifier {
         Uri.parse('$kBaseUrl/api/auth/user/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'name': name, 'email': email, 'phone': phone, 'password': password}),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 20));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _token = data['token'];
@@ -82,14 +82,7 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       print('❌ REGISTER ERROR: $e');
-      // Demo mode
-      _token = 'demo_token';
-      _user = {'_id': 'demo1', 'name': name, 'email': email, 'phone': phone};
-      final p = await SharedPreferences.getInstance();
-      await p.setString('fixon_token', _token!);
-      await p.setString('fixon_user', jsonEncode(_user));
-      _loading = false; notifyListeners();
-      return true;
+      // No demo fallback — show error to user so they know server is unreachable
     }
     _loading = false; notifyListeners();
     return false;

@@ -189,7 +189,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
             child: Opacity(
               opacity: 0.12,
               child: Transform.scale(scale: scale,
-                child: Text(page.particles[i], style: const TextStyle(fontSize: 32))),
+                child: Text(page.particles[i], style: TextStyle(fontSize: 32))),
             ),
           ),
         ),
@@ -236,7 +236,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
                         gradient: RadialGradient(colors: [page.color.withValues(alpha: 0.25), page.color.withValues(alpha: 0.05)]),
                         border: Border.all(color: page.color.withValues(alpha: 0.35), width: 2),
                       ),
-                      child: Center(child: Text(page.icon, style: const TextStyle(fontSize: 68))),
+                      child: Center(child: Text(page.icon, style: TextStyle(fontSize: 68))),
                     ),
                     // Rotating ring
                     AnimatedBuilder(
@@ -369,7 +369,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
                 ),
                 if (!isLast) ...[
                   const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
                 ],
               ],
             ),
@@ -395,3 +395,4 @@ class _OnboardPage {
   final List<String> particles;
   const _OnboardPage({required this.icon, required this.title, required this.subtitle, required this.color, required this.bg, required this.particles});
 }
+

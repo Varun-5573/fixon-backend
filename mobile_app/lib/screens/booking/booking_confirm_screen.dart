@@ -6,13 +6,15 @@ import '../../providers/booking_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../utils/constants.dart';
 import '../home/home_screen.dart';
+import 'payment_screen.dart';
 
 class BookingConfirmScreen extends StatefulWidget {
   final Map<String, dynamic> service;
   final Map<String, dynamic> subService;
   final String address;
   final DateTime scheduledTime;
-  const BookingConfirmScreen({super.key, required this.service, required this.subService, required this.address, required this.scheduledTime});
+  final Map<String, dynamic>? worker;
+  const BookingConfirmScreen({super.key, required this.service, required this.subService, required this.address, required this.scheduledTime, this.worker});
   @override
   State<BookingConfirmScreen> createState() => _BookingConfirmScreenState();
 }
@@ -26,7 +28,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
 
   final _coupons = {'FIRST50': 50, 'FIXON10': 10, 'SUMMER25': 25};
 
-  int get _total => (widget.subService['price'] as int) - _discount;
+  int get _basePrice => int.tryParse(widget.subService['price'].toString()) ?? 0;
+  int get _total => _basePrice - _discount;
 
   void _applyCoupon() {
     final code = _couponCtrl.text.trim().toUpperCase();
@@ -34,14 +37,24 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
       final pct = _coupons[code]!;
       setState(() {
         _coupon = code;
-        _discount = ((widget.subService['price'] as int) * pct / 100).round();
+        _discount = (_basePrice * pct / 100).round();
       });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('🎉 Coupon applied! $pct% off'),
         backgroundColor: AppColors.success,
       ));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid coupon code'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid coupon code'), backgroundColor: AppColors.error));
+    }
+  }
+
+  Future<void> _processPayment() async {
+    final paid = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PaymentScreen(amount: _total)),
+    );
+    if (paid == true) {
+      _confirm();
     }
   }
 
@@ -62,6 +75,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
       'lng': loc.lng,
       'location': { 'address': widget.address, 'lat': loc.lat, 'lng': loc.lng }, // frontend compat
       'category': widget.service['name'],
+      if (widget.worker != null) 'workerId': widget.worker!['_id'],
+      if (widget.worker != null) 'workerName': widget.worker!['name'],
       'coupon': _coupon.isEmpty ? null : _coupon,
     }, auth.token ?? '');
 
@@ -72,10 +87,16 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
   @override
   Widget build(BuildContext context) {
     if (_done) return _buildSuccess();
-    final color = Color(widget.service['color'] as int);
+    Color color = AppColors.primary;
+    if (widget.service['color'] is int) color = Color(widget.service['color'] as int);
+    else if (widget.service['color'] is String) {
+      String hex = widget.service['color'].toString().replaceAll('#', '');
+      if (hex.length == 6) hex = 'FF$hex';
+      color = Color(int.tryParse(hex, radix: 16) ?? 0xFF7C3AED);
+    }
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
@@ -85,7 +106,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                 child: Row(children: [
                   GestureDetector(onTap: () => Navigator.pop(context),
                     child: Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-                      child: const Icon(Icons.arrow_back_ios, color: AppColors.text, size: 18))),
+                      child: Icon(Icons.arrow_back_ios, color: AppColors.text, size: 18))),
                   const SizedBox(width: 14),
                   Text('Confirm Booking', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text)),
                 ]),
@@ -105,7 +126,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                       ),
                       child: Row(children: [
                         Container(width: 56, height: 56, decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
-                          child: Center(child: Text(widget.service['icon'] as String, style: const TextStyle(fontSize: 28)))),
+                          child: Center(child: Text(widget.service['icon'] as String, style: TextStyle(fontSize: 28)))),
                         const SizedBox(width: 14),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(widget.subService['name'] as String, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
@@ -135,8 +156,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                       Expanded(
                         child: TextField(
                           controller: _couponCtrl,
-                          style: const TextStyle(color: AppColors.text, fontFamily: 'monospace', letterSpacing: 2),
-                          decoration: const InputDecoration(hintText: 'FIRST50, FIXON10...', prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.primary)),
+                          style: TextStyle(color: AppColors.text, fontFamily: 'monospace', letterSpacing: 2),
+                          decoration: InputDecoration(hintText: 'FIRST50, FIXON10...', prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.primary)),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -154,7 +175,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                       child: Column(children: [
                         _PriceRow('Service Charge', '₹${widget.subService['price']}'),
                         if (_discount > 0) _PriceRow('Discount (${ _coupon})', '-₹$_discount', color: AppColors.success),
-                        const Divider(color: AppColors.border, height: 24),
+                        Divider(color: AppColors.border, height: 24),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Text('Total', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
                           Text('₹$_total', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.success)),
@@ -172,7 +193,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _confirming ? null : _confirm,
+                    onPressed: _confirming ? null : _processPayment,
                     style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16),
                       backgroundColor: AppColors.success,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
@@ -192,7 +213,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
   Widget _buildSuccess() {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
+        decoration: BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
           child: Center(
             child: Padding(
@@ -204,7 +225,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                   curve: Curves.elasticOut,
                   builder: (_, v, __) => Transform.scale(scale: v,
                     child: Container(width: 100, height: 100, decoration: BoxDecoration(color: AppColors.success.withOpacity(0.15), shape: BoxShape.circle),
-                      child: const Icon(Icons.check_circle, color: AppColors.success, size: 60))),
+                      child: Icon(Icons.check_circle, color: AppColors.success, size: 60))),
                 ),
                 const SizedBox(height: 28),
                 Text('Booking Confirmed! 🎉', style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.text), textAlign: TextAlign.center),
@@ -222,7 +243,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                 SizedBox(width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const HomeScreen()), (r) => false),
-                    icon: const Icon(Icons.home),
+                    icon: Icon(Icons.home),
                     label: Text('Back to Home', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700)),
                   )),
               ]),
@@ -271,3 +292,4 @@ class _PriceRow extends StatelessWidget {
     ]),
   );
 }
+

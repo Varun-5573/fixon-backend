@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '../services/api';
 
-const STATUS_COLORS = { pending: '#F59E0B', accepted: '#7C3AED', ongoing: '#06B6D4', completed: '#10B981', cancelled: '#EF4444' };
+const STATUS_COLORS = { pending: '#F59E0B', accepted: '#7C3AED', on_the_way: '#F59E0B', ongoing: '#06B6D4', completed: '#10B981', cancelled: '#EF4444' };
 
 export default function BookingsPage({ socket, onNavigateToMap }) {
   const [bookings, setBookings] = useState([]);
@@ -173,8 +173,33 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
                         <button className="btn btn-xs btn-primary" title="View on map" onClick={() => onNavigateToMap && onNavigateToMap(b)}>🗺️</button>
                       )}
 
-                      {b.status === 'accepted' && <button className="btn btn-xs btn-secondary" onClick={() => updateStatus(b._id, 'ongoing')}>▶ Start</button>}
-                      {b.status === 'ongoing' && <button className="btn btn-xs btn-success" onClick={() => updateStatus(b._id, 'completed')}>✔ Done</button>}
+                      {b.status === 'accepted' && (
+                        <button 
+                          className="btn btn-xs btn-primary" 
+                          style={{ background: '#F59E0B', color: 'white', fontWeight: 'bold' }} 
+                          onClick={() => updateStatus(b._id, 'on_the_way')}
+                        >
+                          🏍 On Way
+                        </button>
+                      )}
+                      {b.status === 'on_the_way' && (
+                        <button 
+                          className="btn btn-xs btn-primary" 
+                          style={{ background: '#06B6D4', color: 'white', fontWeight: 'bold' }} 
+                          onClick={() => updateStatus(b._id, 'ongoing')}
+                        >
+                          🛠 Start Job
+                        </button>
+                      )}
+                      {b.status === 'ongoing' && (
+                        <button 
+                          className="btn btn-xs btn-success" 
+                          style={{ fontWeight: 'bold' }} 
+                          onClick={() => updateStatus(b._id, 'completed')}
+                        >
+                          ✔ Finsh
+                        </button>
+                      )}
                       {!['completed', 'cancelled'].includes(b.status) && <button className="btn btn-xs btn-danger" onClick={() => updateStatus(b._id, 'cancelled')}>✕</button>}
                     </div>
                   </td>

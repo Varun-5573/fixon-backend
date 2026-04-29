@@ -42,7 +42,7 @@ export default function Sidebar({ activePage, onNavigate, onLogout, admin }) {
       <div className="sidebar-logo">
         <div className="logo-icon">🔧</div>
         <div>
-          <div className="logo-text"><span className="fix">Fix</span><span className="on">oN</span></div>
+          <div className="logo-text"><span className="fix">FIX</span><span className="on">ON</span></div>
           <span className="logo-badge">ADMIN PANEL</span>
         </div>
       </div>

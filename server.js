@@ -49,8 +49,20 @@ async function saveData() {
   }
 }
 
-// Ensure loadData runs
-loadData().then(() => console.log('🔥 Initial Firebase data loaded!'));
+// Ensure loadData runs before starting the server
+loadData().then(() => {
+  console.log('🔥 Initial Firebase data loaded!');
+  const PORT = 5000;
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🚀 FixoN Server running at http://localhost:${PORT}`);
+    console.log(`   Admin panel : http://localhost:3000`);
+    console.log(`   Socket.IO ready for real-time tracking ⚡\n`);
+  });
+}).catch(err => {
+  console.error('❌ Failed to load initial data:', err);
+  // Still start server but with caution
+  server.listen(5000, '0.0.0.0', () => console.log('🚀 Server started (Fallback Mode)'));
+});
 
 // ── In-memory stores ─────────────────────────────────────────
 const users = {};           // userId → live location tracking
@@ -60,14 +72,14 @@ let bookings = [];
 let registeredUsers = [];   // real sign-ups
 let adminWorkers = [];      // workers managed from admin panel
 let services = [
-  { _id: 'SV1', name: 'Plumbing',     icon: '🔧', color: '#7C3AED', price: 499,  active: true },
-  { _id: 'SV2', name: 'Electrical',   icon: '⚡', color: '#F59E0B', price: 599,  active: true },
-  { _id: 'SV3', name: 'Cleaning',     icon: '🧹', color: '#10B981', price: 1299, active: true },
-  { _id: 'SV4', name: 'AC Repair',    icon: '❄️', color: '#06B6D4', price: 799,  active: true },
-  { _id: 'SV5', name: 'Carpentry',    icon: '🪚', color: '#EC4899', price: 699,  active: true },
-  { _id: 'SV6', name: 'Painting',     icon: '🎨', color: '#EF4444', price: 2499, active: true },
-  { _id: 'SV7', name: 'Pest Control', icon: '🐛', color: '#8B5CF6', price: 999,  active: true },
-  { _id: 'SV8', name: 'CCTV Setup',   icon: '📹', color: '#059669', price: 3499, active: true },
+  { _id: 'SV1', name: 'Plumbing',     icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: 'SV2', name: 'Electrical',   icon: '⚡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
+  { _id: 'SV3', name: 'Cleaning',     icon: '🧹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
+  { _id: 'SV4', name: 'AC Repair',    icon: '❄️', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: 'SV5', name: 'Carpentry',    icon: '🪚', color: '#EC4899', price: 699,  active: true, packages: [] },
+  { _id: 'SV6', name: 'Painting',     icon: '🎨', color: '#EF4444', price: 2499, active: true, packages: [] },
+  { _id: 'SV7', name: 'Pest Control', icon: '🐛', color: '#8B5CF6', price: 999,  active: true, packages: [] },
+  { _id: 'SV8', name: 'CCTV Setup',   icon: '📹', color: '#059669', price: 3499, active: true, packages: [] },
 ];
 
 // Auto-save every 30 seconds
@@ -532,10 +544,4 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ── Start ───────────────────────────────────────────────────
-const PORT = 5000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 FixoN Server running at http://localhost:${PORT}`);
-  console.log(`   Admin panel : http://localhost:3000`);
-  console.log(`   Socket.IO ready for real-time tracking ⚡\n`);
-});
+// (Server listen moved to top for startup sync)

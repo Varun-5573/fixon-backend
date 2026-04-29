@@ -186,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -219,7 +219,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
           : Column(children: [
               Expanded(
                 child: _messages.isEmpty
@@ -253,7 +253,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     top: 12),
                 decoration: BoxDecoration(
                   color: AppColors.card,
-                  border: const Border(top: BorderSide(color: AppColors.border)),
+                  border: Border(top: BorderSide(color: AppColors.border)),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, -3))],
                 ),
                 child: Row(children: [
@@ -266,8 +266,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           border: Border.all(color: AppColors.border)),
                       child: TextField(
                         controller: _textCtrl,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
                           hintText: 'Type your message...',
                           hintStyle: TextStyle(color: AppColors.textSub),
                           border: InputBorder.none,
@@ -286,7 +286,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))],
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                      child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
                     ),
                   ),
                 ]),
@@ -317,7 +317,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     : AppColors.primary.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: Center(child: Text(isBot ? '🤖' : '🎧', style: const TextStyle(fontSize: 14))),
+              child: Center(child: Text(isBot ? '🤖' : '🎧', style: TextStyle(fontSize: 14))),
             ),
             const SizedBox(width: 8),
           ],
@@ -365,3 +365,4 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
+

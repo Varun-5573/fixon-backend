@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = 'http://localhost:5000';
+const BASE = 'https://fixon-backend-production.up.railway.app';
 
 const api = axios.create({ baseURL: BASE, timeout: 5000 });
 
@@ -59,8 +59,8 @@ export const authApi = {
   login: (data) => api.post('/api/auth/admin/login', data),
 };
 
-// Local chat/tracking server (always port 5000)
-const localApi = axios.create({ baseURL: 'http://localhost:5000', timeout: 5000 });
+// Local chat/tracking server (always connect to production now)
+const localApi = axios.create({ baseURL: 'https://fixon-backend-production.up.railway.app', timeout: 5000 });
 
 export const adminApi = {
   getStats:      async () => {

@@ -307,6 +307,7 @@ app.put('/api/bookings/:id/status', (req, res) => {
 
   b.status = status;
   if (workerId) b.workerId = { _id: workerId, name: workerName || 'Worker' };
+  saveData(); // ✅ Persist update to Firebase
 
   io.emit('booking_update', { bookingId: b._id, status, booking: b });
   console.log(`🔄 Booking ${b._id} → ${status}`);

@@ -56,21 +56,31 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
       final res = await http.get(Uri.parse('$kBaseUrl/api/workers')).timeout(const Duration(seconds: 10));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
+        final allWorkers = List<Map<String, dynamic>>.from(data['workers']);
+        final serviceName = widget.service['name']?.toString().toLowerCase() ?? '';
+
+        // First try to match by skills/category
+        var matched = allWorkers.where((w) {
+          if (w['active'] == false || w['isActive'] == false) return false;
+          final List skills = (w['skills'] ?? []).map((s) => s.toString().toLowerCase()).toList();
+          final category = (w['category']?.toString() ?? '').toLowerCase();
+          return skills.contains(serviceName) || category == serviceName;
+        }).toList();
+
+        // If no match found, show ALL active workers so user is never left with empty list
+        if (matched.isEmpty) {
+          matched = allWorkers.where((w) => w['active'] != false && w['isActive'] != false).toList();
+        }
+
         setState(() {
-          _workers = List<Map<String, dynamic>>.from(data['workers']).where((w) {
-            if (w['active'] == false || w['isActive'] == false) return false;
-            
-            final serviceName = widget.service['name']?.toString() ?? '';
-            final List skills = w['skills'] ?? [];
-            final category = w['category']?.toString() ?? '';
-            
-            if (skills.contains(serviceName) || category == serviceName) return true;
-            return false;
-          }).toList();
+          _workers = matched;
           _loadingWorkers = false;
         });
+      } else {
+        setState(() => _loadingWorkers = false);
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('⚠️ fetchWorkers error: $e');
       setState(() => _loadingWorkers = false);
     }
   }

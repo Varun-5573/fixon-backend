@@ -41,6 +41,14 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
   @override
   void dispose() { _tabs.dispose(); super.dispose(); }
 
+  Future<void> _refresh() async {
+    final auth = context.read<AuthProvider>();
+    await context.read<BookingProvider>().fetchBookings(
+      auth.token ?? '',
+      userId: auth.user?['_id']?.toString(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -48,8 +56,17 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
         // Header
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Align(alignment: Alignment.centerLeft,
-            child: Text('My Bookings 📦', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.text))),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Align(alignment: Alignment.centerLeft,
+                child: Text('My Bookings 📦', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.text))),
+              GestureDetector(
+                onTap: _refresh,
+                child: Icon(Icons.refresh_rounded, color: AppColors.primary, size: 22),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 14),
         // Tabs
@@ -73,10 +90,14 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
                   final list = label == 'All' ? bp.bookings
                       : bp.bookings.where((b) => b['status'] == label.toLowerCase()).toList();
                   if (list.isEmpty) return _empty(label);
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-                    itemCount: list.length,
-                    itemBuilder: (_, i) => _BookingCard(booking: list[i]),
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    color: AppColors.primary,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                      itemCount: list.length,
+                      itemBuilder: (_, i) => _BookingCard(booking: list[i]),
+                    ),
                   );
                 }).toList(),
               );

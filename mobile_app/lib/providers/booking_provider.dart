@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../utils/constants.dart';
 
 class BookingProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _bookings = [];
   bool _loading = false;
+
+  // Real-time sync
+  IO.Socket? _socket;
+  Timer? _pollTimer;
+  String? _currentUserId;
+  String? _currentToken;
 
   List<Map<String, dynamic>> get bookings => _bookings;
   bool get loading => _loading;
@@ -40,21 +48,32 @@ class BookingProvider extends ChangeNotifier {
     },
   ];
 
-  /// Fetch bookings for a specific user — uses correct /api/bookings/user/:userId
+  /// Fetch bookings + start real-time sync via Socket.IO + polling
   Future<void> fetchBookings(String token, {String? userId}) async {
+    _currentToken = token;
+    _currentUserId = userId;
+
     _loading = true;
     notifyListeners();
+
+    await _doFetch();
+
+    // Start real-time listeners if not already running
+    _startSocketSync();
+    _startPolling();
+  }
+
+  Future<void> _doFetch() async {
     try {
-      // ✅ Fixed: use userId-specific route matching server.js
-      final url = (userId != null && userId.isNotEmpty)
-          ? '$kBaseUrl/api/bookings/user/$userId'
+      final url = (_currentUserId != null && _currentUserId!.isNotEmpty)
+          ? '$kBaseUrl/api/bookings/user/$_currentUserId'
           : '$kBaseUrl/api/bookings';
 
       final res = await http
           .get(
             Uri.parse(url),
             headers: {
-              'Authorization': 'Bearer $token',
+              'Authorization': 'Bearer $_currentToken',
               'Content-Type': 'application/json',
             },
           )
@@ -76,9 +95,90 @@ class BookingProvider extends ChangeNotifier {
       debugPrint('⚠️ fetchBookings error: $e');
     }
     // Fallback to demo data when server unreachable
-    _bookings = _demoBookings;
+    if (_bookings.isEmpty) _bookings = _demoBookings;
     _loading = false;
     notifyListeners();
+  }
+
+  /// Socket.IO: listen for booking_update events emitted by admin panel
+  void _startSocketSync() {
+    if (_socket != null) return; // Already connected
+    try {
+      _socket = IO.io(kBaseUrl, <String, dynamic>{
+        'transports': ['websocket'],
+        'autoConnect': true,
+      });
+
+      _socket!.on('connect', (_) {
+        debugPrint('🔌 BookingProvider: Socket connected');
+        _socket!.emit('customer_join', {'userId': _currentUserId});
+      });
+
+      // Admin panel emits 'booking_update' on every status change
+      _socket!.on('booking_update', (data) {
+        debugPrint('📡 booking_update received: $data');
+        try {
+          final payload = data is Map ? Map<String, dynamic>.from(data) : null;
+          if (payload == null) return;
+
+          final updatedBooking = payload['booking'] as Map?;
+          if (updatedBooking != null) {
+            applyBookingUpdate(Map<String, dynamic>.from(updatedBooking));
+          } else {
+            _doFetch(); // Fallback: re-fetch all
+          }
+        } catch (e) {
+          debugPrint('⚠️ Socket update parse error: $e');
+          _doFetch();
+        }
+      });
+
+      _socket!.on('disconnect', (_) => debugPrint('🔌 BookingProvider: Socket disconnected'));
+    } catch (e) {
+      debugPrint('⚠️ Socket init error: $e');
+    }
+  }
+
+  /// Periodic polling every 15s as fallback when socket misses events
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) => _doFetch());
+  }
+
+  /// Applies a single booking update in-place → instant UI refresh
+  void applyBookingUpdate(Map<String, dynamic> updatedBooking) {
+    final id = updatedBooking['_id']?.toString();
+    if (id == null) return;
+
+    // Only apply if it belongs to current user
+    final bookingUserId = (updatedBooking['userId'] is Map)
+        ? updatedBooking['userId']['_id']?.toString()
+        : updatedBooking['userId']?.toString();
+
+    if (_currentUserId != null &&
+        bookingUserId != null &&
+        bookingUserId != _currentUserId) return;
+
+    final idx = _bookings.indexWhere((b) => b['_id']?.toString() == id);
+    if (idx != -1) {
+      _bookings[idx] = Map<String, dynamic>.from(updatedBooking);
+    }
+    notifyListeners();
+  }
+
+  /// Stop socket and polling (call on logout)
+  void stopSync() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
+  }
+
+  @override
+  void dispose() {
+    stopSync();
+    super.dispose();
   }
 
   Future<bool> createBooking(
@@ -95,9 +195,8 @@ class BookingProvider extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 8));
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      
+
       if (data['success'] == true) {
-        // Success - add the server's booking object or build one if missing
         _bookings.insert(0, data['booking'] ?? {
           '_id': 'BK${DateTime.now().millisecondsSinceEpoch}',
           ...bookingData,
@@ -110,7 +209,7 @@ class BookingProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('⚠️ createBooking error: $e');
     }
-    
+
     // Offline / Demo mode fallback
     _bookings.insert(0, {
       '_id': 'offline_${DateTime.now().millisecondsSinceEpoch}',

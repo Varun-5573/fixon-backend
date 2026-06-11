@@ -15,12 +15,12 @@ echo  == Admin Control Panel Launcher ==
 echo.
 
 echo [1/2] Starting Backend Server...
-start "FixoN Backend" cmd /k "cd /d "C:\Users\pitta\Desktop\Servixo App\backend" && echo Starting FixoN Backend... && npm run dev"
+start "FixoN Backend" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Starting FixoN Backend... && npm start"
 
 timeout /t 4 /nobreak > nul
 
 echo [2/2] Starting Admin Panel...
-start "FixoN Admin Panel" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Starting FixoN Admin Panel... && npm start"
+start "FixoN Admin Panel" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Starting FixoN Admin Panel... && npm run dev:admin"
 
 timeout /t 5 /nobreak > nul
 

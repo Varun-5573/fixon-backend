@@ -284,8 +284,8 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
               <label>Assign Worker (optional)</label>
               <select className="input select" value={selectedWorker} onChange={e => setSelectedWorker(e.target.value)}>
                 <option value="">Auto-assign later...</option>
-                {workers.filter(w => w.isAvailable && w.isActive).map(w => (
-                  <option key={w._id} value={w._id}>{w.name} — {w.category || w.skills?.[0]} ⭐{(w.rating || 4.2).toFixed(1)}</option>
+                {workers.filter(w => w.active !== false).map(w => (
+                  <option key={w._id} value={w._id}>{w.name} — {w.category || (w.skills && w.skills[0]) || 'General'} ⭐{(w.rating || 4.2).toFixed(1)}</option>
                 ))}
               </select>
             </div>

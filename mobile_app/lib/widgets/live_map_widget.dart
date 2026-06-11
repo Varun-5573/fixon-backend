@@ -23,9 +23,16 @@ class _LiveMapWidgetState extends State<LiveMapWidget> {
   @override
   void initState() {
     super.initState();
-    // Default fallback to Hyderabad if no location in booking
-    double lat = widget.booking['location']?['lat']?.toDouble() ?? 17.3850;
-    double lng = widget.booking['location']?['lng']?.toDouble() ?? 78.4867;
+    // Safety check: location might be a String in older demo bookings
+    var loc = widget.booking['location'];
+    double lat = 17.3850;
+    double lng = 78.4867;
+    
+    if (loc is Map<String, dynamic>) {
+      lat = loc['lat']?.toDouble() ?? 17.3850;
+      lng = loc['lng']?.toDouble() ?? 78.4867;
+    }
+    
     _customerLocation = LatLng(lat, lng);
     
     // Simulate worker starting from 2km away

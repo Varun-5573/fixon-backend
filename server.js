@@ -55,16 +55,15 @@ async function saveData() {
 // Ensure loadData runs before starting the server
 loadData().then(() => {
   console.log('🔥 Initial Firebase data loaded!');
-  const PORT = 5000;
+  const PORT = process.env.PORT || 5000;
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 FixoN Server running at http://localhost:${PORT}`);
-    console.log(`   Admin panel : http://localhost:3000`);
+    console.log(`\n🚀 FixoN Server running at port ${PORT}`);
     console.log(`   Socket.IO ready for real-time tracking ⚡\n`);
   });
 }).catch(err => {
   console.error('❌ Failed to load initial data:', err);
-  // Still start server but with caution
-  server.listen(5000, '0.0.0.0', () => console.log('🚀 Server started (Fallback Mode)'));
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server started (Fallback Mode) on port ${PORT}`));
 });
 
 // ── In-memory stores ─────────────────────────────────────────

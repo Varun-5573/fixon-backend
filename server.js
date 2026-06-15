@@ -29,8 +29,11 @@ async function loadData() {
       if (parsed.bookings) bookings.push(...parsed.bookings);
       if (parsed.messages) messages.push(...parsed.messages);
       if (parsed.registeredUsers) registeredUsers.push(...parsed.registeredUsers);
-      if (parsed.adminWorkers) adminWorkers.push(...parsed.adminWorkers);
-      if (parsed.services) services = parsed.services;
+      // Only load Firebase workers if there are saved ones; keep defaults otherwise
+      if (parsed.adminWorkers && parsed.adminWorkers.length > 0) {
+        adminWorkers = parsed.adminWorkers;
+      }
+      if (parsed.services && parsed.services.length > 0) services = parsed.services;
     }
   } catch (error) {
     console.error('🔥 Firebase Load Error:', error);
@@ -70,7 +73,14 @@ const workers = {};         // workerId → { _id, name, lat, lng } (live locati
 let messages = [];
 let bookings = [];
 let registeredUsers = [];   // real sign-ups
-let adminWorkers = [];      // workers managed from admin panel
+let adminWorkers = [
+  { _id: 'W_DEFAULT_1', name: 'Raju Kumar',        phone: '9876543210', email: 'raju@fixon.com',     category: 'Plumbing',   skills: ['Plumbing','Pipe Repair','Bathroom','Leak Fix'],        rating: 4.8, active: true, isAvailable: true, isActive: true, experience: '5 years', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_2', name: 'Srinivas Rao',      phone: '9876543211', email: 'srini@fixon.com',    category: 'Electrical', skills: ['Electrical','Wiring','Fan Installation','Switch Repair'], rating: 4.7, active: true, isAvailable: true, isActive: true, experience: '7 years', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_3', name: 'Prasad Cleaning',   phone: '9876543212', email: 'prasad@fixon.com',   category: 'Cleaning',   skills: ['Cleaning','Deep Cleaning','Pest Control','Home Services'],rating: 4.6, active: true, isAvailable: true, isActive: true, experience: '3 years', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_4', name: 'Vijay Tech',        phone: '9876543213', email: 'vijay@fixon.com',    category: 'AC Repair',  skills: ['AC Repair','AC Service','CCTV Installation','Appliances'], rating: 4.9, active: true, isAvailable: true, isActive: true, experience: '8 years', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_5', name: 'Mahesh Carpenter',  phone: '9876543214', email: 'mahesh@fixon.com',   category: 'Carpentry',  skills: ['Carpentry','Painting','Furniture','Wood Work'],           rating: 4.5, active: true, isAvailable: true, isActive: true, experience: '6 years', createdAt: new Date().toISOString() },
+];
+
 let services = [
   { _id: 'SV1', name: 'Plumbing',     icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
   { _id: 'SV2', name: 'Electrical',   icon: '⚡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },

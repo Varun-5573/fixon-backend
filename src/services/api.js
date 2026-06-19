@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = 'http://localhost:5000';
+const BASE = 'https://fixon-backend.onrender.com';
 
 const api = axios.create({ baseURL: BASE, timeout: 5000 });
 
@@ -60,7 +60,7 @@ export const authApi = {
 };
 
 // Local chat/tracking server (always connect to local backend now)
-const localApi = axios.create({ baseURL: 'http://localhost:5000', timeout: 5000 });
+const localApi = axios.create({ baseURL: 'https://fixon-backend.onrender.com', timeout: 5000 });
 
 export const adminApi = {
   getStats:      async () => {

@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const BASE = 'http://localhost:5000';
+const BASE = 'https://fixon-backend.onrender.com';
 let socket = null;
 
 export const connectSocket = () => {

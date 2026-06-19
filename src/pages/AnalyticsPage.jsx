@@ -94,7 +94,7 @@ export default function AnalyticsPage() {
         adminApi.getBookings(),
         adminApi.getWorkers(),
         adminApi.getStats(),
-        adminApi.getPayouts ? adminApi.getPayouts() : fetch('http://localhost:5000/api/admin/payouts').then(r => r.json()),
+        adminApi.getPayouts ? adminApi.getPayouts() : fetch('https://fixon-backend.onrender.com/api/admin/payouts').then(r => r.json()),
       ]);
       if (bRes?.bookings)  setBookings(bRes.bookings);
       if (wRes?.workers)   setWorkers(wRes.workers);

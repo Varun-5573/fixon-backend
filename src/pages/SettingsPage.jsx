@@ -216,7 +216,7 @@ export default function SettingsPage() {
                   ['Backend Status', '🟢 Online'],
                   ['Database', '🟢 MongoDB Connected'],
                   ['Socket.IO', '🟢 Connected'],
-                  ['API Base URL', 'http://localhost:5000'],
+                  ['API Base URL', 'https://fixon-backend.onrender.com'],
                   ['Admin Panel Version', 'React 18.2.0'],
                   ['Last Updated', new Date().toLocaleDateString()],
                   ['Environment', 'Development'],

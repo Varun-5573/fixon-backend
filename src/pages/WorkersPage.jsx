@@ -41,8 +41,8 @@ export default function WorkersPage() {
     setRatings([]);
     try {
       const [pRes, rRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/workers/${w._id}/payouts`).then(r => r.json()),
-        fetch(`http://localhost:5000/api/ratings/worker/${w._id}`).then(r => r.json()),
+        fetch(`https://fixon-backend.onrender.com/api/workers/${w._id}/payouts`).then(r => r.json()),
+        fetch(`https://fixon-backend.onrender.com/api/ratings/worker/${w._id}`).then(r => r.json()),
       ]);
       if (pRes.success) setPayouts(pRes);
       else toast.error('Could not fetch payouts');

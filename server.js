@@ -5,6 +5,28 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const mongoose = require('mongoose');
+
+// ── MongoDB Atlas Connection ─────────────────────────────────
+const MONGODB_URI = process.env.MONGODB_URI;
+if (MONGODB_URI) {
+  mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 })
+    .then(() => console.log('✅ MongoDB Atlas connected!'))
+    .catch(err => console.error('❌ MongoDB connect error:', err.message));
+}
+
+// MongoDB schema — stores ALL app data as one document
+const AppDataSchema = new mongoose.Schema({
+  key: { type: String, default: 'main', unique: true },
+  registeredUsers: { type: Array, default: [] },
+  bookings: { type: Array, default: [] },
+  messages: { type: Array, default: [] },
+  notificationsList: { type: Array, default: [] },
+  adminWorkers: { type: Array, default: [] },
+  services: { type: Array, default: [] },
+  coupons: { type: Array, default: [] },
+}, { minimize: false });
+const AppData = mongoose.models.AppData || mongoose.model('AppData', AppDataSchema);
 
 const app = express();
 app.use(cors());
@@ -16,7 +38,7 @@ const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST', 'PUT'] }
 });
 
-// ── Persistent file storage ──────────────────────────────────
+// ── Persistent file storage (local fallback) ─────────────────
 const DATA_FILE = path.join(__dirname, 'fixon_data.json');
 
 // ── In-memory stores (declared HERE so loadData() can write to them) ──
@@ -49,7 +71,46 @@ let coupons = [
   { _id: 'CP3', code: 'SUMMER25', discount: 25, type: 'percent', minOrder: 500, expiry: '2026-12-31', active: true, used: 0 },
 ];
 
+const DEFAULT_CREDS = {
+  'W_DEFAULT_1': { workerId:'FIXON_PLM_1001', workerPassword:'FXN1001' },
+  'W_DEFAULT_2': { workerId:'FIXON_ELC_1001', workerPassword:'FXN1002' },
+  'W_DEFAULT_3': { workerId:'FIXON_CLN_1001', workerPassword:'FXN1003' },
+  'W_DEFAULT_4': { workerId:'FIXON_ACR_1001', workerPassword:'FXN1004' },
+  'W_DEFAULT_5': { workerId:'FIXON_CRP_1001', workerPassword:'FXN1005' },
+};
+
+function applyDefaultCreds(workers) {
+  return workers.map(w => {
+    const cred = DEFAULT_CREDS[w._id];
+    if (cred && !w.workerId) return { ...w, ...cred, isOnline: w.isOnline || false };
+    return w;
+  });
+}
+
 async function loadData() {
+  // 1. Try MongoDB first (Render cloud)
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc) {
+        if (doc.registeredUsers && doc.registeredUsers.length > 0) registeredUsers = doc.registeredUsers;
+        if (doc.bookings) bookings = doc.bookings;
+        if (doc.messages) messages = doc.messages;
+        if (doc.notificationsList) notificationsList = doc.notificationsList;
+        if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = doc.adminWorkers;
+        if (doc.services && doc.services.length > 0) services = doc.services;
+        if (doc.coupons && doc.coupons.length > 0) coupons = doc.coupons;
+        console.log('✅ Data loaded from MongoDB Atlas! Users:', registeredUsers.length);
+        adminWorkers = applyDefaultCreds(adminWorkers);
+        console.log('✅ Workers loaded:', adminWorkers.length);
+        return;
+      }
+    } catch (err) {
+      console.error('⚠️ MongoDB load failed, falling back to file:', err.message);
+    }
+  }
+
+  // 2. Fallback: local file (for local dev / MongoDB not connected yet)
   try {
     if (fs.existsSync(DATA_FILE)) {
       const text = fs.readFileSync(DATA_FILE, 'utf-8');
@@ -60,10 +121,7 @@ async function loadData() {
         if (parsed.messages) messages = parsed.messages;
         if (parsed.registeredUsers) registeredUsers = parsed.registeredUsers;
         if (parsed.notificationsList) notificationsList = parsed.notificationsList;
-        // Only load saved workers if there are any; keep defaults otherwise
-        if (parsed.adminWorkers && parsed.adminWorkers.length > 0) {
-          adminWorkers = parsed.adminWorkers;
-        }
+        if (parsed.adminWorkers && parsed.adminWorkers.length > 0) adminWorkers = parsed.adminWorkers;
         if (parsed.services && parsed.services.length > 0) services = parsed.services;
         if (parsed.coupons && parsed.coupons.length > 0) coupons = parsed.coupons;
       }
@@ -72,27 +130,30 @@ async function loadData() {
     console.error('🔥 Local Data Load Error:', error);
   }
 
-  // Always ensure default workers have their credentials (survives auto-save overwrites)
-  const DEFAULT_CREDS = {
-    'W_DEFAULT_1': { workerId:'FIXON_PLM_1001', workerPassword:'FXN1001' },
-    'W_DEFAULT_2': { workerId:'FIXON_ELC_1001', workerPassword:'FXN1002' },
-    'W_DEFAULT_3': { workerId:'FIXON_CLN_1001', workerPassword:'FXN1003' },
-    'W_DEFAULT_4': { workerId:'FIXON_ACR_1001', workerPassword:'FXN1004' },
-    'W_DEFAULT_5': { workerId:'FIXON_CRP_1001', workerPassword:'FXN1005' },
-  };
-  adminWorkers = adminWorkers.map(w => {
-    const cred = DEFAULT_CREDS[w._id];
-    if (cred && !w.workerId) return { ...w, ...cred, isOnline: w.isOnline || false };
-    return w;
-  });
+  adminWorkers = applyDefaultCreds(adminWorkers);
   console.log('✅ Workers loaded:', adminWorkers.length, '| Credentialed:', adminWorkers.filter(w=>w.workerId).length);
 }
 
-
 async function saveData() {
+  const dataObj = { registeredUsers, bookings, messages, notificationsList, adminWorkers, services, coupons };
+
+  // 1. Save to MongoDB Atlas (primary)
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      await AppData.findOneAndUpdate(
+        { key: 'main' },
+        { key: 'main', ...dataObj },
+        { upsert: true, new: true }
+      );
+      return; // success — no need for file fallback
+    } catch (err) {
+      console.error('⚠️ MongoDB save failed, using file fallback:', err.message);
+    }
+  }
+
+  // 2. Fallback: local file
   try {
-    const dataObj = { users, bookings, messages, registeredUsers, notificationsList, adminWorkers, services, coupons };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(dataObj, null, 2), 'utf-8');
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, ...dataObj }, null, 2), 'utf-8');
   } catch (error) {
     console.error('🔥 Local Data Save Error:', error);
   }

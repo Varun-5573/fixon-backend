@@ -9,11 +9,6 @@ const mongoose = require('mongoose');
 
 // ── MongoDB Atlas Connection ─────────────────────────────────
 const MONGODB_URI = process.env.MONGODB_URI;
-if (MONGODB_URI) {
-  mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 })
-    .then(() => console.log('✅ MongoDB Atlas connected!'))
-    .catch(err => console.error('❌ MongoDB connect error:', err.message));
-}
 
 // MongoDB schema — stores ALL app data as one document
 const AppDataSchema = new mongoose.Schema({
@@ -159,22 +154,39 @@ async function saveData() {
   }
 }
 
-// Ensure loadData runs before starting the server
-loadData().then(() => {
-  console.log('🔥 Initial Firebase data loaded!');
+// ── Start server: connect MongoDB first, THEN load data ────────
+async function startServer() {
+  // 1. Connect to MongoDB Atlas first (await it!)
+  if (MONGODB_URI) {
+    try {
+      await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
+      console.log('✅ MongoDB Atlas connected!');
+    } catch (err) {
+      console.error('❌ MongoDB connect error:', err.message);
+      console.log('⚠️  Falling back to local file storage...');
+    }
+  }
+
+  // 2. Load data AFTER connection is established
+  await loadData();
+  console.log('🔥 Initial data loaded!');
+
+  // 3. Start HTTP server
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 FixoN Server running at port ${PORT}`);
     console.log(`   Socket.IO ready for real-time tracking ⚡\n`);
   });
-}).catch(err => {
-  console.error('❌ Failed to load initial data:', err);
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server started (Fallback Mode) on port ${PORT}`));
-});
 
-// Auto-save every 30 seconds
-setInterval(saveData, 30000);
+  // 4. Auto-save every 30 seconds
+  setInterval(saveData, 30000);
+}
+
+startServer().catch(err => {
+  console.error('❌ Fatal startup error:', err);
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server started (Emergency Mode) on port ${PORT}`));
+});
 
 // ── Smart Bot auto-responder ───────────────────────────────
 const BOT_RULES = [

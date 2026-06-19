@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const BASE = 'https://fixon-backend-production.up.railway.app';
+const BASE = 'http://localhost:5000';
 let socket = null;
 
 export const connectSocket = () => {

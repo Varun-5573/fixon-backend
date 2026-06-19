@@ -15,6 +15,10 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
   const [selectedWorker, setSelectedWorker] = useState('');
   const [confirming, setConfirming] = useState(null);
 
+  const [invoiceModal, setInvoiceModal] = useState(false);
+  const [invoiceData, setInvoiceData] = useState(null);
+  const [loadingInvoice, setLoadingInvoice] = useState(false);
+
   useEffect(() => { load(); }, []);
   useEffect(() => {
     if (socket) {
@@ -34,6 +38,22 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
       setWorkers(wRes.workers || wRes || []);
     } catch { toast.error('Failed to load'); }
     setLoading(false);
+  };
+
+  const viewInvoice = async (bookingId) => {
+    setLoadingInvoice(true);
+    try {
+      const data = await adminApi.getInvoice(bookingId);
+      if (data && data.success && data.invoice) {
+        setInvoiceData(data.invoice);
+        setInvoiceModal(true);
+      } else {
+        toast.error('Failed to load invoice');
+      }
+    } catch {
+      toast.error('Connection error — is server running?');
+    }
+    setLoadingInvoice(false);
   };
 
   const updateStatus = async (id, status) => {
@@ -152,6 +172,11 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
                       {/* View detail */}
                       <button className="btn btn-xs btn-secondary" title="View details" onClick={() => setSelected(b)}>👁</button>
 
+                      {/* 🧾 Invoice Button (completed only) */}
+                      {b.status === 'completed' && (
+                        <button className="btn btn-xs btn-primary" style={{ background: '#10B981', color: 'white' }} title="Invoice" onClick={() => viewInvoice(b._id)}>🧾</button>
+                      )}
+
                       {/* 🔑 CONFIRM BOOKING (pending only) */}
                       {b.status === 'pending' && (
                         <button
@@ -248,6 +273,92 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
         </div>
       )}
 
+      {/* ── Invoice Modal ─────────────────────────── */}
+      {invoiceModal && invoiceData && (
+        <div className="modal-overlay" onClick={() => { setInvoiceModal(false); setInvoiceData(null); }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+            <div className="modal-header">
+              <h3>📄 TAX INVOICE</h3>
+              <button className="modal-close" onClick={() => { setInvoiceModal(false); setInvoiceData(null); }}>✕</button>
+            </div>
+            <div style={{ background: '#fff', color: '#0f172a', padding: 20, borderRadius: 8, fontFamily: 'monospace', fontSize: 12, border: '1px solid #cbd5e1' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #0f172a', paddingBottom: 10 }}>
+                <div>
+                  <h3 style={{ margin: 0, color: '#0f172a' }}>{invoiceData.company.name}</h3>
+                  <div style={{ fontSize: 10, color: '#64748b' }}>{invoiceData.company.address}</div>
+                  <div style={{ fontSize: 10, color: '#64748b' }}>Ph: {invoiceData.company.phone}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 800 }}>INVOICE</div>
+                  <div>No: {invoiceData.invoiceNo}</div>
+                  <div>Date: {invoiceData.date}</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 15, borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 600, textTransform: 'uppercase', fontSize: 10, color: '#64748b' }}>Customer Info</div>
+                  <div style={{ fontWeight: 700 }}>{invoiceData.customer?.name || 'Customer'}</div>
+                  <div>Phone: {invoiceData.customer?.phone || 'N/A'}</div>
+                  <div>Address: {invoiceData.address || 'N/A'}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 600, textTransform: 'uppercase', fontSize: 10, color: '#64748b' }}>Worker Assigned</div>
+                  <div style={{ fontWeight: 700 }}>{invoiceData.worker?.name || 'N/A'}</div>
+                  <div>Category: {invoiceData.category || 'N/A'}</div>
+                </div>
+              </div>
+
+              <table style={{ width: '100%', marginTop: 15, borderCollapse: 'collapse', color: '#0f172a' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ textAlign: 'left', padding: 5 }}>Description</th>
+                    <th style={{ textAlign: 'right', padding: 5 }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(invoiceData.items || []).map((item, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: 6 }}>{item.description || item.name}</td>
+                      <td style={{ padding: 6, textAlign: 'right' }}>₹{item.amount}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ padding: 4, textAlign: 'right', fontWeight: 600 }}>Subtotal</td>
+                    <td style={{ padding: 4, textAlign: 'right', fontWeight: 600 }}>₹{invoiceData.subtotal}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: 4, textAlign: 'right', color: '#64748b' }}>CGST (9%)</td>
+                    <td style={{ padding: 4, textAlign: 'right', color: '#64748b' }}>₹{Math.round(invoiceData.gst / 2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: 4, textAlign: 'right', color: '#64748b' }}>SGST (9%)</td>
+                    <td style={{ padding: 4, textAlign: 'right', color: '#64748b' }}>₹{Math.round(invoiceData.gst / 2)}</td>
+                  </tr>
+                  {invoiceData.discount > 0 && (
+                    <tr>
+                      <td style={{ padding: 4, textAlign: 'right', color: '#ef4444', fontWeight: 600 }}>Discount</td>
+                      <td style={{ padding: 4, textAlign: 'right', color: '#ef4444', fontWeight: 600 }}>-₹{invoiceData.discount}</td>
+                    </tr>
+                  )}
+                  <tr style={{ borderTop: '2px solid #0f172a' }}>
+                    <td style={{ padding: 6, textAlign: 'right', fontWeight: 800, fontSize: 14 }}>Grand Total</td>
+                    <td style={{ padding: 6, textAlign: 'right', fontWeight: 800, fontSize: 14 }}>₹{invoiceData.total}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style={{ textAlign: 'center', marginTop: 20, fontSize: 10, color: '#64748b' }}>
+                Thank you for using FixoN! This is a computer generated invoice.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 15, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => { setInvoiceModal(false); setInvoiceData(null); }}>Close</button>
+              <button className="btn btn-primary" onClick={() => window.print()}>🖨️ Print Invoice</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── Confirm + Assign Modal ───────────────── */}
       {assignModal && (
         <div className="modal-overlay" onClick={() => setAssignModal(null)}>

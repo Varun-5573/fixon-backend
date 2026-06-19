@@ -65,7 +65,10 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
     try {
       const [wRes, lRes] = await Promise.all([adminApi.getWorkers(), adminApi.getLiveLocations()]);
       setWorkers((wRes.workers || wRes || []).filter(w => w.currentLocation?.lat));
-      const liveCusts = (lRes.customers || []).filter(c => c.lat);
+      const liveCusts = (lRes.customers || []).filter(c => c.lat).map(c => ({
+        ...c,
+        userId: c.userId || c._id
+      }));
       if (liveCusts.length > 0) {
         setCustomers(liveCusts);
       }
@@ -273,7 +276,7 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
             <thead><tr><th>Customer</th><th>Location</th><th>Assigned Worker</th><th>Distance</th><th>ETA</th></tr></thead>
             <tbody>
               {routes.map((r, i) => (
-                <tr key={i}>
+                <tr key={i} onClick={() => setFlyTo({ lat: r.customer.lat, lng: r.customer.lng })} style={{ cursor: 'pointer' }} title="Click to focus on map">
                   <td>{r.customer.name || 'Customer'}</td>
                   <td style={{ fontSize: 12, color: 'var(--text-sub)' }}>{r.customer.address || `${r.customer.lat?.toFixed(4)}, ${r.customer.lng?.toFixed(4)}`}</td>
                   <td>{r.worker.name}</td>

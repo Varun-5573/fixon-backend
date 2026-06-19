@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import '../../utils/constants.dart';
 import '../../widgets/live_map_widget.dart';
 
@@ -20,6 +22,23 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
     {'status': 'completed', 'label': 'Completed', 'desc': 'Job finished! Hope you liked FixoN'},
   ];
 
+  int _selectedStars = 0;
+  final _commentCtrl = TextEditingController();
+  bool _isAlreadyRated = false;
+  bool _submittingRating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isAlreadyRated = widget.booking['rated'] == true;
+  }
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
   int _getCurrentStep() {
     final status = widget.booking['status']?.toString().toLowerCase() ?? 'pending';
     if (status == 'cancelled') return -1;
@@ -33,10 +52,179 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
     return 0;
   }
 
+  Future<void> _submitRating() async {
+    if (_selectedStars == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⭐ Please select at least 1 star'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    final worker = widget.booking['workerId'];
+    if (worker == null) return;
+    setState(() => _submittingRating = true);
+    try {
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/api/ratings'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'bookingId': widget.booking['_id'],
+          'workerId': worker['_id'],
+          'rating': _selectedStars,
+          'comment': _commentCtrl.text.trim(),
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (data['success'] == true) {
+        setState(() {
+          _isAlreadyRated = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('⭐ Thank you for your feedback!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Rating submission failed. Please try again.'), backgroundColor: Colors.red),
+      );
+    }
+    setState(() => _submittingRating = false);
+  }
+
+  Future<void> _fetchAndShowInvoice() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+    );
+    try {
+      final res = await http.get(
+        Uri.parse('$kBaseUrl/api/bookings/${widget.booking['_id']}/invoice'),
+      ).timeout(const Duration(seconds: 8));
+      
+      Navigator.pop(context); // Dismiss loading dialog
+
+      final data = jsonDecode(res.body);
+      if (data['success'] == true) {
+        final inv = data['invoice'];
+        _showInvoiceDialog(inv);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('⚠️ Invoice not generated yet.')),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // Dismiss loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Failed to load invoice. Server offline?')),
+      );
+    }
+  }
+
+  void _showInvoiceDialog(Map<String, dynamic> inv) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(inv['company']['name'], style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+                    Text('Ph: ${inv['company']['phone']}', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('TAX INVOICE', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                    Text('Invoice: ${inv['invoiceNo']}', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 30),
+            Text('CUSTOMER: ${inv['customer']['name']}', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey[700])),
+            Text('ADDRESS: ${inv['address']}', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600])),
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(inv['items'][0]['description'] ?? 'Service charge', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  Text('₹${inv['items'][0]['amount']}', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 15),
+            _invoiceRow('Subtotal', '₹${inv['subtotal']}'),
+            _invoiceRow('GST (18%)', '₹${inv['gst']}'),
+            if (inv['discount'] > 0)
+              _invoiceRow('Coupon Discount', '-₹${inv['discount']}', isDiscount: true),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total Bill', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+                Text('₹${inv['total']}', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.success)),
+              ],
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.download_done_outlined, color: Colors.white),
+                label: const Text('Download Receipt & Close', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _invoiceRow(String label, String value, {bool isDiscount = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: 13, color: isDiscount ? Colors.red : Colors.grey[600])),
+          Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: isDiscount ? Colors.red : Colors.grey[800])),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     int currentIdx = _getCurrentStep();
     final worker = widget.booking['workerId'];
+    final isCompleted = widget.booking['status']?.toString().toLowerCase() == 'completed';
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -134,6 +322,117 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
               },
             ),
 
+            if (isCompleted) ...[
+              const Divider(height: 40),
+              // Invoice Download Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.receipt_long),
+                  label: const Text('View & Download Tax Invoice', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: _fetchAndShowInvoice,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Rating Form
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Rate Worker Experience ⭐', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text)),
+                    const SizedBox(height: 10),
+                    if (_isAlreadyRated)
+                      Text('✅ You already rated this service. Thank you!', style: GoogleFonts.inter(color: AppColors.success, fontSize: 13, fontWeight: FontWeight.bold))
+                    else ...[
+                      Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(5, (index) {
+                            final starVal = index + 1;
+                            return SizedBox(
+                              width: 52,
+                              height: 52,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(26),
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedStars = starVal;
+                                    });
+                                  },
+                                  child: Center(
+                                    child: Icon(
+                                      starVal <= _selectedStars ? Icons.star_rounded : Icons.star_outline_rounded,
+                                      color: starVal <= _selectedStars ? Colors.amber : AppColors.textSub,
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Text(
+                          _selectedStars == 0 ? 'Tap a star to rate'
+                            : _selectedStars == 1 ? '😞 Poor'
+                            : _selectedStars == 2 ? '😕 Below Average'
+                            : _selectedStars == 3 ? '😐 Average'
+                            : _selectedStars == 4 ? '😊 Good'
+                            : '🤩 Excellent!',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _selectedStars >= 4 ? AppColors.success : _selectedStars >= 2 ? AppColors.accent : AppColors.textSub,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _commentCtrl,
+                        maxLines: 2,
+                        style: TextStyle(color: AppColors.text),
+                        decoration: InputDecoration(
+                          hintText: 'Share feedback (optional)',
+                          hintStyle: TextStyle(color: AppColors.textSub),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _submittingRating ? null : _submitRating,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _submittingRating 
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text('Submit Rating', style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+
             if (worker != null) ...[
               const SizedBox(height: 20),
               Container(
@@ -146,13 +445,14 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(worker['name'], style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.text)),
-                        Text('Professional Technician', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
+                        Text('⭐ ${worker['rating'] ?? '4.8'} • Professional Technician', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
                       ]),
                     ),
-                    IconButton(
-                      icon: Icon(Icons.call, color: AppColors.success),
-                      onPressed: () {}, // Launch caller
-                    ),
+                    if (!isCompleted)
+                      IconButton(
+                        icon: Icon(Icons.call, color: AppColors.success),
+                        onPressed: () {}, // Launch caller
+                      ),
                   ],
                 ),
               ),

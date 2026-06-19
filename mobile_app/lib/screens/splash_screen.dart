@@ -8,6 +8,7 @@ import 'onboarding/onboarding_screen.dart';
 import 'auth/register_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home/home_screen.dart';
+import 'role_selection_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -83,7 +84,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     Navigator.pushReplacement(context, PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 500),
-      // ✅ Now using isLoggedDirectly based purely on SharedPreferences to prevent race condition
       pageBuilder: (_, __, ___) => isLoggedDirectly ? const HomeScreen() : (!hasSeenOnboarding ? const OnboardingScreen() : const RegisterScreen()),
       transitionsBuilder: (_, anim, __, child) => FadeTransition(
         opacity: anim,

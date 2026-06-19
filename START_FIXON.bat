@@ -20,19 +20,17 @@ start "FixoN Backend" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Start
 timeout /t 4 /nobreak > nul
 
 echo [2/2] Starting Admin Panel...
-start "FixoN Admin Panel" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Starting FixoN Admin Panel... && npm run dev:admin"
+start "FixoN Admin App" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Starting FixoN Desktop App... && npm run electron:start"
 
 timeout /t 5 /nobreak > nul
 
 echo.
 echo  ✅ All services starting!
-echo  🌐 Admin Panel: http://localhost:3000
 echo  🔌 Backend API: http://localhost:5000
 echo  📧 Login: admin@servixo.com
 echo  🔑 Password: Admin@123
 echo.
-echo  Opening browser...
-start "" "http://localhost:3000"
+echo  Opening Desktop App...
 
 timeout /t 3 /nobreak > nul
 exit

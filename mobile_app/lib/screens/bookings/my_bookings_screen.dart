@@ -5,6 +5,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../utils/constants.dart';
 import 'booking_tracking_screen.dart';
+import '../chat/worker_chat_screen.dart';
+import '../../widgets/before_after_photos_widget.dart';
 
 final _statusColors = {
   'pending': AppColors.accent, 'accepted': AppColors.primary, 'on_the_way': AppColors.warning, 
@@ -168,11 +170,30 @@ class _BookingCard extends StatelessWidget {
               Text(worker['name'] as String? ?? '', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text), overflow: TextOverflow.ellipsis),
               Text('⭐ ${worker['rating']} • 👷 Assigned', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSub), overflow: TextOverflow.ellipsis),
             ])),
-            if (status == 'ongoing') GestureDetector(
-              onTap: () {},
-              child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.success.withOpacity(0.3))),
-                child: Text('📞 Call', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success))),
+            if (status == 'ongoing' || status == 'accepted') GestureDetector(
+              onTap: () {
+                if (worker != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WorkerChatScreen(
+                        workerId: worker['_id'] as String? ?? 'worker',
+                        workerName: worker['name'] as String? ?? 'Worker',
+                        workerCategory: booking['category'] as String? ?? '',
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                ),
+                child: Text('💬 Chat', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+              ),
             ),
           ]),
         ] else if (status == 'pending') ...[
@@ -180,6 +201,18 @@ class _BookingCard extends StatelessWidget {
           Text('🔍 Finding the best worker for you...', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
           const SizedBox(height: 8),
           LinearProgressIndicator(backgroundColor: AppColors.card2, color: AppColors.primary, borderRadius: BorderRadius.circular(4)),
+        ],
+
+        // Before/After Photos
+        if (booking['_id'] != null) ...[
+          const SizedBox(height: 8),
+          BeforeAfterPhotosWidget(
+            bookingId: booking['_id'] as String,
+            initialBeforePhoto: booking['beforePhoto'] as String?,
+            initialAfterPhoto: booking['afterPhoto'] as String?,
+            canUploadBefore: true,
+            canUploadAfter: false,
+          ),
         ],
 
         // Price
@@ -205,7 +238,7 @@ class _BookingCard extends StatelessWidget {
             )),
           if (status == 'completed') ...[
             Expanded(child: OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BookingTrackingScreen(booking: booking))),
               icon: const Icon(Icons.star_outline, size: 16),
               label: Text('Rate', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
               style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: AppColors.accent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),

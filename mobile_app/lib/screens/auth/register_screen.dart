@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../home/home_screen.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -47,8 +48,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                IconButton(onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.arrow_back_ios, color: AppColors.text)),
+                IconButton(
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+                    }
+                  },
+                  icon: Icon(Icons.arrow_back_ios, color: AppColors.text),
+                ),
                 const SizedBox(height: 16),
                 Text('Create Account 🚀', style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.text)),
                 const SizedBox(height: 6),
@@ -111,7 +120,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text('Already have an account? ', style: GoogleFonts.inter(color: AppColors.textSub)),
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+                      }
+                    },
                     child: Text('Sign In', style: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.w700)),
                   ),
                 ]),

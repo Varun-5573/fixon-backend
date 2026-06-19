@@ -49,8 +49,11 @@ export default function ChatPage({ socket }) {
   const loadMessages = async (userId) => {
     try {
       const r = await adminApi.getMessages();
+      // Only show messages for this user — bot messages scoped to this user only
       setMessages((r.messages || r || []).filter(m =>
-        m.senderId === userId || m.receiverId === userId || m.senderType === 'bot'
+        m.senderId === userId ||
+        m.receiverId === userId ||
+        (m.senderType === 'bot' && m.receiverId === userId)
       ));
     }
     catch { setMessages([]); }
@@ -103,8 +106,15 @@ export default function ChatPage({ socket }) {
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                  {u.name || 'Customer'}
+                  <span style={{ fontSize: 10, color: 'var(--text-sub)', fontWeight: 400, marginLeft: 4 }}>
+                    (#{u._id?.slice(-4)})
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {u.phone ? `📱 ${u.phone}` : u.email ? `📧 ${u.email}` : `🆔 ${u._id}`}
+                </div>
               </div>
               {unread[u._id] > 0 && (
                 <span style={{ color: 'var(--error)', fontSize: 11, fontWeight: 800 }}>●</span>

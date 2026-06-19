@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE = 'https://fixon-backend-production.up.railway.app';
+const BASE = 'http://localhost:5000';
 
 const api = axios.create({ baseURL: BASE, timeout: 5000 });
 
@@ -59,8 +59,8 @@ export const authApi = {
   login: (data) => api.post('/api/auth/admin/login', data),
 };
 
-// Local chat/tracking server (always connect to production now)
-const localApi = axios.create({ baseURL: 'https://fixon-backend-production.up.railway.app', timeout: 5000 });
+// Local chat/tracking server (always connect to local backend now)
+const localApi = axios.create({ baseURL: 'http://localhost:5000', timeout: 5000 });
 
 export const adminApi = {
   getStats:      async () => {
@@ -149,5 +149,17 @@ export const adminApi = {
 
   // Live customer locations from local server
   getLiveLocations: () => localApi.get('/api/location/customers').then(r => r.data).catch(() => ({ success: true, customers: [] })),
+
+  // Payout data — all workers
+  getPayouts: () => localApi.get('/api/admin/payouts').then(r => r.data).catch(() => ({ success: true, payouts: [] })),
+
+  // Per-worker payout detail
+  getWorkerPayout: (workerId) => localApi.get(`/api/workers/${workerId}/payouts`).then(r => r.data).catch(() => ({ success: false })),
+
+  // Per-worker ratings
+  getWorkerRatings: (workerId) => localApi.get(`/api/ratings/worker/${workerId}`).then(r => r.data).catch(() => ({ success: true, ratings: [] })),
+
+  // Invoice for a booking
+  getInvoice: (bookingId) => localApi.get(`/api/bookings/${bookingId}/invoice`).then(r => r.data).catch(() => ({ success: false })),
 };
 

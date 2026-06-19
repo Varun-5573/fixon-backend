@@ -1,5 +1,5 @@
 [setup]
-pkgs = ["nodejs_20"]
+pkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = ["npm install --omit=dev --legacy-peer-deps"]

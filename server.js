@@ -384,9 +384,18 @@ app.post('/api/location/worker', (req, res) => {
   workers[workerId].lat = parseFloat(lat);
   workers[workerId].lng = parseFloat(lng);
 
+  // ✅ Also update currentLocation in adminWorkers so the map can show workers
+  const adminWorker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+  if (adminWorker) {
+    adminWorker.currentLocation = { lat: parseFloat(lat), lng: parseFloat(lng) };
+    adminWorker.isOnline = true;
+    console.log(`📍 Worker location: ${adminWorker.name} → ${lat}, ${lng}`);
+  }
+
   io.emit('worker_location', { workerId, lat: workers[workerId].lat, lng: workers[workerId].lng });
   res.json({ success: true });
 });
+
 
 // Admin: get all live customer locations
 app.get('/api/location/customers', (req, res) => {

@@ -442,6 +442,7 @@ app.post('/api/bookings', (req, res) => {
     status, workerId, workerName, city, discount, couponCode,
     rating, ratingComment, completedAt, description,
     userName, userPhone,
+    paymentMethod, paymentStatus,
   } = req.body;
 
   // Resolve user name
@@ -472,6 +473,8 @@ app.post('/api/bookings', (req, res) => {
     couponCode: couponCode || null,
     rating: rating || null,
     ratingComment: ratingComment || null,
+    paymentMethod: paymentMethod || 'Online (UPI)',
+    paymentStatus: paymentStatus || 'Pending',
     createdAt: req.body.createdAt || new Date().toISOString(),
     completedAt: completedAt || (status === 'completed' ? new Date().toISOString() : null),
   };

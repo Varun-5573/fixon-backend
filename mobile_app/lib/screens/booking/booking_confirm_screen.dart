@@ -25,6 +25,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
   String _coupon = '';
   final _couponCtrl = TextEditingController();
   int _discount = 0;
+  String _paymentMethod = 'Online'; // 'Online', 'COD', 'AfterService'
 
   final _coupons = {'FIRST50': 50, 'FIXON10': 10, 'SUMMER25': 25};
 
@@ -45,6 +46,14 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
       ));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid coupon code'), backgroundColor: AppColors.error));
+    }
+  }
+
+  Future<void> _handleConfirmAction() async {
+    if (_paymentMethod == 'Online') {
+      await _processPayment();
+    } else {
+      await _confirm();
     }
   }
 
@@ -78,6 +87,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
       if (widget.worker != null) 'workerId': widget.worker!['_id'],
       if (widget.worker != null) 'workerName': widget.worker!['name'],
       'coupon': _coupon.isEmpty ? null : _coupon,
+      'paymentMethod': _paymentMethod == 'Online' ? 'Online (UPI)' : (_paymentMethod == 'COD' ? 'Cash on Delivery (COD)' : 'Pay After Service'),
+      'paymentStatus': _paymentMethod == 'Online' ? 'Paid' : 'Pending',
     }, auth.token ?? '');
 
     if (ok && mounted) setState(() { _confirming = false; _done = true; });
@@ -135,17 +146,51 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                         ])),
                         Text('₹${widget.subService['price']}', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
                       ]),
-                    ),
-
-                    const SizedBox(height: 18),
+                    ),                    const SizedBox(height: 18),
 
                     // Details
                     _DetailCard(items: [
                       _DetailItem(icon: Icons.location_on, label: 'Address', value: widget.address),
                       _DetailItem(icon: Icons.calendar_today, label: 'Date & Time',
                         value: '${widget.scheduledTime.day}/${widget.scheduledTime.month}/${widget.scheduledTime.year} at ${widget.scheduledTime.hour.toString().padLeft(2,'0')}:${widget.scheduledTime.minute.toString().padLeft(2,'0')}'),
-                      _DetailItem(icon: Icons.payments_outlined, label: 'Payment', value: 'Pay on Service'),
+                      _DetailItem(
+                        icon: Icons.payments_outlined,
+                        label: 'Payment Method',
+                        value: _paymentMethod == 'Online'
+                            ? 'Online (UPI)'
+                            : (_paymentMethod == 'COD' ? 'Cash on Delivery' : 'Pay After Service'),
+                      ),
                     ]),
+
+                    const SizedBox(height: 18),
+
+                    // Payment Method Selector
+                    Text('💳 Select Payment Method', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
+                    const SizedBox(height: 10),
+                    Column(
+                      children: [
+                        _buildPaymentMethodOption(
+                          id: 'Online',
+                          title: 'Pay Online (UPI)',
+                          subtitle: 'Fast & secure digital payment',
+                          icon: Icons.account_balance_wallet_rounded,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildPaymentMethodOption(
+                          id: 'COD',
+                          title: 'Cash on Delivery (COD)',
+                          subtitle: 'Pay cash to worker on arrival',
+                          icon: Icons.handshake_rounded,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildPaymentMethodOption(
+                          id: 'AfterService',
+                          title: 'Pay After Service',
+                          subtitle: 'Verify work before you pay',
+                          icon: Icons.verified_rounded,
+                        ),
+                      ],
+                    ),
 
                     const SizedBox(height: 18),
 
@@ -193,7 +238,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _confirming ? null : _processPayment,
+                    onPressed: _confirming ? null : _handleConfirmAction,
                     style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16),
                       backgroundColor: AppColors.success,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
@@ -205,6 +250,77 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodOption({
+    required String id,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final isSelected = _paymentMethod == id;
+    return GestureDetector(
+      onTap: () => setState(() => _paymentMethod = id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? AppColors.primary : AppColors.textSub,
+              size: 24,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: AppColors.textSub,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.primary,
+                size: 20,
+              )
+            else
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.border, width: 1.5),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -236,7 +352,16 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                 Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
                   child: Column(children: [
                     _PriceRow('Service', widget.service['name'] as String),
-                    _PriceRow('Amount Paid', '₹$_total'),
+                    _PriceRow(
+                      _paymentMethod == 'Online' ? 'Amount Paid' : 'Amount to Pay',
+                      '₹$_total',
+                    ),
+                    _PriceRow(
+                      'Payment Method',
+                      _paymentMethod == 'Online'
+                          ? 'Online (UPI)'
+                          : (_paymentMethod == 'COD' ? 'Cash on Delivery' : 'Pay After Service'),
+                    ),
                     _PriceRow('Status', '🟡 Worker Being Assigned'),
                   ])),
                 const SizedBox(height: 30),

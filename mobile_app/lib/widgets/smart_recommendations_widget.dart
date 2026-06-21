@@ -189,19 +189,11 @@ class SmartRecommendationsWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Recommended for You',
-                          style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.text)),
-                      Text('AI-powered personalised picks',
-                          style: GoogleFonts.inter(
-                              fontSize: 11, color: AppColors.textSub)),
-                    ],
-                  ),
+                  child: Text('Recommended for You',
+                      style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text)),
                 ),
               ]),
             ),

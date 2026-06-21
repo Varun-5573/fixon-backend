@@ -205,6 +205,20 @@ const BOT_RULES = [
     reply: '😊 You\'re welcome! Is there anything else I can help you with?' },
   { keywords: ['location', 'track', 'where', 'gps'],
     reply: '📍 Your location is being tracked in real-time. Our admin can see your position to assign the nearest worker!' },
+  { keywords: ['leak', 'water', 'pipe', 'tap', 'clog', 'sink', 'drain'],
+    reply: '💧 Plumbing issue detected! If you have an active water leak, please shut off your main water valve first. You can book an emergency Plumber directly from the home screen.' },
+  { keywords: ['shock', 'power', 'fuse', 'spark', 'wire', 'short', 'electricity'],
+    reply: '⚡ Electrical hazard! Please stay away from wet areas and do not touch exposed wires. Turn off the main circuit breaker if safe, and book a certified Electrician from our app immediately.' },
+  { keywords: ['ac', 'cool', 'heat', 'compressor', 'filter', 'dripping'],
+    reply: '❄️ AC issue? If your AC is not cooling, it could be a dirty filter or low refrigerant. You can book a certified AC technician under the "AC Repair" service.' },
+  { keywords: ['coupon', 'promo', 'discount', 'code', 'not working'],
+    reply: '🎫 Promo code issues? Ensure the code is typed in ALL CAPS (e.g. FIRST50). Also check that your cart meets the minimum order amount and the code hasn\'t expired.' },
+  { keywords: ['wallet', 'cashback', 'bonus', 'balance'],
+    reply: '👛 Wallet questions? Referral bonuses and cashbacks are auto-credited to your wallet. Wallet balance will be applied automatically on your next checkout.' },
+  { keywords: ['bug', 'crash', 'not loading', 'error', 'slow', 'app'],
+    reply: '📱 App problem? Try restarting the app or clearing cache. If it still doesn\'t load, please reinstall the app or contact support at support@fixon.com.' },
+  { keywords: ['contact', 'call', 'number', 'phone', 'email', 'support'],
+    reply: '📞 Contact FixoN Support directly at 1800-FIXON-00 or email us at support@fixon.com. We are available 24/7!' },
 ];
 
 function getBotReply(message) {
@@ -406,6 +420,20 @@ app.get('/api/location/customers', (req, res) => {
 //  BOOKING ROUTES (for mobile app — no separate backend)
 // ══════════════════════════════════════════════════════════════
 
+// Helper to dynamically enrich workerId with worker's average rating
+function enrichBooking(b) {
+  if (!b) return b;
+  const bookingCopy = { ...b };
+  if (bookingCopy.workerId && bookingCopy.workerId._id) {
+    const worker = adminWorkers.find(w => w._id === bookingCopy.workerId._id);
+    bookingCopy.workerId = {
+      ...bookingCopy.workerId,
+      rating: worker?.rating || 4.5
+    };
+  }
+  return bookingCopy;
+}
+
 // Mobile app creates a booking  /  Admin seed import
 app.post('/api/bookings', (req, res) => {
   const {
@@ -454,14 +482,14 @@ app.post('/api/bookings', (req, res) => {
   io.emit('new_booking', booking);
   console.log(`📦 Booking [${booking.status}]: ${booking.service} by ${finalName}`);
 
-  res.json({ success: true, booking });
+  res.json({ success: true, booking: enrichBooking(booking) });
 });
 
 
 // Mobile app: get user's bookings
 app.get('/api/bookings/user/:userId', (req, res) => {
   const userBookings = bookings.filter(b => b.userId?._id === req.params.userId);
-  res.json({ success: true, bookings: userBookings.reverse() });
+  res.json({ success: true, bookings: userBookings.map(enrichBooking).reverse() });
 });
 
 // Admin: update booking status
@@ -521,12 +549,12 @@ app.put('/api/bookings/:id/status', (req, res) => {
     }
   }
 
-  res.json({ success: true, booking: b });
+  res.json({ success: true, booking: enrichBooking(b) });
 });
 
 // Admin: get all bookings (local + merged with external)
 app.get('/api/bookings', (req, res) => {
-  res.json({ success: true, bookings: bookings.slice().reverse() });
+  res.json({ success: true, bookings: bookings.map(enrichBooking).reverse() });
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -546,7 +574,7 @@ app.get('/api/admin/users/count', (req, res) => {
 
 // 17.2: GET /api/admin/bookings
 app.get('/api/admin/bookings', (req, res) => {
-  res.json({ success: true, bookings: bookings.slice().reverse() });
+  res.json({ success: true, bookings: bookings.map(enrichBooking).reverse() });
 });
 
 // 17.2: POST /api/bookings/create
@@ -564,8 +592,9 @@ app.patch('/api/bookings/:id', (req, res) => {
   // Map "Confirmed" to internal "accepted" flag for UI consistency, or directly use status
   b.status = status === 'Confirmed' ? 'accepted' : status;
   io.emit('booking_update', { bookingId: b._id, status, booking: b });
-  res.json({ success: true, booking: b });
+  res.json({ success: true, booking: enrichBooking(b) });
 });
+
 
 // ══════════════════════════════════════════════════════════════
 //  STATS ROUTES
@@ -713,6 +742,7 @@ app.post('/api/ratings', (req, res) => {
   if (booking) {
     booking.rating = newRating.rating;
     booking.ratingComment = newRating.comment;
+    booking.rated = true;
   }
 
   // Recalculate worker average rating
@@ -935,45 +965,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => console.log('❌ Disconnected:', socket.id));
 });
 
-// ══════════════════════════════════════════════════════════════
-//  RATINGS ROUTES
-// ══════════════════════════════════════════════════════════════
-
-app.post('/api/ratings', (req, res) => {
-  const { bookingId, workerId, userId, rating, comment } = req.body;
-  if (!bookingId || !workerId || !rating) return res.status(400).json({ success: false, error: 'Missing fields' });
-
-  const ratingObj = {
-    _id: 'RT' + Date.now(),
-    bookingId, workerId, userId,
-    rating: parseFloat(rating),
-    comment: comment || '',
-    createdAt: new Date().toISOString()
-  };
-
-  // Store rating in booking
-  const booking = bookings.find(b => b._id === bookingId);
-  if (booking) { booking.rating = ratingObj; booking.rated = true; }
-
-  // Update worker average rating
-  const worker = adminWorkers.find(w => w._id === workerId);
-  if (worker) {
-    const allRatings = bookings.filter(b => b.workerId?._id === workerId && b.rating).map(b => b.rating.rating);
-    allRatings.push(parseFloat(rating));
-    worker.rating = (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1);
-    worker.totalRatings = allRatings.length;
-  }
-
-  saveData();
-  io.emit('new_rating', ratingObj);
-  console.log(`⭐ Rating: ${rating}/5 for worker ${workerId}`);
-  res.json({ success: true, rating: ratingObj });
-});
-
-app.get('/api/ratings/worker/:workerId', (req, res) => {
-  const rated = bookings.filter(b => b.workerId?._id === req.params.workerId && b.rating);
-  res.json({ success: true, ratings: rated.map(b => b.rating) });
-});
 
 // ══════════════════════════════════════════════════════════════
 //  COUPONS ROUTES

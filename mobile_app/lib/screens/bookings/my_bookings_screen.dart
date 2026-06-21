@@ -168,7 +168,7 @@ class _BookingCard extends StatelessWidget {
             const SizedBox(width: 10),
             Flexible(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(worker['name'] as String? ?? '', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text), overflow: TextOverflow.ellipsis),
-              Text('⭐ ${worker['rating']} • 👷 Assigned', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSub), overflow: TextOverflow.ellipsis),
+              Text('⭐ ${worker['rating'] ?? '4.5'} • 👷 ${status == 'completed' ? 'Completed' : 'Assigned'}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSub), overflow: TextOverflow.ellipsis),
             ])),
             if (status == 'ongoing' || status == 'accepted') GestureDetector(
               onTap: () {

@@ -42,7 +42,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Auto-fetch GPS location once home screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadCachedServices();
       _initLocation();
       _loadServices(); // Load live services from server
       final auth = context.read<AuthProvider>();
@@ -161,21 +162,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Map<String, dynamic>> _services = kServices; // fallback to hardcoded
 
+  Future<void> _loadCachedServices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('cached_services');
+      if (cached != null) {
+        final decoded = jsonDecode(cached);
+        if (decoded is List) {
+          setState(() {
+            _services = List<Map<String, dynamic>>.from(
+              decoded.map((s) => Map<String, dynamic>.from(s))
+            );
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error loading cached services: $e');
+    }
+  }
+
   Future<void> _loadServices() async {
     try {
       final res = await http.get(
         Uri.parse('$kBaseUrl/api/services'),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true && data['services'] != null) {
+        final list = List<Map<String, dynamic>>.from(
+          (data['services'] as List).map((s) => Map<String, dynamic>.from(s))
+        );
         setState(() {
-          _services = List<Map<String, dynamic>>.from(
-            (data['services'] as List).map((s) => Map<String, dynamic>.from(s))
-          );
+          _services = list;
         });
+        // Save to cache
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_services', jsonEncode(list));
       }
     } catch (e) {
-      // Use hardcoded fallback
+      // Keep using previously loaded cached/fallback services
     }
   }
 

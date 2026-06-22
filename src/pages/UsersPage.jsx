@@ -58,7 +58,7 @@ export default function UsersPage(props) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Total Users', value: users.length, icon: '👥', color: '#7C3AED' },
-          { label: 'Active', value: users.filter(u => !u.isBlocked).length, icon: '✅', color: '#10B981' },
+          { label: 'Online Now', value: users.filter(u => u.isOnline).length, icon: '🟢', color: '#10B981' },
           { label: 'Blocked', value: users.filter(u => u.isBlocked).length, icon: '🚫', color: '#EF4444' },
           { label: 'New Today', value: users.filter(u => new Date(u.createdAt) > new Date(Date.now() - 86400000)).length, icon: '🆕', color: '#F59E0B' },
         ].map((s, i) => (
@@ -69,7 +69,7 @@ export default function UsersPage(props) {
           </div>
         ))}
       </div>
-
+ 
       <div className="table-card">
         <div className="table-header">
           <h3>All Customers</h3>
@@ -94,7 +94,14 @@ export default function UsersPage(props) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="admin-avatar" style={{ width: 38, height: 38, fontSize: 14 }}>{(u.name || 'U')[0]}</div>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{u.name || 'N/A'}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {u.name || 'N/A'}
+                        {u.isOnline ? (
+                          <span className="live-dot" style={{ width: 8, height: 8 }} title="Online Now" />
+                        ) : (
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6B7280', display: 'inline-block' }} title="Offline" />
+                        )}
+                      </div>
                       <div style={{ fontSize: 11, color: 'var(--text-sub)' }}>{u.email}</div>
                     </div>
                   </div>

@@ -103,8 +103,8 @@ class BookingProvider extends ChangeNotifier {
       final res = await http.get(
         Uri.parse('$kBaseUrl/api/notifications'),
         headers: {
+          ...kHeaders,
           'Authorization': 'Bearer $_currentToken',
-          'Content-Type': 'application/json',
         },
       ).timeout(const Duration(seconds: 6));
 
@@ -172,8 +172,8 @@ class BookingProvider extends ChangeNotifier {
           .get(
             Uri.parse(url),
             headers: {
+              ...kHeaders,
               'Authorization': 'Bearer $_currentToken',
-              'Content-Type': 'application/json',
             },
           )
           .timeout(const Duration(seconds: 8));
@@ -312,7 +312,7 @@ class BookingProvider extends ChangeNotifier {
           .post(
             Uri.parse('$kBaseUrl/api/bookings'),
             headers: {
-              'Content-Type': 'application/json',
+              ...kHeaders,
               'Authorization': 'Bearer $token',
             },
             body: jsonEncode(bookingData),

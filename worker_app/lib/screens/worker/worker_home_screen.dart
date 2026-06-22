@@ -7,6 +7,7 @@ import '../../utils/constants.dart';
 import 'worker_bookings_screen.dart';
 import 'worker_earnings_screen.dart';
 import 'worker_login_screen.dart';
+import 'worker_profile_screen.dart';
 
 class WorkerHomeScreen extends StatefulWidget {
   const WorkerHomeScreen({super.key});
@@ -27,9 +28,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       wp.fetchPendingBookings();
       wp.fetchMyBookings();
       
-      // Start background polling every 10 seconds to auto-update bookings list
-      _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-        if (mounted) {
+      // Start background polling every 15 seconds to auto-update bookings list
+      _pollingTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+        if (mounted && !wp.connectionError) {
           wp.fetchPendingBookings();
           wp.fetchMyBookings();
         }
@@ -70,10 +71,19 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     }
 
     final pages = [
-      _DashboardTab(worker: worker, stats: wp.stats),
+      _DashboardTab(
+        worker: worker,
+        stats: wp.stats,
+        onNavigate: (idx) {
+          setState(() => _tab = idx);
+          if (idx == 1) wp.fetchPendingBookings();
+          if (idx == 2) wp.fetchMyBookings();
+        },
+      ),
       WorkerBookingsScreen(isNewBookings: true),
       WorkerBookingsScreen(isNewBookings: false),
       WorkerEarningsScreen(),
+      const WorkerProfileScreen(),
     ];
 
     return Scaffold(
@@ -116,9 +126,11 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         onTap: (idx) {
           setState(() => _tab = idx);
           final wp = context.read<WorkerProvider>();
+          if (idx == 0) wp.fetchDashboard();
           if (idx == 1) wp.fetchPendingBookings();
           if (idx == 2) wp.fetchMyBookings();
           if (idx == 3) wp.fetchDashboard();
+          if (idx == 4) wp.fetchDashboard();
         },
         backgroundColor: AppColors.card,
         selectedItemColor: AppColors.primary,
@@ -156,6 +168,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             icon: Icon(Icons.account_balance_wallet_rounded),
             label: 'Earnings',
           ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -165,7 +181,8 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 class _DashboardTab extends StatelessWidget {
   final Map<String, dynamic>? worker;
   final Map<String, dynamic>? stats;
-  const _DashboardTab({this.worker, this.stats});
+  final void Function(int)? onNavigate;
+  const _DashboardTab({this.worker, this.stats, this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +308,7 @@ class _DashboardTab extends StatelessWidget {
       if ((wp.pendingBookings.length) > 0) SliverToBoxAdapter(child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
         child: GestureDetector(
-          onTap: () {},
+          onTap: () => onNavigate?.call(1),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

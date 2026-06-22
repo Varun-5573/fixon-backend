@@ -1,9 +1,11 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/worker_provider.dart';
 import '../../utils/constants.dart';
 
 /// Reusable Before/After Photo comparison widget
@@ -69,7 +71,7 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
 
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/bookings/${widget.bookingId}/photos'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode(isBefore
             ? {'beforePhoto': base64Img}
             : {'afterPhoto': base64Img}),
@@ -89,6 +91,9 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
         _showSnack(isBefore
             ? '✅ Before photo uploaded!'
             : '✅ After photo uploaded!');
+        try {
+          context.read<WorkerProvider>().fetchMyBookings();
+        } catch (_) {}
       } else {
         setState(() => _uploading = false);
         _showSnack('Upload failed. Try again.', isError: true);

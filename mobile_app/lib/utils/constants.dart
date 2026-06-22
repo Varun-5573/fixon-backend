@@ -55,9 +55,16 @@ class AppColors {
   }
 }
 
-// Local Network Backend (No ngrok needed if on same WiFi)
-const String kServerIp = '10.98.121.161:5000';
-const String kBaseUrl = 'http://10.98.121.161:5000';
+// Live Render Backend
+const String kServerIp = 'glinda-uncataloged-preconfusedly.ngrok-free.dev';
+const String kBaseUrl = 'https://glinda-uncataloged-preconfusedly.ngrok-free.dev';
+
+// Default headers — always include ngrok bypass header so the free ngrok tunnel
+// doesn't show its browser-warning interstitial page (ERR_NGROK_6024)
+const Map<String, String> kHeaders = {
+  'Content-Type': 'application/json',
+  'ngrok-skip-browser-warning': 'true',
+};
 
 const List<Map<String, dynamic>> kServices = [
   {'name': 'Plumbing',      'icon': '🔧', 'color': 0xFF7C3AED, 'price': 499},

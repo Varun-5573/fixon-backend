@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
 import '../../utils/constants.dart';
 import '../../widgets/before_after_photos_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'worker_live_map_screen.dart';
+import '../chat/worker_chat_screen.dart';
 
 class WorkerBookingsScreen extends StatefulWidget {
   final bool isNewBookings;
@@ -115,6 +117,9 @@ class _BookingCard extends StatelessWidget {
     final address = (booking['location'] is Map && booking['location']['address'] != null)
         ? booking['location']['address'].toString()
         : (booking['address']?.toString() ?? 'N/A');
+    final userPhone = booking['userPhone']?.toString() ?? 
+                      (booking['userId'] is Map ? booking['userId']['phone']?.toString() : null) ?? 
+                      '';
 
     final statusColors = {
       'pending': AppColors.accent,
@@ -171,6 +176,86 @@ class _BookingCard extends StatelessWidget {
           ],
           const SizedBox(height: 6),
           _row(Icons.currency_rupee, '₹${booking['price'] ?? 0} (Your share: ₹${((booking['price'] ?? 0) * 0.8).round()})'),
+          
+          if (userPhone.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.phone_outlined, size: 14, color: AppColors.textSub),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Phone: $userPhone',
+                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub),
+                  ),
+                ),
+                if (status != 'pending') ...[
+                  GestureDetector(
+                    onTap: () async {
+                      final uri = Uri.parse('tel:$userPhone');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.phone, size: 12, color: AppColors.success),
+                          const SizedBox(width: 4),
+                          Text(
+                            'CALL',
+                            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      final cId = booking['userId'] is Map ? booking['userId']['_id']?.toString() : booking['userId']?.toString();
+                      if (cId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => WorkerChatScreen(
+                              workerId: cId,
+                              workerName: userName,
+                              workerCategory: 'Customer',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 12, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'CHAT',
+                            style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
 
           // Customer Before Photo (if any)
           if (booking['beforePhoto'] != null) ...[
@@ -235,7 +320,7 @@ class _BookingCard extends StatelessWidget {
                     }
                   },
                   icon: const Icon(Icons.close, size: 16),
-                  label: Text('Reject', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                  label: Text('❌ Reject Booking', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
                     side: BorderSide(color: AppColors.error.withOpacity(0.4)),
@@ -258,7 +343,7 @@ class _BookingCard extends StatelessWidget {
                     }
                   },
                   icon: const Icon(Icons.check, size: 16),
-                  label: Text('Accept', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+                  label: Text('✅ Accept Booking', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.success,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -272,19 +357,35 @@ class _BookingCard extends StatelessWidget {
             if (status == 'accepted')
               _actionBtn('🏍️ Mark On The Way', AppColors.warning, () => wp.updateBookingStatus(booking['_id'], 'on-the-way')),
             if (status == 'on_the_way')
-              _actionBtn('🔧 Start Work', AppColors.secondary, () => wp.updateBookingStatus(booking['_id'], 'start')),
+              _actionBtn('🔧 Work Started', AppColors.secondary, () => wp.updateBookingStatus(booking['_id'], 'start')),
             if (status == 'ongoing') ...[
-              // Before/After photo upload widget for worker (can upload After photo)
+              // Before/After photo upload widget for worker
               if (booking['_id'] != null)
                 BeforeAfterPhotosWidget(
                   bookingId: booking['_id'],
                   initialBeforePhoto: booking['beforePhoto'],
                   initialAfterPhoto: booking['afterPhoto'],
-                  canUploadBefore: false,
-                  canUploadAfter: true,
+                  canUploadBefore: booking['beforePhoto'] == null || booking['beforePhoto'].toString().isEmpty,
+                  canUploadAfter: (booking['beforePhoto'] != null && booking['beforePhoto'].toString().isNotEmpty) && (booking['afterPhoto'] == null || booking['afterPhoto'].toString().isEmpty),
                 ),
               const SizedBox(height: 10),
-              _actionBtn('✅ Complete Job', AppColors.success, () => wp.updateBookingStatus(booking['_id'], 'complete')),
+              _actionBtn('🟢 Mark Completed', AppColors.success, () {
+                if (booking['beforePhoto'] == null || booking['beforePhoto'].toString().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('⚠️ Please upload a BEFORE photo first!'),
+                    backgroundColor: AppColors.error,
+                  ));
+                  return;
+                }
+                if (booking['afterPhoto'] == null || booking['afterPhoto'].toString().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('⚠️ Please upload an AFTER photo first!'),
+                    backgroundColor: AppColors.error,
+                  ));
+                  return;
+                }
+                wp.updateBookingStatus(booking['_id'], 'complete');
+              }),
             ],
             if (status == 'completed')
               Container(

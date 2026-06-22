@@ -63,17 +63,47 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
 
   const loadData = useCallback(async () => {
     try {
-      const [wRes, lRes] = await Promise.all([adminApi.getWorkers(), adminApi.getLiveLocations()]);
+      const [wRes, lRes, uRes] = await Promise.all([
+        adminApi.getWorkers(),
+        adminApi.getLiveLocations(),
+        adminApi.getUsers(),
+      ]);
+
+      // Workers with live location
       setWorkers((wRes.workers || wRes || []).filter(w => w.currentLocation?.lat));
+
+      // Live GPS customers (actively sharing)
       const liveCusts = (lRes.customers || []).filter(c => c.lat).map(c => ({
         ...c,
-        userId: c.userId || c._id
+        userId: c.userId || c._id,
+        isLive: true,
       }));
-      if (liveCusts.length > 0) {
-        setCustomers(liveCusts);
-      }
+
+      // Registered users with any stored location who are currently online
+      const allUsers = uRes?.users || [];
+      const registeredWithLoc = allUsers
+        .filter(u => u.location?.lat && u.location?.lng && u.isOnline)
+        .map(u => ({
+          userId: u._id,
+          name: u.name,
+          email: u.email,
+          lat: parseFloat(u.location.lat),
+          lng: parseFloat(u.location.lng),
+          address: u.location.address || '',
+          isLive: true,
+        }));
+
+      // Merge: live GPS takes priority over stored location
+      const liveIds = new Set(liveCusts.map(c => c.userId));
+      const merged = [
+        ...liveCusts,
+        ...registeredWithLoc.filter(u => !liveIds.has(u.userId)),
+      ];
+
+      setCustomers(merged);
     } catch {}
   }, []);
+
 
   useEffect(() => {
     loadData();
@@ -86,9 +116,14 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
       socket.on('user_location', data => {
         setCustomers(prev => {
           const exists = prev.find(c => c.userId === data.userId);
-          if (exists) return prev.map(c => c.userId === data.userId ? { ...c, ...data } : c);
-          return [...prev, data];
+          if (exists) return prev.map(c => c.userId === data.userId ? { ...c, ...data, isLive: true } : c);
+          return [...prev, { ...data, isLive: true }];
         });
+      });
+
+      // ✅ Immediately remove customer marker when they go offline
+      socket.on('user_offline', data => {
+        setCustomers(prev => prev.filter(c => c.userId !== data.userId));
       });
 
       socket.on('worker_location', data => {
@@ -103,6 +138,7 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
     return () => {
       clearInterval(poll);
       socket?.off('user_location');
+      socket?.off('user_offline');
       socket?.off('worker_location');
     };
   }, [socket, loadData]);

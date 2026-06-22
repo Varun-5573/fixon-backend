@@ -185,6 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final res = await http.get(
         Uri.parse('$kBaseUrl/api/services'),
+        headers: kHeaders,
       ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true && data['services'] != null) {

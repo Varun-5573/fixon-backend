@@ -279,9 +279,18 @@ app.get('/api/admin/users', (req, res) => {
 
   // 1. Populate registered users
   registeredUsers.forEach(u => {
+    const liveInfo = users[u._id];
+    const isOnline = liveInfo && liveInfo.lastSeen 
+      ? (new Date() - new Date(liveInfo.lastSeen) < 60000)
+      : false;
+
     userMap[u._id] = {
       ...u,
-      location: users[u._id] ? { lat: users[u._id].lat, lng: users[u._id].lng } : (u.location || {}),
+      location: liveInfo 
+        ? { lat: liveInfo.lat, lng: liveInfo.lng, address: liveInfo.address || u.location?.address || '' } 
+        : (u.location || {}),
+      isOnline,
+      lastSeen: liveInfo ? liveInfo.lastSeen : (u.lastSeen || null),
       totalBookings: bookings.filter(b => b.userId?._id === u._id).length,
     };
   });
@@ -289,12 +298,15 @@ app.get('/api/admin/users', (req, res) => {
   // 2. Add active users (live location tracks)
   Object.values(users).forEach(u => {
     if (!userMap[u._id]) {
+      const isOnline = u.lastSeen ? (new Date() - new Date(u.lastSeen) < 60000) : false;
       userMap[u._id] = {
         _id: u._id,
         name: u.name || 'Customer',
         email: u.email || '',
         phone: u.phone || '',
-        location: { lat: u.lat, lng: u.lng },
+        location: { lat: u.lat, lng: u.lng, address: u.address || '' },
+        isOnline,
+        lastSeen: u.lastSeen,
         totalBookings: bookings.filter(b => b.userId?._id === u._id).length,
         isBlocked: false,
         createdAt: u.lastSeen || new Date().toISOString(),
@@ -306,12 +318,16 @@ app.get('/api/admin/users', (req, res) => {
   messages.forEach(m => {
     const senderId = m.senderId;
     if (senderId && senderId !== 'admin' && senderId !== 'bot' && !userMap[senderId]) {
+      const liveInfo = users[senderId];
+      const isOnline = liveInfo && liveInfo.lastSeen ? (new Date() - new Date(liveInfo.lastSeen) < 120000) : false;
       userMap[senderId] = {
         _id: senderId,
         name: m.name || ('Customer ' + senderId.slice(-4)),
         email: senderId + '@fixon.com',
         phone: '',
-        location: users[senderId] ? { lat: users[senderId].lat, lng: users[senderId].lng } : {},
+        location: liveInfo ? { lat: liveInfo.lat, lng: liveInfo.lng, address: liveInfo.address || '' } : {},
+        isOnline,
+        lastSeen: liveInfo ? liveInfo.lastSeen : null,
         totalBookings: bookings.filter(b => b.userId?._id === senderId).length,
         isBlocked: false,
         createdAt: m.createdAt || new Date().toISOString(),
@@ -360,9 +376,14 @@ app.post('/api/location/update', (req, res) => {
   const { userId, lat, lng, address, name, email } = req.body;
   if (!userId || !lat || !lng) return res.status(400).json({ success: false, error: 'Missing fields' });
 
+  // Update persistent registeredUsers list
+  const realUser = registeredUsers.find(u => u._id === userId);
+  if (realUser) {
+    realUser.location = { lat: parseFloat(lat), lng: parseFloat(lng), address: address || '' };
+    realUser.lastSeen = new Date().toISOString();
+  }
+
   if (!users[userId]) {
-    // 🔍 Look up real name from registeredUsers array
-    const realUser = registeredUsers.find(u => u._id === userId);
     users[userId] = { 
        _id: userId, 
        name: name || realUser?.name || 'Customer', 
@@ -386,6 +407,7 @@ app.post('/api/location/update', (req, res) => {
   });
 
   console.log(`📍 Location update: ${users[userId].name} → ${lat}, ${lng}`);
+  saveData(); // Save to fixon_data.json / MongoDB
   res.json({ success: true });
 });
 
@@ -411,9 +433,15 @@ app.post('/api/location/worker', (req, res) => {
 });
 
 
-// Admin: get all live customer locations
+// Admin: get all LIVE customer locations (only online in last 60s)
 app.get('/api/location/customers', (req, res) => {
-  res.json({ success: true, customers: Object.values(users).filter(u => u.lat) });
+  const ONLINE_THRESHOLD_MS = 60 * 1000; // 60 seconds
+  const now = Date.now();
+  const liveCustomers = Object.values(users).filter(u => {
+    if (!u.lat || !u.lastSeen) return false;
+    return (now - new Date(u.lastSeen).getTime()) < ONLINE_THRESHOLD_MS;
+  });
+  res.json({ success: true, customers: liveCustomers });
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -952,20 +980,57 @@ app.post('/api/chat/send', (req, res) => {
 // ══════════════════════════════════════════════════════════════
 //  SOCKET.IO
 // ══════════════════════════════════════════════════════════════
+
+// Map: socketId → userId  (so we know WHICH customer disconnected)
+const socketToUser = {};
+
 io.on('connection', (socket) => {
   console.log('✅ Client connected:', socket.id);
 
-  // Send current customer list to new admin connection
+  // Admin panel joins — send only LIVE customers (active in last 60s)
   socket.on('admin_join', () => {
     console.log('👑 Admin panel connected');
-    // Send all existing live locations
-    Object.values(users).filter(u => u.lat).forEach(u => {
-      socket.emit('user_location', { userId: u._id, name: u.name, lat: u.lat, lng: u.lng, address: u.address });
-    });
+    const ONLINE_MS = 60 * 1000;
+    const now = Date.now();
+    Object.values(users)
+      .filter(u => u.lat && u.lastSeen && (now - new Date(u.lastSeen).getTime()) < ONLINE_MS)
+      .forEach(u => {
+        socket.emit('user_location', { userId: u._id, name: u.name, lat: u.lat, lng: u.lng, address: u.address });
+      });
   });
 
-  socket.on('customer_join', (data) => console.log('👤 Customer app connected:', data));
-  socket.on('disconnect', () => console.log('❌ Disconnected:', socket.id));
+  // Customer app opens → register this socket ↔ userId mapping
+  socket.on('customer_join', (data) => {
+    const userId = data?.userId;
+    if (userId) {
+      socketToUser[socket.id] = userId;
+      // Make sure this user exists in our map
+      if (!users[userId]) {
+        const realUser = registeredUsers.find(u => u._id === userId);
+        users[userId] = { _id: userId, name: data.name || realUser?.name || 'Customer', email: realUser?.email || '' };
+      }
+      users[userId].socketId = socket.id;
+      users[userId].lastSeen = new Date().toISOString();
+      console.log(`👤 Customer online: ${users[userId].name} (${userId})`);
+    }
+  });
+
+  // Client disconnects → immediately mark customer offline
+  socket.on('disconnect', () => {
+    const userId = socketToUser[socket.id];
+    if (userId && users[userId]) {
+      // Clear location so they vanish from map instantly
+      users[userId].lat = null;
+      users[userId].lng = null;
+      users[userId].lastSeen = null;
+      users[userId].socketId = null;
+      console.log(`📴 Customer offline: ${users[userId].name} (${userId})`);
+      // Broadcast to admin panel so map removes marker immediately
+      io.emit('user_offline', { userId });
+    }
+    delete socketToUser[socket.id];
+    console.log('❌ Disconnected:', socket.id);
+  });
 });
 
 

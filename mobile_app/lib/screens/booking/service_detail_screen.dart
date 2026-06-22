@@ -53,7 +53,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   Future<void> _fetchWorkers() async {
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/workers')).timeout(const Duration(seconds: 10));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/workers'), headers: kHeaders).timeout(const Duration(seconds: 10));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         final allWorkers = List<Map<String, dynamic>>.from(data['workers']);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,7 @@ class LocationProvider extends ChangeNotifier {
   Timer? _periodicTimer;
   String? _periodicTimerId;
   String? _currentUserId;
+  IO.Socket? _socket;
 
   LocationProvider() {
     _loadFromPrefs();
@@ -66,12 +68,39 @@ class LocationProvider extends ChangeNotifier {
   double? get lat => _position?.latitude;
   double? get lng => _position?.longitude;
 
+  /// Connect socket so server instantly knows when app closes
+  void _connectSocket(String userId, String userName) {
+    try {
+      _socket?.disconnect();
+      _socket = IO.io(
+        kBaseUrl,
+        IO.OptionBuilder()
+            .setTransports(['websocket', 'polling'])
+            .disableAutoConnect()
+            .build(),
+      );
+      _socket!.onConnect((_) {
+        debugPrint('🔌 LocationProvider socket connected');
+        _socket!.emit('customer_join', {'userId': userId, 'name': userName});
+      });
+      _socket!.onDisconnect((_) {
+        debugPrint('📴 LocationProvider socket disconnected');
+      });
+      _socket!.connect();
+    } catch (e) {
+      debugPrint('⚠️ Socket connect error: $e');
+    }
+  }
+
   /// Request permission + get real GPS location, reverse-geocode, push to backend
-  Future<void> fetchLocation(String userId) async {
+  Future<void> fetchLocation(String userId, {String userName = 'Customer'}) async {
     _currentUserId = userId;
     _loading = true;
     _error = null;
     notifyListeners();
+
+    // Connect socket so server can detect when app closes
+    _connectSocket(userId, userName);
 
     try {
       // 1. Check / request permission
@@ -87,7 +116,7 @@ class LocationProvider extends ChangeNotifier {
         return;
       }
 
-      // 2. ✅ Get REAL GPS position (high accuracy — no fake/static data)
+      // 2. Get REAL GPS position (high accuracy)
       _position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 12),
@@ -121,11 +150,10 @@ class LocationProvider extends ChangeNotifier {
       await _pushToBackend(userId);
       _saveToPrefs();
 
-      // 5. Start periodic updates every 30s (keeps admin map live)
+      // 5. Start periodic updates every 25s (within server's 60s online threshold)
       _startPeriodicPush(userId);
     } catch (e) {
       _error = 'Could not get location.';
-      // Keep previous cached address if available rather than showing "Location unavailable"
       if (_address == 'Detecting location...') {
         _address = 'Location unavailable';
       }
@@ -136,18 +164,18 @@ class LocationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Push ✅ REAL GPS coordinates to backend — never static/fake
+  /// Push REAL GPS coordinates to backend
   Future<void> _pushToBackend(String userId) async {
     if (_position == null) return;
     try {
       await http
           .post(
             Uri.parse('$kBaseUrl/api/location/update'),
-            headers: {'Content-Type': 'application/json'},
+            headers: kHeaders,
             body: jsonEncode({
               'userId': userId,
-              'lat': _position!.latitude,   // real GPS lat
-              'lng': _position!.longitude,  // real GPS lng
+              'lat': _position!.latitude,
+              'lng': _position!.longitude,
               'address': _address,
             }),
           )
@@ -158,12 +186,11 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Start sending location to server every 30 seconds
+  /// Start sending location every 25s (keeps lastSeen fresh within the 60s server threshold)
   void _startPeriodicPush(String userId) {
     _periodicTimer?.cancel();
-    _periodicTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+    _periodicTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
       try {
-        // Re-fetch fresh GPS position each cycle
         final newPos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
           timeLimit: const Duration(seconds: 10),
@@ -172,7 +199,6 @@ class LocationProvider extends ChangeNotifier {
         await _pushToBackend(userId);
         notifyListeners();
       } catch (_) {
-        // Silent fail — just use last known position
         await _pushToBackend(userId);
       }
     });
@@ -183,7 +209,7 @@ class LocationProvider extends ChangeNotifier {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 20, // update every 20 metres moved
+        distanceFilter: 20,
       ),
     );
   }
@@ -209,15 +235,20 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
-  /// Stop tracking (call on logout)
+  /// Stop tracking — disconnects socket so server immediately marks offline
   void stopTracking() {
     _periodicTimer?.cancel();
     _periodicTimer = null;
+    _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
   }
 
   @override
   void dispose() {
     _periodicTimer?.cancel();
+    _socket?.disconnect();
+    _socket?.dispose();
     super.dispose();
   }
 }

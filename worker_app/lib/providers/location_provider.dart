@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
@@ -143,7 +143,7 @@ class LocationProvider extends ChangeNotifier {
       await http
           .post(
             Uri.parse('$kBaseUrl/api/location/update'),
-            headers: {'Content-Type': 'application/json'},
+            headers: kHeaders,
             body: jsonEncode({
               'userId': userId,
               'lat': _position!.latitude,   // real GPS lat

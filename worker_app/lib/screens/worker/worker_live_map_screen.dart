@@ -173,6 +173,9 @@ class _WorkerLiveMapScreenState extends State<WorkerLiveMapScreen>
     final customerName =
         widget.booking['userName']?.toString() ?? 'Customer';
     final service = widget.booking['service']?.toString() ?? 'Service';
+    final customerPhone = widget.booking['userPhone']?.toString() ?? 
+        (widget.booking['userId'] is Map ? widget.booking['userId']['phone']?.toString() : null) ?? 
+        '';
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -424,30 +427,64 @@ class _WorkerLiveMapScreenState extends State<WorkerLiveMapScreen>
                   ),
                   const SizedBox(height: 16),
 
-                  // Navigate Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _openGoogleMapsNavigation,
-                      icon: const Icon(Icons.navigation_rounded,
-                          color: Colors.white, size: 20),
-                      label: Text(
-                        'Navigate with Google Maps',
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          color: Colors.white,
+                  // Call + Navigate buttons Row
+                  Row(
+                    children: [
+                      if (customerPhone.isNotEmpty) ...[
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final uri = Uri.parse('tel:$customerPhone');
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri);
+                              }
+                            },
+                            icon: const Icon(Icons.phone,
+                                color: Colors.white, size: 18),
+                            label: Text(
+                              'Call Customer',
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 15),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _openGoogleMapsNavigation,
+                          icon: const Icon(Icons.navigation_rounded,
+                              color: Colors.white, size: 18),
+                          label: Text(
+                            'Navigate',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 15),
+                            elevation: 0,
+                          ),
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 15),
-                        elevation: 0,
-                      ),
-                    ),
+                    ],
                   ),
 
                   // Show GPS permission warning

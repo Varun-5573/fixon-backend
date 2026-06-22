@@ -38,7 +38,7 @@ class WorkerProvider extends ChangeNotifier {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/worker/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'workerId': workerId, 'password': password}),
       );
       final data = jsonDecode(res.body);
@@ -75,7 +75,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchDashboard() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/dashboard'));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/dashboard'), headers: kHeaders);
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _dashboardStats = data['stats'];
@@ -87,7 +87,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchPendingBookings() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/pending-bookings'));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/pending-bookings'), headers: kHeaders);
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _pendingBookings = data['bookings'];
@@ -99,7 +99,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchMyBookings() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/bookings'));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/bookings'), headers: kHeaders);
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _myBookings = data['bookings'];
@@ -111,7 +111,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> acceptBooking(String bookingId) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/accept-booking/$bookingId'));
+      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/accept-booking/$bookingId'), headers: kHeaders);
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         await fetchPendingBookings();
@@ -125,7 +125,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> rejectBooking(String bookingId) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/reject-booking/$bookingId'));
+      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/reject-booking/$bookingId'), headers: kHeaders);
       final data = jsonDecode(res.body);
       if (data['success'] == true) await fetchPendingBookings();
       return data['success'] == true;
@@ -135,7 +135,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> updateBookingStatus(String bookingId, String action) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/booking/$bookingId/$action'));
+      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/booking/$bookingId/$action'), headers: kHeaders);
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         await fetchMyBookings();
@@ -150,7 +150,7 @@ class WorkerProvider extends ChangeNotifier {
     try {
       final res = await http.put(
         Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/status'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'isOnline': isOnline}),
       );
       final data = jsonDecode(res.body);

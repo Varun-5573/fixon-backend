@@ -32,7 +32,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/auth/user/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'email': email, 'password': password}),
       ).timeout(const Duration(seconds: 60));
       final data = jsonDecode(res.body);
@@ -67,7 +67,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/auth/user/register'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'name': name, 'email': email, 'phone': phone, 'password': password}),
       ).timeout(const Duration(seconds: 60));
       final data = jsonDecode(res.body);
@@ -93,7 +93,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/auth/send-otp'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'phone': phone}),
       ).timeout(const Duration(seconds: 60));
       final data = jsonDecode(res.body);
@@ -113,7 +113,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/auth/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'phone': phone, 'otp': otp, 'name': name}),
       ).timeout(const Duration(seconds: 60));
       final data = jsonDecode(res.body);

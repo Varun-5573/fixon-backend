@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -69,7 +69,7 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
 
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/bookings/${widget.bookingId}/photos'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode(isBefore
             ? {'beforePhoto': base64Img}
             : {'afterPhoto': base64Img}),

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -75,7 +75,7 @@ class _WorkerVerificationScreenState extends State<WorkerVerificationScreen> {
 
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/workers/$workerId/verify-document'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({
           'documentType': _docType,
           'documentNumber': _docNumCtrl.text.trim(),

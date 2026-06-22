@@ -1,9 +1,11 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 import '../../widgets/live_map_widget.dart';
+import '../chat/worker_chat_screen.dart';
 
 class BookingTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -65,7 +67,7 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/ratings'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({
           'bookingId': widget.booking['_id'],
           'workerId': worker['_id'],
@@ -437,22 +439,168 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
-                child: Row(
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(radius: 24, backgroundColor: AppColors.primary, child: Text(worker['name'][0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(worker['name'], style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.text)),
-                        Text('⭐ ${worker['rating'] ?? '4.8'} • Professional Technician', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
-                      ]),
-                    ),
-                    if (!isCompleted)
-                      IconButton(
-                        icon: Icon(Icons.call, color: AppColors.success),
-                        onPressed: () {}, // Launch caller
+                    Text(
+                      'Your Assigned Professional',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              worker['name'][0].toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    worker['name'].toString().toUpperCase(),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.text,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  if (worker['verification'] != null &&
+                                      worker['verification']['status'] == 'approved') ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.verified,
+                                      color: Color(0xFF10B981),
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Aadhaar Verified',
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFF10B981),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.star_rounded, size: 14, color: Colors.amber),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${worker['rating'] ?? '4.8'} Rating',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: AppColors.textSub,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('•', style: TextStyle(color: AppColors.textSub)),
+                                  const SizedBox(width: 8),
+                                  Icon(Icons.work_history_outlined, size: 13, color: AppColors.textSub),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${worker['experience'] ?? '5 Years'} Experience',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: AppColors.textSub,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!isCompleted) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final phone = worker['phone']?.toString() ?? '';
+                                if (phone.isNotEmpty) {
+                                  final uri = Uri.parse('tel:$phone');
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.phone, size: 16),
+                              label: const Text('Call Professional'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.success,
+                                side: BorderSide(color: AppColors.success.withOpacity(0.5)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => WorkerChatScreen(
+                                      workerId: worker['_id'],
+                                      workerName: worker['name'],
+                                      workerCategory: worker['category'] ?? 'Technician',
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.chat_bubble_outline, size: 16, color: Colors.white),
+                              label: const Text('Chat', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

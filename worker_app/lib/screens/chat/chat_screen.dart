@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
@@ -167,7 +167,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       await http.post(
         Uri.parse('$kBaseUrl/api/chat/send'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode(msgObj),
       ).timeout(const Duration(seconds: 8));
     } catch (e) {

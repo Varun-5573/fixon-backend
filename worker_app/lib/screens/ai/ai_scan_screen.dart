@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -68,7 +68,7 @@ class _AiScanScreenState extends State<AiScanScreen>
       final res = await http
           .post(
             Uri.parse('$kBaseUrl/api/ai/detect-issue'),
-            headers: {'Content-Type': 'application/json'},
+            headers: kHeaders,
             body: jsonEncode({'image': base64Image}),
           )
           .timeout(const Duration(seconds: 30));

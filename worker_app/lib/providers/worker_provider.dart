@@ -63,9 +63,9 @@ class WorkerProvider extends ChangeNotifier {
     try {
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/worker/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'workerId': workerId, 'password': password}),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _worker = data['worker'];
@@ -105,7 +105,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchDashboard() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/dashboard')).timeout(const Duration(seconds: 4));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/dashboard'), headers: kHeaders).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _dashboardStats = data['stats'];
@@ -123,7 +123,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchPendingBookings() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/pending-bookings')).timeout(const Duration(seconds: 4));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/pending-bookings'), headers: kHeaders).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _pendingBookings = data['bookings'];
@@ -141,7 +141,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchMyBookings() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/bookings')).timeout(const Duration(seconds: 4));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/bookings'), headers: kHeaders).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _myBookings = data['bookings'];
@@ -159,7 +159,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> acceptBooking(String bookingId) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/accept-booking/$bookingId')).timeout(const Duration(seconds: 5));
+      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/accept-booking/$bookingId'), headers: kHeaders).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _connectionError = false;
@@ -178,7 +178,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> rejectBooking(String bookingId) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/reject-booking/$bookingId')).timeout(const Duration(seconds: 5));
+      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/reject-booking/$bookingId'), headers: kHeaders).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _connectionError = false;
@@ -195,7 +195,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> updateBookingStatus(String bookingId, String action) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/booking/$bookingId/$action')).timeout(const Duration(seconds: 5));
+      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/booking/$bookingId/$action'), headers: kHeaders).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _connectionError = false;
@@ -215,9 +215,9 @@ class WorkerProvider extends ChangeNotifier {
     try {
       final res = await http.put(
         Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/status'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({'isOnline': isOnline}),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _worker = data['worker'];
@@ -256,10 +256,16 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> _pushLocation() async {
     if (_worker == null) return;
     try {
-      // Check permission quickly without blocking
-      final perm = await Geolocator.checkPermission();
+      // Check permission and request if denied
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
       if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) return;
+          perm == LocationPermission.deniedForever) {
+        print("📍 Location permission denied");
+        return;
+      }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
@@ -268,16 +274,19 @@ class WorkerProvider extends ChangeNotifier {
       _currentLat = pos.latitude;
       _currentLng = pos.longitude;
 
+      print("📍 Worker location fetched: ${pos.latitude}, ${pos.longitude}");
+
       await http.post(
         Uri.parse('$kBaseUrl/api/location/worker'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({
           'workerId': _worker!['_id'],
           'lat': pos.latitude,
           'lng': pos.longitude,
         }),
-      ).timeout(const Duration(seconds: 5));
-    } catch (_) {
+      ).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      print("📍 Error pushing worker location: $e");
       // Silently fail — don't block app
     }
   }

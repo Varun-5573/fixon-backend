@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -89,7 +89,7 @@ class _WorkerChatScreenState extends State<WorkerChatScreen> {
     try {
       await http.post(
         Uri.parse('$kBaseUrl/api/chat/send-private'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({
           'senderId': _myId,
           'receiverId': widget.workerId,
@@ -127,7 +127,7 @@ class _WorkerChatScreenState extends State<WorkerChatScreen> {
     try {
       await http.post(
         Uri.parse('$kBaseUrl/api/chat/send-private'),
-        headers: {'Content-Type': 'application/json'},
+        headers: kHeaders,
         body: jsonEncode({
           'senderId': _myId,
           'receiverId': widget.workerId,

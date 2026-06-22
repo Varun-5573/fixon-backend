@@ -63,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = context.read<AuthProvider>();
     final loc = context.read<LocationProvider>();
     final userId = auth.user?['_id'] ?? 'guest';
+    final userName = auth.user?['name'] ?? 'Customer';
 
     // Load cached city first
     try {
@@ -73,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (_) {}
 
-    await loc.fetchLocation(userId);
+    await loc.fetchLocation(userId, userName: userName);
     // Auto-detect city from GPS address
     _autoSelectCity(loc.address);
   }
@@ -185,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final res = await http.get(
         Uri.parse('$kBaseUrl/api/services'),
+        headers: kHeaders,
       ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true && data['services'] != null) {

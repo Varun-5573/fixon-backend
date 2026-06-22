@@ -89,8 +89,20 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> with SingleTickerPr
               return TabBarView(
                 controller: _tabs,
                 children: _tabLabels.map((label) {
-                  final list = label == 'All' ? bp.bookings
-                      : bp.bookings.where((b) => b['status'] == label.toLowerCase()).toList();
+                  List<Map<String, dynamic>> list;
+                  if (label == 'All') {
+                    list = bp.bookings;
+                  } else if (label == 'Pending') {
+                    list = bp.bookings.where((b) => b['status'] == 'pending').toList();
+                  } else if (label == 'Ongoing') {
+                    list = bp.bookings.where((b) => ['accepted', 'on_the_way', 'ongoing'].contains(b['status'])).toList();
+                  } else if (label == 'Completed') {
+                    list = bp.bookings.where((b) => b['status'] == 'completed').toList();
+                  } else if (label == 'Cancelled') {
+                    list = bp.bookings.where((b) => b['status'] == 'cancelled').toList();
+                  } else {
+                    list = bp.bookings.where((b) => b['status'] == label.toLowerCase()).toList();
+                  }
                   if (list.isEmpty) return _empty(label);
                   return RefreshIndicator(
                     onRefresh: _refresh,

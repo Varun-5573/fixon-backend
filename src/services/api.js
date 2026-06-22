@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const BASE = 'http://localhost:5000';
+const BASE = 'https://fixon-backend.onrender.com';
 
-const api = axios.create({ baseURL: BASE, timeout: 5000 });
+const api = axios.create({ baseURL: BASE, timeout: 10000 });
 
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('fixon_token');
@@ -59,8 +59,8 @@ export const authApi = {
   login: (data) => api.post('/api/auth/admin/login', data),
 };
 
-// Local chat/tracking server (always connect to local backend now)
-const localApi = axios.create({ baseURL: 'http://localhost:5000', timeout: 5000 });
+// Cloud server (same as mobile apps — always Render cloud)
+const localApi = axios.create({ baseURL: 'https://fixon-backend.onrender.com', timeout: 10000 });
 
 export const adminApi = {
   getStats:      async () => {

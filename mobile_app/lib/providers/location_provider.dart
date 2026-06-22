@@ -75,8 +75,11 @@ class LocationProvider extends ChangeNotifier {
       _socket = IO.io(
         kBaseUrl,
         IO.OptionBuilder()
-            .setTransports(['websocket', 'polling'])
-            .disableAutoConnect()
+            .setTransports(['websocket'])
+            .enableAutoConnect()
+            .enableReconnection()
+            .setReconnectionDelay(1000)
+            .setReconnectionAttempts(99)
             .build(),
       );
       _socket!.onConnect((_) {
@@ -86,7 +89,6 @@ class LocationProvider extends ChangeNotifier {
       _socket!.onDisconnect((_) {
         debugPrint('📴 LocationProvider socket disconnected');
       });
-      _socket!.connect();
     } catch (e) {
       debugPrint('⚠️ Socket connect error: $e');
     }

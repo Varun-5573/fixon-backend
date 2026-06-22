@@ -55,15 +55,13 @@ class AppColors {
   }
 }
 
-// Live Render Backend
-const String kServerIp = 'glinda-uncataloged-preconfusedly.ngrok-free.dev';
-const String kBaseUrl = 'https://glinda-uncataloged-preconfusedly.ngrok-free.dev';
+// Permanent Cloud Backend (works even when laptop is off)
+const String kServerIp = 'fixon-backend.onrender.com';
+const String kBaseUrl = 'https://fixon-backend.onrender.com';
 
-// Default headers — always include ngrok bypass header so the free ngrok tunnel
-// doesn't show its browser-warning interstitial page (ERR_NGROK_6024)
+// Default headers
 const Map<String, String> kHeaders = {
   'Content-Type': 'application/json',
-  'ngrok-skip-browser-warning': 'true',
 };
 
 const List<Map<String, dynamic>> kServices = [

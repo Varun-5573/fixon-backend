@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
@@ -57,7 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final res = await http
           .get(Uri.parse('$kBaseUrl/api/chat/all'))
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 45));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -169,7 +169,7 @@ class _ChatScreenState extends State<ChatScreen> {
         Uri.parse('$kBaseUrl/api/chat/send'),
         headers: kHeaders,
         body: jsonEncode(msgObj),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 45));
     } catch (e) {
       debugPrint('Send error: $e');
     }

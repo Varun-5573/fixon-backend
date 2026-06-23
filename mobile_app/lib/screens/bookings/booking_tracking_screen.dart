@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -74,7 +74,7 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
           'rating': _selectedStars,
           'comment': _commentCtrl.text.trim(),
         }),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 45));
 
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
@@ -102,7 +102,7 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
     try {
       final res = await http.get(
         Uri.parse('$kBaseUrl/api/bookings/${widget.booking['_id']}/invoice'),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 45));
       
       Navigator.pop(context); // Dismiss loading dialog
 

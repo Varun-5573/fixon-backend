@@ -23,6 +23,16 @@ const AppDataSchema = new mongoose.Schema({
 }, { minimize: false });
 const AppData = mongoose.models.AppData || mongoose.model('AppData', AppDataSchema);
 
+// Schema for booking photos to prevent memory limits
+const BookingPhotoSchema = new mongoose.Schema({
+  bookingId: { type: String, required: true, unique: true },
+  beforePhoto: String,
+  afterPhoto: String,
+  beforePhotoUploadedAt: String,
+  afterPhotoUploadedAt: String,
+}, { minimize: false });
+const BookingPhoto = mongoose.models.BookingPhoto || mongoose.model('BookingPhoto', BookingPhotoSchema);
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -35,10 +45,12 @@ const io = new Server(server, {
 
 // ── Persistent file storage (local fallback) ─────────────────
 const DATA_FILE = path.join(__dirname, 'fixon_data.json');
+const PHOTOS_FILE = path.join(__dirname, 'fixon_photos.json');
 
 // ── In-memory stores (declared HERE so loadData() can write to them) ──
 const users = {};           // userId → live location tracking
 const workers = {};         // workerId → { _id, name, lat, lng } (live location)
+const bookingPhotos = {};   // bookingId → { beforePhoto, afterPhoto, etc. }
 let messages = [];
 let bookings = [];
 let registeredUsers = [];   // real sign-ups
@@ -130,8 +142,107 @@ async function loadData() {
   console.log('✅ Workers loaded:', adminWorkers.length, '| Credentialed:', adminWorkers.filter(w=>w.workerId).length);
 }
 
+async function loadPhotos() {
+  // 1. MongoDB Load
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const photos = await BookingPhoto.find({}).lean();
+      photos.forEach(p => {
+        bookingPhotos[p.bookingId] = {
+          bookingId: p.bookingId,
+          beforePhoto: p.beforePhoto || null,
+          afterPhoto: p.afterPhoto || null,
+          beforePhotoUploadedAt: p.beforePhotoUploadedAt || null,
+          afterPhotoUploadedAt: p.afterPhotoUploadedAt || null
+        };
+      });
+      console.log('✅ Photos loaded from MongoDB Atlas! Count:', Object.keys(bookingPhotos).length);
+
+      // Migrated local photos if database is empty
+      if (photos.length === 0 && fs.existsSync(PHOTOS_FILE)) {
+        console.log('📤 Migrating local photos to MongoDB...');
+        const localPhotos = JSON.parse(fs.readFileSync(PHOTOS_FILE, 'utf-8') || '{}');
+        for (const [bookingId, photoObj] of Object.entries(localPhotos)) {
+          await BookingPhoto.findOneAndUpdate(
+            { bookingId },
+            { bookingId, ...photoObj },
+            { upsert: true }
+          );
+        }
+        console.log('✅ Migration complete!');
+      }
+      return;
+    } catch (err) {
+      console.error('⚠️ MongoDB photos load failed, using file fallback:', err.message);
+    }
+  }
+
+  // 2. Local File Fallback
+  try {
+    if (fs.existsSync(PHOTOS_FILE)) {
+      const text = fs.readFileSync(PHOTOS_FILE, 'utf-8');
+      if (text && text.trim() !== '') {
+        const parsed = JSON.parse(text);
+        Object.assign(bookingPhotos, parsed);
+      }
+    }
+    console.log('✅ Photos loaded from local file! Count:', Object.keys(bookingPhotos).length);
+  } catch (error) {
+    console.error('🔥 Local Photos Load Error:', error);
+  }
+}
+
+async function savePhotos(bookingId) {
+  const photoObj = bookingPhotos[bookingId];
+  if (!photoObj) return;
+
+  // 1. Save to MongoDB Atlas (primary)
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      await BookingPhoto.findOneAndUpdate(
+        { bookingId },
+        { bookingId, ...photoObj },
+        { upsert: true, new: true }
+      );
+    } catch (err) {
+      console.error('⚠️ MongoDB photo save failed:', err.message);
+    }
+  }
+
+  // 2. Fallback: local file
+  try {
+    fs.writeFileSync(PHOTOS_FILE, JSON.stringify(bookingPhotos, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('🔥 Local Photo Save Error:', error);
+  }
+}
+
 async function saveData() {
-  const dataObj = { registeredUsers, bookings, messages, notificationsList, adminWorkers, services, coupons };
+  // Strip photos from bookings and notificationsList copies before saving to prevent memory bloat
+  const cleanBookings = bookings.map(b => {
+    const copy = { ...b };
+    delete copy.beforePhoto;
+    delete copy.afterPhoto;
+    delete copy.beforePhotoUploadedAt;
+    delete copy.afterPhotoUploadedAt;
+    return copy;
+  });
+
+  const cleanNotifs = notificationsList.map(n => {
+    if (n.booking) {
+      const copy = { ...n };
+      const bCopy = { ...copy.booking };
+      delete bCopy.beforePhoto;
+      delete bCopy.afterPhoto;
+      delete bCopy.beforePhotoUploadedAt;
+      delete bCopy.afterPhotoUploadedAt;
+      copy.booking = bCopy;
+      return copy;
+    }
+    return n;
+  });
+
+  const dataObj = { registeredUsers, bookings: cleanBookings, messages, notificationsList: cleanNotifs, adminWorkers, services, coupons };
 
   // 1. Save to MongoDB Atlas (primary)
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
@@ -149,7 +260,7 @@ async function saveData() {
 
   // 2. Fallback: local file
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, ...dataObj }, null, 2), 'utf-8');
+    fs.writeFileSync(DATA_FILE, JSON.stringify(dataObj, null, 2), 'utf-8');
   } catch (error) {
     console.error('🔥 Local Data Save Error:', error);
   }
@@ -170,6 +281,7 @@ async function startServer() {
 
   // 2. Load data AFTER connection is established
   await loadData();
+  await loadPhotos();
   console.log('🔥 Initial data loaded!');
 
   // 3. Start HTTP server
@@ -388,7 +500,7 @@ app.post('/api/location/update', (req, res) => {
        _id: userId, 
        name: name || realUser?.name || 'Customer', 
        email: email || realUser?.email || '' 
-    };
+     };
     io.emit('new_user', users[userId]);
     console.log(`👤 New customer registered: ${users[userId].name}`);
   }
@@ -407,7 +519,6 @@ app.post('/api/location/update', (req, res) => {
   });
 
   console.log(`📍 Location update: ${users[userId].name} → ${lat}, ${lng}`);
-  saveData(); // Save to fixon_data.json / MongoDB
   res.json({ success: true });
 });
 
@@ -448,7 +559,7 @@ app.get('/api/location/customers', (req, res) => {
 //  BOOKING ROUTES (for mobile app — no separate backend)
 // ══════════════════════════════════════════════════════════════
 
-// Helper to dynamically enrich workerId with worker's average rating
+// Helper to dynamically enrich workerId with worker's average rating and booking photos
 function enrichBooking(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
@@ -459,6 +570,16 @@ function enrichBooking(b) {
       rating: worker?.rating || 4.5
     };
   }
+
+  // Attach photos if present
+  const photoData = bookingPhotos[bookingCopy._id];
+  if (photoData) {
+    bookingCopy.beforePhoto = photoData.beforePhoto || null;
+    bookingCopy.afterPhoto = photoData.afterPhoto || null;
+    bookingCopy.beforePhotoUploadedAt = photoData.beforePhotoUploadedAt || null;
+    bookingCopy.afterPhotoUploadedAt = photoData.afterPhotoUploadedAt || null;
+  }
+
   return bookingCopy;
 }
 
@@ -984,6 +1105,29 @@ app.post('/api/chat/send', (req, res) => {
 // Map: socketId → userId  (so we know WHICH customer disconnected)
 const socketToUser = {};
 
+// Periodically clean up offline users/locations from memory (every 15s) to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  const OFFLINE_THRESHOLD = 60 * 1000; // 60 seconds
+  Object.keys(users).forEach(userId => {
+    const u = users[userId];
+    if (u) {
+      const lastSeenTime = u.lastSeen ? new Date(u.lastSeen).getTime() : 0;
+      const timeSinceLastSeen = now - lastSeenTime;
+      
+      // If no updates in 60s, double-check if socket is still active
+      if (timeSinceLastSeen > OFFLINE_THRESHOLD) {
+        const activeSocket = u.socketId ? io.sockets.sockets.get(u.socketId) : null;
+        if (!activeSocket) {
+          console.log(`🧹 Periodic cleanup: removing inactive customer ${u.name || userId} from memory`);
+          io.emit('user_offline', { userId });
+          delete users[userId];
+        }
+      }
+    }
+  });
+}, 15000);
+
 io.on('connection', (socket) => {
   console.log('✅ Client connected:', socket.id);
 
@@ -1019,14 +1163,14 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const userId = socketToUser[socket.id];
     if (userId && users[userId]) {
-      // Clear location so they vanish from map instantly
-      users[userId].lat = null;
-      users[userId].lng = null;
-      users[userId].lastSeen = null;
-      users[userId].socketId = null;
-      console.log(`📴 Customer offline: ${users[userId].name} (${userId})`);
-      // Broadcast to admin panel so map removes marker immediately
-      io.emit('user_offline', { userId });
+      // ONLY mark offline / delete if this socket is the active one for the user (prevents race conditions)
+      if (users[userId].socketId === socket.id) {
+        console.log(`📴 Customer offline: ${users[userId].name} (${userId})`);
+        io.emit('user_offline', { userId });
+        delete users[userId]; // Delete from users map completely to free memory
+      } else {
+        console.log(`ℹ️ Socket disconnect ignored for user ${userId} (reconnected on socket: ${users[userId].socketId})`);
+      }
     }
     delete socketToUser[socket.id];
     console.log('❌ Disconnected:', socket.id);
@@ -1348,19 +1492,27 @@ app.post('/api/bookings/:id/photos', (req, res) => {
   const b = bookings.find(x => x._id === req.params.id);
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
 
-  if (beforePhoto !== undefined) {
-    b.beforePhoto = beforePhoto;
-    b.beforePhotoUploadedAt = new Date().toISOString();
-  }
-  if (afterPhoto !== undefined) {
-    b.afterPhoto = afterPhoto;
-    b.afterPhotoUploadedAt = new Date().toISOString();
+  if (!bookingPhotos[b._id]) {
+    bookingPhotos[b._id] = { bookingId: b._id };
   }
 
-  saveData();
-  io.emit('booking_update', { bookingId: b._id, status: b.status, booking: b });
-  console.log(`📸 Photos updated for booking ${b._id}: before=${!!b.beforePhoto}, after=${!!b.afterPhoto}`);
-  res.json({ success: true, booking: b });
+  const p = bookingPhotos[b._id];
+  if (beforePhoto !== undefined) {
+    p.beforePhoto = beforePhoto;
+    p.beforePhotoUploadedAt = new Date().toISOString();
+  }
+  if (afterPhoto !== undefined) {
+    p.afterPhoto = afterPhoto;
+    p.afterPhotoUploadedAt = new Date().toISOString();
+  }
+
+  savePhotos(b._id);
+  
+  // We emit the enriched booking (with photos) so listening apps get the photos immediately
+  const enriched = enrichBooking(b);
+  io.emit('booking_update', { bookingId: b._id, status: b.status, booking: enriched });
+  console.log(`📸 Photos updated for booking ${b._id}: before=${!!p.beforePhoto}, after=${!!p.afterPhoto}`);
+  res.json({ success: true, booking: enriched });
 });
 
 // 2. Submit Worker Document Verification
@@ -1633,7 +1785,7 @@ app.get('/api/worker/:id/bookings', (req, res) => {
     const wId = b.workerId?._id || b.workerId;
     return wId === w._id;
   });
-  res.json({ success: true, bookings: myBookings });
+  res.json({ success: true, bookings: myBookings.map(enrichBooking) });
 });
 
 // W4. Get Pending Bookings (for worker's category — new bookings to accept)
@@ -1652,7 +1804,7 @@ app.get('/api/worker/:id/pending-bookings', (req, res) => {
     
     return b.status === 'pending' && !b.workerId && matches && !hasRejected;
   });
-  res.json({ success: true, bookings: pending });
+  res.json({ success: true, bookings: pending.map(enrichBooking) });
 });
 
 // W5. Accept Booking

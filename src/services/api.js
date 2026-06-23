@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const BASE = 'https://fixon-backend.onrender.com';
 
-const api = axios.create({ baseURL: BASE, timeout: 10000 });
+const api = axios.create({ baseURL: BASE, timeout: 45000 });
 
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('fixon_token');
@@ -60,7 +60,7 @@ export const authApi = {
 };
 
 // Cloud server (same as mobile apps — always Render cloud)
-const localApi = axios.create({ baseURL: 'https://fixon-backend.onrender.com', timeout: 10000 });
+const localApi = axios.create({ baseURL: 'https://fixon-backend.onrender.com', timeout: 45000 });
 
 export const adminApi = {
   getStats:      async () => {

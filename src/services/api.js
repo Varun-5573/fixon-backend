@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const BASE = 'https://fixon-backend.onrender.com';
+const isDev = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1' ||
+  window.location.protocol === 'file:' ||
+  (navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron'))
+);
+const BASE = isDev ? 'http://localhost:5000' : 'https://fixon-backend.onrender.com';
 
 const api = axios.create({ baseURL: BASE, timeout: 45000 });
 
@@ -59,8 +65,8 @@ export const authApi = {
   login: (data) => api.post('/api/auth/admin/login', data),
 };
 
-// Cloud server (same as mobile apps — always Render cloud)
-const localApi = axios.create({ baseURL: 'https://fixon-backend.onrender.com', timeout: 45000 });
+// Cloud server (same as mobile apps — dynamically local or Render cloud)
+const localApi = axios.create({ baseURL: BASE, timeout: 45000 });
 
 export const adminApi = {
   getStats:      async () => {
@@ -126,10 +132,24 @@ export const adminApi = {
   },
   sendMessage:   (d) => localApi.post('/api/chat/admin-reply', d).then(r => r.data).catch(() => safe(() => api.post('/api/chat/admin-reply', d), { success: true })),
   sendNotification: (d) => safe(() => api.post('/api/notifications/send', d), { success: true }),
-  getServices:   () => safe(() => api.get('/api/admin/services'), { success: true, services: [] }),
-  addService:    (d) => safe(() => api.post('/api/admin/services', d), { success: true }),
-  updateService: (id, d) => safe(() => api.put(`/api/admin/services/${id}`, d), { success: true }),
-  deleteService: (id) => safe(() => api.delete(`/api/admin/services/${id}`), { success: true }),
+  getServices:   () => localApi.get('/api/admin/services').then(r => r.data).catch(() => ({ success: true, services: [] })),
+  addService:    async (d) => {
+    const r = await localApi.post('/api/admin/services', d).then(x => x.data);
+    // Also push to Render cloud so customer phones see it immediately
+    try { await axios.post('https://fixon-backend.onrender.com/api/admin/reload-data', {}, { timeout: 8000 }); } catch {}
+    return r;
+  },
+  updateService: async (id, d) => {
+    const r = await localApi.put(`/api/admin/services/${id}`, d).then(x => x.data);
+    // Ping Render cloud to reload from MongoDB so customer phones see updated price
+    try { await axios.post('https://fixon-backend.onrender.com/api/admin/reload-data', {}, { timeout: 8000 }); } catch {}
+    return r;
+  },
+  deleteService: async (id) => {
+    const r = await localApi.delete(`/api/admin/services/${id}`).then(x => x.data);
+    try { await axios.post('https://fixon-backend.onrender.com/api/admin/reload-data', {}, { timeout: 8000 }); } catch {}
+    return r;
+  },
   getCoupons:    () => safe(() => api.get('/api/admin/coupons'),  { success: true, coupons: [] }),
   addCoupon:     (d) => safe(() => api.post('/api/admin/coupons', d), { success: true }),
   toggleCoupon:  (id) => safe(() => api.patch(`/api/admin/coupons/${id}/toggle`), { success: true }),
@@ -161,5 +181,13 @@ export const adminApi = {
 
   // Invoice for a booking
   getInvoice: (bookingId) => localApi.get(`/api/bookings/${bookingId}/invoice`).then(r => r.data).catch(() => ({ success: false })),
+
+  // ── Worker Admin Actions ───────────────────────────────────
+  approveWorker:   (id) => localApi.post(`/api/admin/workers/${id}/approve`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
+  rejectWorker:    (id, reason) => localApi.post(`/api/admin/workers/${id}/reject`, { reason }).then(r => r.data).catch(e => ({ success: false, error: e.message })),
+  blockWorker:     (id) => localApi.post(`/api/admin/workers/${id}/block`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
+  resetPassword:   (id) => localApi.post(`/api/admin/workers/${id}/reset-password`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
+  approveAadhaar:  (id) => localApi.post(`/api/admin/workers/${id}/approve-aadhaar`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
+  approvePan:      (id) => localApi.post(`/api/admin/workers/${id}/approve-pan`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
 };
 

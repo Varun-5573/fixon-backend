@@ -142,6 +142,20 @@ async function loadData() {
   console.log('✅ Workers loaded:', adminWorkers.length, '| Credentialed:', adminWorkers.filter(w=>w.workerId).length);
 }
 
+// Generate unique Worker ID + password from category
+function generateWorkerCredentials(category, existingCount) {
+  const categoryMap = {
+    'Plumbing': 'PLM', 'Electrical': 'ELC', 'Cleaning': 'CLN',
+    'AC Repair': 'ACR', 'Carpentry': 'CRP', 'Painting': 'PNT',
+    'Pest Control': 'PCT', 'CCTV Setup': 'CCT', 'Appliance Repair': 'APL',
+  };
+  const code = categoryMap[category] || 'WRK';
+  const num = String(1001 + existingCount).padStart(4, '0');
+  const workerId = `FIXON_${code}_${num}`;
+  const password = 'FXN' + (1000 + Math.floor(Math.random() * 9000));
+  return { workerId, password };
+}
+
 async function loadPhotos() {
   // 1. MongoDB Load
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
@@ -777,6 +791,74 @@ app.post('/api/workers', (req, res) => {
   res.json({ success: true, worker: w });
 });
 
+// Worker SELF-Registration (from worker app — no credentials yet, pending admin review)
+app.post('/api/workers/register', (req, res) => {
+  const { name, email, phone, address, city, category, experience,
+          aadhaarNumber, panNumber, aadhaarPhotoUrl, panPhotoUrl,
+          profilePhotoUrl, bankAccount, bankIFSC, bankName } = req.body;
+
+  if (!name || !phone || !category) {
+    return res.status(400).json({ success: false, error: 'Name, phone and category are required' });
+  }
+
+  // Prevent duplicate phone
+  const existing = adminWorkers.find(w => w.phone === phone);
+  if (existing) {
+    const status = existing.registrationStatus || (existing.isActive ? 'approved' : 'pending');
+    return res.json({ success: false, error: 'Phone already registered. Check your application status.', status });
+  }
+
+  const newWorker = {
+    _id: 'W' + Date.now(),
+    name: name.trim(),
+    email: (email || '').trim(),
+    phone: phone.trim(),
+    address: (address || '').trim(),
+    city: city || 'Hyderabad',
+    category,
+    skills: [category],
+    experience: experience || '',
+    aadhaar: aadhaarNumber || '',
+    pan: panNumber || '',
+    profilePhotoUrl: profilePhotoUrl || '',
+    aadhaarPhotoUrl: aadhaarPhotoUrl || '',
+    panPhotoUrl: panPhotoUrl || '',
+    bankDetails: { account: bankAccount || '', ifsc: bankIFSC || '', bankName: bankName || '' },
+    rating: 0,
+    active: false,
+    isAvailable: false,
+    isActive: false,
+    isOnline: false,
+    isBlocked: false,
+    aadhaarVerified: false,
+    panVerified: false,
+    registrationStatus: 'pending',
+    createdAt: new Date().toISOString(),
+    registeredAt: new Date().toISOString(),
+  };
+
+  adminWorkers.push(newWorker);
+  saveData();
+  io.emit('worker_registered', newWorker);
+  console.log(`🆕 Worker self-registered: ${name} (${phone}) — awaiting admin approval`);
+  res.json({ success: true, worker: newWorker, message: 'Registration submitted! Admin will review within 24 hours.' });
+});
+
+// Check worker registration status by phone number
+app.get('/api/workers/registration-status/:phone', (req, res) => {
+  const w = adminWorkers.find(x => x.phone === req.params.phone);
+  if (!w) return res.status(404).json({ success: false, error: 'No registration found for this phone number' });
+  const status = w.registrationStatus || (w.isActive ? 'approved' : 'pending');
+  res.json({
+    success: true,
+    status,
+    name: w.name,
+    workerId: status === 'approved' ? (w.workerId || null) : null,
+    workerPassword: status === 'approved' ? (w.workerPassword || null) : null,
+    rejectionReason: w.rejectionReason || null,
+  });
+});
+
 app.put('/api/workers/:id', (req, res) => {
   const idx = adminWorkers.findIndex(w => w._id === req.params.id);
   if (idx === -1) return res.status(404).json({ success: false });
@@ -996,7 +1078,19 @@ app.get('/api/bookings/:id/invoice', (req, res) => {
 
 
 
-app.get('/api/services', (req, res) => {
+// ── Customer-facing: always read fresh from MongoDB so Admin Panel price changes reflect immediately
+app.get('/api/services', async (req, res) => {
+  // If MongoDB is connected, reload services fresh from DB every request
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc && doc.services && doc.services.length > 0) {
+        services = doc.services; // update in-memory cache
+      }
+    } catch (e) {
+      console.error('⚠️ Failed to refresh services from MongoDB:', e.message);
+    }
+  }
   res.json({ success: true, services: services.filter(s => s.active !== false) });
 });
 
@@ -1004,25 +1098,36 @@ app.get('/api/admin/services', (req, res) => {
   res.json({ success: true, services });
 });
 
-app.post('/api/admin/services', (req, res) => {
+app.post('/api/admin/services', async (req, res) => {
   const s = { _id: 'SV' + Date.now(), ...req.body, active: true };
   services.push(s);
-  saveData();
+  await saveData();
   res.json({ success: true, service: s });
 });
 
-app.put('/api/admin/services/:id', (req, res) => {
+app.put('/api/admin/services/:id', async (req, res) => {
   const idx = services.findIndex(s => s._id === req.params.id);
   if (idx === -1) return res.status(404).json({ success: false });
   services[idx] = { ...services[idx], ...req.body };
-  saveData();
+  await saveData();
+  console.log(`✅ Service "${services[idx].name}" updated → price ₹${services[idx].price} saved to MongoDB`);
   res.json({ success: true, service: services[idx] });
 });
 
-app.delete('/api/admin/services/:id', (req, res) => {
+app.delete('/api/admin/services/:id', async (req, res) => {
   services = services.filter(s => s._id !== req.params.id);
-  saveData();
+  await saveData();
   res.json({ success: true });
+});
+
+// ── Admin: force reload all data from MongoDB (useful after external changes)
+app.post('/api/admin/reload-data', async (req, res) => {
+  try {
+    await loadData();
+    res.json({ success: true, message: 'Data reloaded from MongoDB Atlas', serviceCount: services.length });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -1515,54 +1620,171 @@ app.post('/api/bookings/:id/photos', (req, res) => {
   res.json({ success: true, booking: enriched });
 });
 
-// 2. Submit Worker Document Verification
+// 2. Submit Worker Document Verification — supports separate Aadhaar and PAN
 app.post('/api/workers/:id/verify-document', (req, res) => {
   const { documentType, documentNumber, documentFrontUrl, documentBackUrl } = req.body;
-  const w = adminWorkers.find(x => x._id === req.params.id);
-  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+  // Find worker by _id OR workerId (so worker app can send either)
+  const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
+  if (!w) {
+    console.log(`❌ verify-document: worker not found for id=${req.params.id}`);
+    return res.status(404).json({ success: false, error: 'Worker not found. Make sure you are logged in to the worker app.' });
+  }
 
-  w.verification = {
-    documentType,
-    documentNumber,
-    documentFrontUrl: documentFrontUrl || 'https://via.placeholder.com/300?text=Aadhaar+Front',
-    documentBackUrl: documentBackUrl || 'https://via.placeholder.com/300?text=Aadhaar+Back',
-    status: 'pending',
-    submittedAt: new Date().toISOString()
-  };
+  if (documentType === 'Aadhaar') {
+    if (documentNumber) w.aadhaar = documentNumber;
+    if (documentFrontUrl) w.aadhaarPhotoUrl = documentFrontUrl;
+    if (documentBackUrl) w.aadhaarBackUrl = documentBackUrl;
+    w.aadhaarVerification = {
+      documentType: 'Aadhaar',
+      documentNumber: documentNumber || w.aadhaar || '',
+      documentFrontUrl: documentFrontUrl || w.aadhaarPhotoUrl || '',
+      documentBackUrl: documentBackUrl || w.aadhaarBackUrl || '',
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+    };
+    // Also update legacy field
+    w.verification = w.aadhaarVerification;
+  } else if (documentType === 'PAN') {
+    if (documentNumber) w.pan = documentNumber;
+    if (documentFrontUrl) w.panPhotoUrl = documentFrontUrl;
+    if (documentBackUrl) w.panBackUrl = documentBackUrl;
+    w.panVerification = {
+      documentType: 'PAN',
+      documentNumber: documentNumber || w.pan || '',
+      documentFrontUrl: documentFrontUrl || w.panPhotoUrl || '',
+      documentBackUrl: documentBackUrl || w.panBackUrl || '',
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+    };
+  }
 
   saveData();
   io.emit('worker_updated', w);
-  console.log(`Worker document submitted for verification: ${w.name}`);
+  console.log(`📋 ${documentType} document submitted by worker: ${w.name} (${w._id})`);
   res.json({ success: true, worker: w });
 });
 
-// 3. Admin updates worker document verification status
+// 3. Admin: Update document verification status (legacy endpoint)
 app.post('/api/admin/workers/:id/verify-status', (req, res) => {
-  const { status, rejectionReason } = req.body;
+  const { status, rejectionReason, documentType } = req.body;
   const w = adminWorkers.find(x => x._id === req.params.id);
   if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
 
-  if (!w.verification) {
-    return res.status(400).json({ success: false, error: 'No verification document uploaded' });
+  if (documentType === 'Aadhaar' || (!documentType && w.aadhaarVerification)) {
+    if (w.aadhaarVerification) { w.aadhaarVerification.status = status; w.aadhaarVerification.verifiedAt = new Date().toISOString(); }
+    if (status === 'approved') { w.aadhaarVerified = true; w.aadhaarVerifiedAt = new Date().toISOString(); }
+    if (rejectionReason && w.aadhaarVerification) w.aadhaarVerification.rejectionReason = rejectionReason;
   }
-
-  w.verification.status = status;
-  w.verification.verifiedAt = new Date().toISOString();
-  if (rejectionReason) w.verification.rejectionReason = rejectionReason;
-
-  if (status === 'approved') {
-    w.active = true;
-    w.isActive = true;
-    w.isAvailable = true;
-  } else {
-    w.active = false;
-    w.isActive = false;
-    w.isAvailable = false;
+  if (documentType === 'PAN' || (!documentType && w.panVerification)) {
+    if (w.panVerification) { w.panVerification.status = status; w.panVerification.verifiedAt = new Date().toISOString(); }
+    if (status === 'approved') { w.panVerified = true; w.panVerifiedAt = new Date().toISOString(); }
+    if (rejectionReason && w.panVerification) w.panVerification.rejectionReason = rejectionReason;
   }
+  if (w.verification) { w.verification.status = status; w.verification.verifiedAt = new Date().toISOString(); }
 
   saveData();
   io.emit('worker_updated', w);
-  console.log(`Worker ${w.name} verification status updated: ${status}`);
+  res.json({ success: true, worker: w });
+});
+
+// 4. Admin: APPROVE Worker (generates credentials if needed)
+app.post('/api/admin/workers/:id/approve', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  if (!w.workerId) {
+    const sameCatCount = adminWorkers.filter(x => x.category === w.category && x.workerId).length;
+    const creds = generateWorkerCredentials(w.category, sameCatCount);
+    w.workerId = creds.workerId;
+    w.workerPassword = creds.password;
+    w.credentialsGeneratedAt = new Date().toISOString();
+  }
+
+  w.registrationStatus = 'approved';
+  w.active = true;
+  w.isActive = true;
+  w.isAvailable = true;
+  w.isBlocked = false;
+  w.approvedAt = new Date().toISOString();
+  if (w.aadhaar || w.aadhaarPhotoUrl) { w.aadhaarVerified = true; if (w.aadhaarVerification) w.aadhaarVerification.status = 'approved'; }
+  if (w.pan || w.panPhotoUrl) { w.panVerified = true; if (w.panVerification) w.panVerification.status = 'approved'; }
+  if (w.verification) { w.verification.status = 'approved'; w.verification.verifiedAt = new Date().toISOString(); }
+
+  saveData();
+  io.emit('worker_updated', w);
+  console.log(`✅ Worker APPROVED: ${w.name} → ID: ${w.workerId} / Pass: ${w.workerPassword}`);
+  res.json({ success: true, worker: w });
+});
+
+// 5. Admin: REJECT Worker
+app.post('/api/admin/workers/:id/reject', (req, res) => {
+  const { reason } = req.body;
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.registrationStatus = 'rejected';
+  w.rejectionReason = reason || 'Application rejected by admin';
+  w.active = false;
+  w.isActive = false;
+  w.rejectedAt = new Date().toISOString();
+  if (w.verification) { w.verification.status = 'rejected'; w.verification.rejectionReason = reason; }
+  if (w.aadhaarVerification) { w.aadhaarVerification.status = 'rejected'; }
+  if (w.panVerification) { w.panVerification.status = 'rejected'; }
+
+  saveData();
+  io.emit('worker_updated', w);
+  console.log(`❌ Worker REJECTED: ${w.name}`);
+  res.json({ success: true, worker: w });
+});
+
+// 6. Admin: BLOCK / UNBLOCK Worker
+app.post('/api/admin/workers/:id/block', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.isBlocked = !w.isBlocked;
+  if (w.isBlocked) {
+    w.active = false; w.isActive = false; w.isAvailable = false;
+    w.registrationStatus = 'blocked';
+  } else {
+    w.active = true; w.isActive = true;
+    w.registrationStatus = 'approved';
+  }
+  saveData();
+  io.emit('worker_updated', w);
+  console.log(`🔒 Worker ${w.isBlocked ? 'BLOCKED' : 'UNBLOCKED'}: ${w.name}`);
+  res.json({ success: true, blocked: w.isBlocked, worker: w });
+});
+
+// 7. Admin: RESET Worker Password
+app.post('/api/admin/workers/:id/reset-password', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  const newPassword = 'FXN' + Math.floor(1000 + Math.random() * 9000);
+  w.workerPassword = newPassword;
+  w.passwordResetAt = new Date().toISOString();
+  saveData();
+  console.log(`🔑 Password reset for worker ${w.name}: ${newPassword}`);
+  res.json({ success: true, newPassword, workerId: w.workerId, worker: w });
+});
+
+// 8. Admin: Approve individual document (Aadhaar or PAN)
+app.post('/api/admin/workers/:id/approve-aadhaar', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+  w.aadhaarVerified = true; w.aadhaarVerifiedAt = new Date().toISOString();
+  if (w.aadhaarVerification) w.aadhaarVerification.status = 'approved';
+  saveData(); io.emit('worker_updated', w);
+  res.json({ success: true, worker: w });
+});
+
+app.post('/api/admin/workers/:id/approve-pan', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+  w.panVerified = true; w.panVerifiedAt = new Date().toISOString();
+  if (w.panVerification) w.panVerification.status = 'approved';
+  saveData(); io.emit('worker_updated', w);
   res.json({ success: true, worker: w });
 });
 

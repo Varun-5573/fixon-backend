@@ -6,7 +6,8 @@ const isDev = typeof window !== 'undefined' && (
   window.location.protocol === 'file:' ||
   (navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron'))
 );
-const BASE = isDev ? 'http://localhost:5000' : 'https://fixon-backend.onrender.com';
+const BASE   = isDev ? 'http://localhost:5000' : 'https://fixon-backend.onrender.com';
+const CLOUD  = 'https://fixon-backend.onrender.com'; // always Render, for dual-write
 
 const api = axios.create({ baseURL: BASE, timeout: 45000 });
 
@@ -133,27 +134,32 @@ export const adminApi = {
   sendMessage:   (d) => localApi.post('/api/chat/admin-reply', d).then(r => r.data).catch(() => safe(() => api.post('/api/chat/admin-reply', d), { success: true })),
   sendNotification: (d) => safe(() => api.post('/api/notifications/send', d), { success: true }),
   getServices:   () => localApi.get('/api/admin/services').then(r => r.data).catch(() => ({ success: true, services: [] })),
-  addService:    async (d) => {
+
+  addService: async (d) => {
+    // Write to local server (saves to MongoDB)
     const r = await localApi.post('/api/admin/services', d).then(x => x.data);
-    // Also push to Render cloud so customer phones see it immediately
-    try { await axios.post('https://fixon-backend.onrender.com/api/admin/reload-data', {}, { timeout: 8000 }); } catch {}
+    // Immediately also write same data directly to Render cloud (no timing gap)
+    try { axios.post(`${CLOUD}/api/admin/services`, d, { timeout: 10000 }); } catch {}
     return r;
   },
+
   updateService: async (id, d) => {
+    // Write to local server first (saves to MongoDB)
     const r = await localApi.put(`/api/admin/services/${id}`, d).then(x => x.data);
-    // Ping Render cloud to reload from MongoDB so customer phones see updated price
-    try { await axios.post('https://fixon-backend.onrender.com/api/admin/reload-data', {}, { timeout: 8000 }); } catch {}
+    // Immediately push SAME data directly to Render — no MongoDB read delay
+    try { axios.put(`${CLOUD}/api/admin/services/${id}`, d, { timeout: 10000 }); } catch {}
     return r;
   },
+
   deleteService: async (id) => {
     const r = await localApi.delete(`/api/admin/services/${id}`).then(x => x.data);
-    try { await axios.post('https://fixon-backend.onrender.com/api/admin/reload-data', {}, { timeout: 8000 }); } catch {}
+    try { axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 10000 }); } catch {}
     return r;
   },
-  getCoupons:    () => safe(() => api.get('/api/admin/coupons'),  { success: true, coupons: [] }),
-  addCoupon:     (d) => safe(() => api.post('/api/admin/coupons', d), { success: true }),
-  toggleCoupon:  (id) => safe(() => api.patch(`/api/admin/coupons/${id}/toggle`), { success: true }),
-  deleteCoupon:  (id) => safe(() => api.delete(`/api/admin/coupons/${id}`), { success: true }),
+  getCoupons:    () => localApi.get('/api/admin/coupons').then(r => r.data).catch(() => ({ success: true, coupons: [] })),
+  addCoupon:     async (d) => { const r = await localApi.post('/api/admin/coupons', d).then(x => x.data); try { axios.post(`${CLOUD}/api/admin/coupons`, d, { timeout: 10000 }); } catch {} return r; },
+  toggleCoupon:  async (id) => { const r = await localApi.patch(`/api/admin/coupons/${id}/toggle`).then(x => x.data); try { axios.patch(`${CLOUD}/api/admin/coupons/${id}/toggle`, {}, { timeout: 10000 }); } catch {} return r; },
+  deleteCoupon:  async (id) => { const r = await localApi.delete(`/api/admin/coupons/${id}`).then(x => x.data); try { axios.delete(`${CLOUD}/api/admin/coupons/${id}`, { timeout: 10000 }); } catch {} return r; },
   getAnalytics:  () => safe(() => api.get('/api/admin/analytics'), { success: true }),
   getSettings:   () => safe(() => api.get('/api/admin/settings'), { success: true }),
   saveSettings:  (d) => safe(() => api.post('/api/admin/settings', d), { success: true }),

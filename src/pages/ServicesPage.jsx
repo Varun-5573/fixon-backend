@@ -22,12 +22,18 @@ export default function ServicesPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    (async () => {
-      try { const r = await adminApi.getServices(); if (r?.services?.length) setServices(r.services); }
-      catch {}
-    })();
-  }, []);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await adminApi.getServices();
+      if (r?.services?.length) setServices(r.services);
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
 
   const openAdd = () => { setForm(empty); setModal('add'); };
   const openEdit = (s) => { 
@@ -45,17 +51,23 @@ export default function ServicesPage() {
     setSaving(true);
     try {
       if (modal === 'add') {
-        const newSvc = { ...form, _id: Date.now().toString(), bookings: 0 };
-        setServices(p => [...p, newSvc]);
-        try { await adminApi.addService(form); } catch {}
+        const r = await adminApi.addService(form);
         toast.success('Service added! 🎉');
+        await load(); // reload with real server IDs
       } else {
-        setServices(p => p.map(s => s._id === form._id ? { ...s, ...form } : s));
-        try { await adminApi.updateService(form._id, form); } catch {}
-        toast.success('Service updated!');
+        // Use the real server _id (SV1, SV2...) — not any local placeholder
+        const result = await adminApi.updateService(form._id, form);
+        if (result?.service) {
+          setServices(p => p.map(s => s._id === form._id ? { ...s, ...result.service } : s));
+        } else {
+          setServices(p => p.map(s => s._id === form._id ? { ...s, ...form } : s));
+        }
+        toast.success('Service updated! ✅ Price synced to all apps');
       }
       setModal(null);
-    } catch {}
+    } catch (e) {
+      toast.error('Failed to save: ' + (e?.message || 'Unknown error'));
+    }
     setSaving(false);
   };
 

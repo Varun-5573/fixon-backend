@@ -22,24 +22,31 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
   useEffect(() => { load(); }, []);
   useEffect(() => {
     if (socket) {
-      socket.on('new_booking', (b) => {
-        // ✅ Instantly add to list without waiting for reload
+      const handleNewBooking = (b) => {
         setBookings(prev => {
           const exists = prev.find(x => x._id === b._id);
           if (exists) return prev;
           return [b, ...prev];
         });
         toast.success(`📦 New booking: ${b.service} by ${b.userId?.name || b.userName || 'Customer'}`, { duration: 5000 });
-      });
-      socket.on('booking_update', (data) => {
+      };
+
+      const handleBookingUpdate = (data) => {
         if (data?.bookingId && data?.booking) {
           setBookings(prev => prev.map(b => b._id === data.bookingId ? data.booking : b));
         } else {
           load();
         }
-      });
+      };
+
+      socket.on('new_booking', handleNewBooking);
+      socket.on('booking_update', handleBookingUpdate);
+
+      return () => {
+        socket.off('new_booking', handleNewBooking);
+        socket.off('booking_update', handleBookingUpdate);
+      };
     }
-    return () => { socket?.off('new_booking'); socket?.off('booking_update'); };
   }, [socket]);
 
   const load = async () => {

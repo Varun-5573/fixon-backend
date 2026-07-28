@@ -107,43 +107,48 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
 
   useEffect(() => {
     loadData();
-    const poll = setInterval(loadData, 8000);
+    const poll = setInterval(loadData, 5000); // 5s fast poll fallback
 
     if (socket) {
-      socket.on('admin_join', () => {});
-      socket.emit('admin_join');
-
-      socket.on('user_location', data => {
+      const handleUserLocation = (data) => {
         setCustomers(prev => {
-          const exists = prev.find(c => c.userId === data.userId);
-          if (exists) return prev.map(c => c.userId === data.userId
-            ? { ...c, ...data, isLive: true, phone: c.phone || data.phone, service: c.service || data.service }
-            : c
-          );
+          const key = data.userId || data._id;
+          const exists = prev.find(c => (c.userId || c._id) === key);
+          if (exists) {
+            return prev.map(c => (c.userId || c._id) === key
+              ? { ...c, ...data, isLive: true, phone: c.phone || data.phone, service: c.service || data.service }
+              : c
+            );
+          }
           return [...prev, { ...data, isLive: true }];
         });
-      });
+      };
 
-      // ✅ Immediately remove customer marker when they go offline
-      socket.on('user_offline', data => {
-        setCustomers(prev => prev.filter(c => c.userId !== data.userId));
-      });
+      const handleUserOffline = (data) => {
+        setCustomers(prev => prev.filter(c => (c.userId || c._id) !== data.userId));
+      };
 
-      socket.on('worker_location', data => {
+      const handleWorkerLocation = (data) => {
         setWorkers(prev => prev.map(w =>
           String(w._id) === String(data.workerId)
             ? { ...w, currentLocation: { lat: data.lat, lng: data.lng } }
             : w
         ));
-      });
+      };
+
+      socket.on('user_location', handleUserLocation);
+      socket.on('user_offline', handleUserOffline);
+      socket.on('worker_location', handleWorkerLocation);
+
+      return () => {
+        clearInterval(poll);
+        socket.off('user_location', handleUserLocation);
+        socket.off('user_offline', handleUserOffline);
+        socket.off('worker_location', handleWorkerLocation);
+      };
     }
 
-    return () => {
-      clearInterval(poll);
-      socket?.off('user_location');
-      socket?.off('user_offline');
-      socket?.off('worker_location');
-    };
+    return () => clearInterval(poll);
   }, [socket, loadData]);
 
   // When a booking is focused (from confirm), fly to customer

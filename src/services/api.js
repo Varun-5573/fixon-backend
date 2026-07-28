@@ -99,25 +99,27 @@ export const adminApi = {
     let localBookings = [];
     let cloudBookings = [];
 
-    // 1. Try local server (bookings created while admin is running locally)
+    // 1. Try local server (if active)
     try {
       const localRes = await localApi.get('/api/bookings');
       localBookings = localRes.data?.bookings || [];
     } catch {}
 
-    // 2. Always also try Render cloud (where mobile app creates bookings)
+    // 2. Try Render cloud (where mobile app creates bookings)
     try {
-      const cloudRes = await axios.get(`${CLOUD}/api/bookings`, { timeout: 12000 });
+      const cloudRes = await axios.get(`${CLOUD}/api/bookings`, { timeout: 30000 });
       cloudBookings = cloudRes.data?.bookings || [];
     } catch {}
 
-    // 3. Merge: cloud bookings + local-only bookings (dedup by _id)
-    const cloudIds = new Set(cloudBookings.map(b => b._id));
-    const localOnly = localBookings.filter(b => !cloudIds.has(b._id));
-    const merged = [...cloudBookings, ...localOnly];
+    // 3. Merge by _id (cloud takes priority for latest status)
+    const map = new Map();
+    [...localBookings, ...cloudBookings].forEach(b => {
+      if (b && b._id) map.set(b._id, b);
+    });
 
+    const merged = Array.from(map.values());
     if (merged.length > 0) {
-      merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      merged.sort((a, b) => new Date(b.createdAt || b.scheduledTime || Date.now()) - new Date(a.createdAt || a.scheduledTime || Date.now()));
       return { success: true, bookings: merged };
     }
 
@@ -190,14 +192,26 @@ export const adminApi = {
   // Customer count fallback compatibility
   getCustomerStats: () => localApi.get('/api/admin/users/count').then(r => r.data).catch(() => ({ success: true, totalUsers: 0, activeUsers: 0 })),
 
-  // Live customer locations — try Render cloud first (where mobile app sends GPS)
+  // Live customer locations — merge from Render cloud AND local server
   getLiveLocations: async () => {
+    let cloudCusts = [];
+    let localCusts = [];
     try {
-      const r = await axios.get(`${CLOUD}/api/location/customers`, { timeout: 8000 });
-      if (r.data?.success && r.data.customers) return r.data;
+      const r = await axios.get(`${CLOUD}/api/location/customers`, { timeout: 15000 });
+      if (r.data?.success && r.data.customers) cloudCusts = r.data.customers;
     } catch {}
-    // Fallback to local server
-    return localApi.get('/api/location/customers').then(r => r.data).catch(() => ({ success: true, customers: [] }));
+    try {
+      const r = await localApi.get('/api/location/customers');
+      if (r.data?.success && r.data.customers) localCusts = r.data.customers;
+    } catch {}
+
+    const map = new Map();
+    [...localCusts, ...cloudCusts].forEach(c => {
+      const key = c.userId || c._id;
+      if (key) map.set(key, c);
+    });
+
+    return { success: true, customers: Array.from(map.values()) };
   },
 
   // Payout data — all workers

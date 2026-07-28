@@ -46,12 +46,12 @@ function AppInner() {
     if (admin) {
       const s = connectSocket();
       setSocket(s);
-      s.emit('admin_join');
 
-      s.on('new_booking', (data) => {
+      const handleNewBooking = (data) => {
         const toast = require('react-hot-toast').default;
         setNotifCount(n => n + 1);
-        const notif = { icon: '📦', msg: `New Booking: ${data?.service || 'Service'} by ${data?.name || 'Customer'}`, time: new Date(), color: '#7C3AED' };
+        const custName = data?.name || data?.userName || data?.userId?.name || 'Customer';
+        const notif = { icon: '📦', msg: `New Booking: ${data?.service || 'Service'} by ${custName}`, time: new Date(), color: '#7C3AED' };
         setRecentNotifs(p => [notif, ...p.slice(0, 9)]);
 
         toast.custom((t) => (
@@ -67,29 +67,35 @@ function AppInner() {
             <div style={{ fontSize: 30, animation: 'pulse 1.5s infinite' }}>🚨</div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 14, color: '#9D5AF7' }}>New Booking Alert!</div>
-              <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>{data?.name || 'Customer'} → {data?.service || 'Service'}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>{custName} → {data?.service || 'Service'}</div>
               <div style={{ fontSize: 11, color: 'var(--primary-light)', marginTop: 4 }}>Tap to view on Live Map 🗺️</div>
             </div>
           </div>
         ), { duration: 8000 });
-      });
+      };
 
-      s.on('payment_success', (data) => {
+      const handlePaymentSuccess = (data) => {
         setNotifCount(n => n + 1);
         setRecentNotifs(p => [{ icon: '💰', msg: `Payment ₹${data?.amount || ''} received`, time: new Date(), color: '#10B981' }, ...p.slice(0, 9)]);
-      });
+      };
 
-      s.on('booking_update', (data) => {
+      const handleBookingUpdate = (data) => {
         setRecentNotifs(p => [{ icon: '🔄', msg: `Booking #${String(data?.bookingId || '').slice(-5)} → ${data?.status}`, time: new Date(), color: '#F59E0B' }, ...p.slice(0, 9)]);
-      });
+      };
 
+      s.on('new_booking', handleNewBooking);
+      s.on('payment_success', handlePaymentSuccess);
+      s.on('booking_update', handleBookingUpdate);
+
+      return () => {
+        s.off('new_booking', handleNewBooking);
+        s.off('payment_success', handlePaymentSuccess);
+        s.off('booking_update', handleBookingUpdate);
+      };
     } else {
       disconnectSocket();
       setSocket(null);
     }
-    return () => {
-      if (!admin) disconnectSocket();
-    };
   }, [admin]);
 
   const handleNavigateToMap = (booking) => {

@@ -315,6 +315,66 @@ startServer().catch(err => {
   server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server started (Emergency Mode) on port ${PORT}`));
 });
 
+// ── Socket.IO Connection Handler ──────────────────────────────
+// Maps socket.id → userId so we can detect when a customer goes offline
+const socketUserMap = {};
+
+io.on('connection', (socket) => {
+  // Customer mobile app joins
+  socket.on('customer_join', (data) => {
+    const userId = data?.userId;
+    const userName = data?.name || 'Customer';
+    if (userId) {
+      socket.userId = userId;
+      socketUserMap[socket.id] = userId;
+      // Update lastSeen so they appear online
+      if (!users[userId]) {
+        const realUser = registeredUsers.find(u => u._id === userId);
+        users[userId] = { _id: userId, name: userName, email: realUser?.email || '' };
+      }
+      users[userId].lastSeen = new Date().toISOString();
+      console.log(`👤 Customer joined socket: ${userName} (${userId})`);
+    }
+  });
+
+  // Admin panel joins (for future use)
+  socket.on('admin_join', () => {
+    socket.isAdmin = true;
+  });
+
+  // ✅ When customer disconnects → immediately remove from live map
+  socket.on('disconnect', () => {
+    const userId = socket.userId || socketUserMap[socket.id];
+    if (userId) {
+      delete socketUserMap[socket.id];
+      delete socket.userId;
+      // Only remove if no other socket for this user is connected
+      const stillConnected = Object.values(socketUserMap).includes(userId);
+      if (!stillConnected) {
+        delete users[userId];
+        io.emit('user_offline', { userId });
+        console.log(`📴 Customer offline: ${userId}`);
+      }
+    }
+  });
+});
+
+// ── Periodic MongoDB Reload every 60s (so admin panel gets Render cloud bookings) ──
+setInterval(async () => {
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc) {
+        if (doc.bookings && doc.bookings.length >= bookings.length) bookings = doc.bookings;
+        if (doc.registeredUsers && doc.registeredUsers.length >= registeredUsers.length) registeredUsers = doc.registeredUsers;
+        if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = applyDefaultCreds(doc.adminWorkers);
+      }
+    } catch (e) {
+      // Silent fail — in-memory data stays valid
+    }
+  }
+}, 60000);
+
 // ── Smart Bot auto-responder ───────────────────────────────
 const BOT_RULES = [
   { keywords: ['booking', 'book', 'schedule', 'cancel'],
@@ -562,10 +622,25 @@ app.post('/api/location/worker', (req, res) => {
 app.get('/api/location/customers', (req, res) => {
   const ONLINE_THRESHOLD_MS = 60 * 1000; // 60 seconds
   const now = Date.now();
-  const liveCustomers = Object.values(users).filter(u => {
-    if (!u.lat || !u.lastSeen) return false;
-    return (now - new Date(u.lastSeen).getTime()) < ONLINE_THRESHOLD_MS;
-  });
+  const liveCustomers = Object.values(users)
+    .filter(u => {
+      if (!u.lat || !u.lastSeen) return false;
+      return (now - new Date(u.lastSeen).getTime()) < ONLINE_THRESHOLD_MS;
+    })
+    .map(u => {
+      // Enrich with phone + active booking service from registered users / bookings
+      const regUser = registeredUsers.find(r => r._id === u._id);
+      const activeBooking = bookings
+        .filter(b => b.userId?._id === u._id && ['pending','accepted','on_the_way','ongoing'].includes(b.status))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      return {
+        ...u,
+        phone: regUser?.phone || u.phone || '',
+        service: activeBooking?.service || null,
+        bookingStatus: activeBooking?.status || null,
+        lastUpdated: u.lastSeen,
+      };
+    });
   res.json({ success: true, customers: liveCustomers });
 });
 
@@ -718,8 +793,22 @@ app.put('/api/bookings/:id/status', (req, res) => {
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
-// Admin: get all bookings (local + merged with external)
-app.get('/api/bookings', (req, res) => {
+// Admin: get all bookings — always fetch latest from MongoDB if connected
+app.get('/api/bookings', async (req, res) => {
+  // If MongoDB is connected, reload from DB to get bookings created via Render cloud
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc && doc.bookings) {
+        // Merge: keep in-memory bookings that are newer/missing from DB
+        const dbIds = new Set(doc.bookings.map(b => b._id));
+        const onlyInMemory = bookings.filter(b => !dbIds.has(b._id));
+        bookings = [...doc.bookings, ...onlyInMemory];
+      }
+    } catch (err) {
+      // Fall through to in-memory
+    }
+  }
   res.json({ success: true, bookings: bookings.map(enrichBooking).reverse() });
 });
 

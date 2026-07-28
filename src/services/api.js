@@ -94,18 +94,35 @@ export const adminApi = {
   deleteWorker:  (id) => safe(() => api.delete(`/api/workers/${id}`), { success: true }),
   toggleWorker:  (id) => safe(() => api.patch(`/api/workers/${id}/toggle`), { success: true }),
 
-  // Bookings — local server is source of truth; demo only if both fail AND local is empty
+  // Bookings — merge local server + Render cloud so admin sees ALL bookings
   getBookings: async () => {
+    let localBookings = [];
+    let cloudBookings = [];
+
+    // 1. Try local server (bookings created while admin is running locally)
     try {
-      // Always try local server first (real bookings from mobile)
       const localRes = await localApi.get('/api/bookings');
-      const localBookings = localRes.data?.bookings || localRes.data || [];
-      if (localBookings.length > 0) {
-        return { success: true, bookings: localBookings };
-      }
+      localBookings = localRes.data?.bookings || [];
     } catch {}
-    // Local server returned nothing — try external API, then demo
-    return safe(() => api.get('/api/bookings/all'), { success: true, bookings: DEMO_BOOKINGS });
+
+    // 2. Always also try Render cloud (where mobile app creates bookings)
+    try {
+      const cloudRes = await axios.get(`${CLOUD}/api/bookings`, { timeout: 12000 });
+      cloudBookings = cloudRes.data?.bookings || [];
+    } catch {}
+
+    // 3. Merge: cloud bookings + local-only bookings (dedup by _id)
+    const cloudIds = new Set(cloudBookings.map(b => b._id));
+    const localOnly = localBookings.filter(b => !cloudIds.has(b._id));
+    const merged = [...cloudBookings, ...localOnly];
+
+    if (merged.length > 0) {
+      merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      return { success: true, bookings: merged };
+    }
+
+    // 4. Absolute fallback: demo data
+    return { success: true, bookings: DEMO_BOOKINGS };
   },
 
   updateBooking: (id, d) => {
@@ -173,8 +190,15 @@ export const adminApi = {
   // Customer count fallback compatibility
   getCustomerStats: () => localApi.get('/api/admin/users/count').then(r => r.data).catch(() => ({ success: true, totalUsers: 0, activeUsers: 0 })),
 
-  // Live customer locations from local server
-  getLiveLocations: () => localApi.get('/api/location/customers').then(r => r.data).catch(() => ({ success: true, customers: [] })),
+  // Live customer locations — try Render cloud first (where mobile app sends GPS)
+  getLiveLocations: async () => {
+    try {
+      const r = await axios.get(`${CLOUD}/api/location/customers`, { timeout: 8000 });
+      if (r.data?.success && r.data.customers) return r.data;
+    } catch {}
+    // Fallback to local server
+    return localApi.get('/api/location/customers').then(r => r.data).catch(() => ({ success: true, customers: [] }));
+  },
 
   // Payout data — all workers
   getPayouts: () => localApi.get('/api/admin/payouts').then(r => r.data).catch(() => ({ success: true, payouts: [] })),

@@ -23,10 +23,21 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
   useEffect(() => {
     if (socket) {
       socket.on('new_booking', (b) => {
-        toast.success(`📦 New booking: ${b.service}`, { duration: 5000 });
-        load();
+        // ✅ Instantly add to list without waiting for reload
+        setBookings(prev => {
+          const exists = prev.find(x => x._id === b._id);
+          if (exists) return prev;
+          return [b, ...prev];
+        });
+        toast.success(`📦 New booking: ${b.service} by ${b.userId?.name || b.userName || 'Customer'}`, { duration: 5000 });
       });
-      socket.on('booking_update', () => load());
+      socket.on('booking_update', (data) => {
+        if (data?.bookingId && data?.booking) {
+          setBookings(prev => prev.map(b => b._id === data.bookingId ? data.booking : b));
+        } else {
+          load();
+        }
+      });
     }
     return () => { socket?.off('new_booking'); socket?.off('booking_update'); };
   }, [socket]);
@@ -246,10 +257,13 @@ export default function BookingsPage({ socket, onNavigateToMap }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
                 ['Service', selected.service],
-                ['Customer', selected.userId?.name || 'N/A'],
+                ['Customer', selected.userId?.name || selected.userName || 'N/A'],
+                ['Phone', selected.userPhone || selected.userId?.phone || 'N/A'],
                 ['Worker', selected.workerId?.name || 'Not assigned'],
                 ['Price', `₹${selected.price || 0}`],
                 ['Status', selected.status],
+                ['Payment', selected.paymentStatus || 'Pending'],
+                ['Pay Method', selected.paymentMethod || 'N/A'],
                 ['Date', new Date(selected.scheduledTime || selected.createdAt || Date.now()).toLocaleString()],
                 ['Address', selected.location?.address || 'Not provided'],
                 ['Category', selected.category || 'N/A'],

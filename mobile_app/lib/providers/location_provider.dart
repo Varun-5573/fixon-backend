@@ -149,11 +149,11 @@ class LocationProvider extends ChangeNotifier {
       }
 
       // 4. Push to backend immediately
-      await _pushToBackend(userId);
+      await _pushToBackend(userId, userName: userName);
       _saveToPrefs();
 
       // 5. Start periodic updates every 25s (within server's 60s online threshold)
-      _startPeriodicPush(userId);
+      _startPeriodicPush(userId, userName: userName);
     } catch (e) {
       _error = 'Could not get location.';
       if (_address == 'Detecting location...') {
@@ -167,7 +167,7 @@ class LocationProvider extends ChangeNotifier {
   }
 
   /// Push REAL GPS coordinates to backend
-  Future<void> _pushToBackend(String userId) async {
+  Future<void> _pushToBackend(String userId, {String userName = 'Customer'}) async {
     if (_position == null) return;
     try {
       await http
@@ -179,6 +179,7 @@ class LocationProvider extends ChangeNotifier {
               'lat': _position!.latitude,
               'lng': _position!.longitude,
               'address': _address,
+              'name': userName,   // ✅ FIX: include name so admin map shows correct customer name
             }),
           )
           .timeout(const Duration(seconds: 6));
@@ -189,7 +190,7 @@ class LocationProvider extends ChangeNotifier {
   }
 
   /// Start sending location every 25s (keeps lastSeen fresh within the 60s server threshold)
-  void _startPeriodicPush(String userId) {
+  void _startPeriodicPush(String userId, {String userName = 'Customer'}) {
     _periodicTimer?.cancel();
     _periodicTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
       try {
@@ -198,10 +199,10 @@ class LocationProvider extends ChangeNotifier {
           timeLimit: const Duration(seconds: 10),
         );
         _position = newPos;
-        await _pushToBackend(userId);
+        await _pushToBackend(userId, userName: userName);
         notifyListeners();
       } catch (_) {
-        await _pushToBackend(userId);
+        await _pushToBackend(userId, userName: userName);
       }
     });
   }

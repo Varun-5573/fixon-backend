@@ -116,7 +116,10 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
       socket.on('user_location', data => {
         setCustomers(prev => {
           const exists = prev.find(c => c.userId === data.userId);
-          if (exists) return prev.map(c => c.userId === data.userId ? { ...c, ...data, isLive: true } : c);
+          if (exists) return prev.map(c => c.userId === data.userId
+            ? { ...c, ...data, isLive: true, phone: c.phone || data.phone, service: c.service || data.service }
+            : c
+          );
           return [...prev, { ...data, isLive: true }];
         });
       });
@@ -261,14 +264,22 @@ export default function LiveMapPage({ socket, focusedBooking, onClearFocus }) {
 
           {/* Customer Markers */}
           {visibleCustomers.map((c, i) => (
-            <Marker key={i} position={[c.lat, c.lng]} icon={focusedBooking?.userId?.name === c.name ? focusedIcon : customerIcon}
+            <Marker key={c.userId || i} position={[c.lat, c.lng]} icon={focusedBooking?.userId?.name === c.name ? focusedIcon : customerIcon}
               eventHandlers={{ click: () => setSelectedCustomer(c) }}>
               <Popup>
-                <div style={{ minWidth: 180 }}>
+                <div style={{ minWidth: 210, fontFamily: 'sans-serif' }}>
                   <b style={{ fontSize: 14 }}>👤 {c.name || 'Customer'}</b>
-                  {c.address && <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>📍 {c.address}</div>}
-                  {c.service && <div style={{ fontSize: 12, color: '#666' }}>🔧 {c.service}</div>}
-                  <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{c.lat?.toFixed(5)}, {c.lng?.toFixed(5)}</div>
+                  {c.phone && <div style={{ fontSize: 12, color: '#444', marginTop: 4 }}>📱 {c.phone}</div>}
+                  {c.address && <div style={{ fontSize: 12, color: '#666', marginTop: 3 }}>📍 {c.address}</div>}
+                  {c.service && (
+                    <div style={{ fontSize: 12, marginTop: 3, padding: '3px 7px', background: '#7C3AED20', borderRadius: 6, display: 'inline-block' }}>
+                      🔧 {c.service}{c.bookingStatus ? ` — ${c.bookingStatus}` : ''}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 5 }}>
+                    🕒 {c.lastUpdated ? new Date(c.lastUpdated).toLocaleTimeString() : c.lastSeen ? new Date(c.lastSeen).toLocaleTimeString() : 'Live'}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#bbb', marginTop: 2 }}>{c.lat?.toFixed(5)}, {c.lng?.toFixed(5)}</div>
                 </div>
               </Popup>
               <Circle center={[c.lat, c.lng]} radius={250} pathOptions={{ color: '#7C3AED', fillColor: '#7C3AED', fillOpacity: 0.06, weight: 1.5 }} />

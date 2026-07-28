@@ -21,6 +21,10 @@ export default function WorkersPage() {
   const [payoutTab, setPayoutTab] = useState('payouts');
   const [loadingPayouts, setLoadingPayouts] = useState(false);
   const [credModal, setCredModal] = useState(null);
+  const [viewModal, setViewModal] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [resetResult, setResetResult] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -91,6 +95,57 @@ export default function WorkersPage() {
     setForm(f => ({ ...f, skills: f.skills?.includes(s) ? f.skills.filter(x => x !== s) : [...(f.skills || []), s] }));
   };
 
+  const approveWorker = async (w) => {
+    setActionLoading(w._id + '_approve');
+    try {
+      const r = await adminApi.approveWorker(w._id);
+      if (r.success) { toast.success(`✅ ${w.name} approved! ID: ${r.worker.workerId}`); load(); setViewModal(r.worker); }
+      else toast.error(r.error || 'Failed');
+    } catch { toast.error('Failed'); }
+    setActionLoading(null);
+  };
+
+  const rejectWorker = async (w) => {
+    setActionLoading(w._id + '_reject');
+    try {
+      const r = await adminApi.rejectWorker(w._id, rejectReason || 'Application rejected');
+      if (r.success) { toast.success(`❌ ${w.name} rejected`); load(); setViewModal(r.worker); }
+      else toast.error(r.error || 'Failed');
+    } catch { toast.error('Failed'); }
+    setActionLoading(null);
+    setRejectReason('');
+  };
+
+  const blockWorker = async (w) => {
+    setActionLoading(w._id + '_block');
+    try {
+      const r = await adminApi.blockWorker(w._id);
+      if (r.success) { toast.success(r.blocked ? `🔒 ${w.name} blocked` : `🔓 ${w.name} unblocked`); load(); setViewModal(r.worker); }
+      else toast.error(r.error || 'Failed');
+    } catch { toast.error('Failed'); }
+    setActionLoading(null);
+  };
+
+  const resetPwd = async (w) => {
+    setActionLoading(w._id + '_reset');
+    try {
+      const r = await adminApi.resetPassword(w._id);
+      if (r.success) { setResetResult({ id: w._id, newPassword: r.newPassword, workerId: r.workerId }); toast.success('🔑 New password generated!'); load(); }
+      else toast.error(r.error || 'Failed');
+    } catch { toast.error('Failed'); }
+    setActionLoading(null);
+  };
+
+  const approveDoc = async (w, type) => {
+    setActionLoading(w._id + '_doc_' + type);
+    try {
+      const r = type === 'aadhaar' ? await adminApi.approveAadhaar(w._id) : await adminApi.approvePan(w._id);
+      if (r.success) { toast.success(`✅ ${type === 'aadhaar' ? 'Aadhaar' : 'PAN'} approved!`); load(); setViewModal(r.worker); }
+      else toast.error(r.error || 'Failed');
+    } catch { toast.error('Failed'); }
+    setActionLoading(null);
+  };
+
   const filtered = workers.filter(w => {
     const matchSearch =
       w.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -115,12 +170,13 @@ export default function WorkersPage() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Total Workers', value: workers.length, icon: '👷', color: '#7C3AED' },
+          { label: 'Pending Review', value: workers.filter(w => (w.registrationStatus === 'pending') || (!w.isActive && !w.registrationStatus)).length, icon: '⏳', color: '#F59E0B' },
           { label: 'Available', value: workers.filter(w => w.isAvailable).length, icon: '🟢', color: '#10B981' },
-          { label: 'Busy', value: workers.filter(w => !w.isAvailable && w.isActive).length, icon: '🟡', color: '#F59E0B' },
-          { label: 'Inactive', value: workers.filter(w => !w.isActive).length, icon: '🔴', color: '#EF4444' },
+          { label: 'Blocked', value: workers.filter(w => w.isBlocked).length, icon: '🔒', color: '#EF4444' },
+          { label: 'Verified Docs', value: workers.filter(w => w.aadhaarVerified || w.panVerified).length, icon: '✅', color: '#06B6D4' },
         ].map((s, i) => (
           <div key={i} className="stat-card fade-in" style={{ animationDelay: `${i * 80}ms`, '--glow': `linear-gradient(90deg, ${s.color}, ${s.color}aa)` }}>
             <div className="stat-icon" style={{ background: `${s.color}18`, color: s.color }}>{s.icon}</div>
@@ -149,8 +205,8 @@ export default function WorkersPage() {
             </div>
           </div>
         </div>
-        <table>
-          <thead><tr><th>#</th><th>Worker</th><th>Phone</th><th>City</th><th>Service</th><th>Rating</th><th>Availability</th><th>Status</th><th>Actions</th></tr></thead>
+          <table>
+          <thead><tr><th>#</th><th>Worker</th><th>Phone</th><th>City</th><th>Service</th><th>Rating</th><th>Verification</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {loading ? Array(3).fill(0).map((_, i) => <tr key={i}><td colSpan={9}><div className="skeleton" style={{ height: 40 }} /></td></tr>) :
               filtered.map((w, i) => (
@@ -169,23 +225,26 @@ export default function WorkersPage() {
                   <td style={{ fontWeight: 600, color: '#06B6D4' }}>{w.city || 'Hyderabad'}</td>
                   <td><span className="badge badge-accepted">{w.category || w.skills?.[0] || '—'}</span></td>
                   <td>
-                    <span style={{ color: '#F59E0B', fontWeight: 700 }}>⭐ {(w.rating || 4.2)}</span>
+                    <span style={{ color: '#F59E0B', fontWeight: 700 }}>⭐ {(w.rating || 0)}</span>
                   </td>
                   <td>
-                    <span className={`status-dot ${w.isAvailable ? 'online' : 'busy'}`} style={{ marginRight: 6 }} />
-                    {w.isAvailable ? 'Available' : 'Busy'}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {w.aadhaarVerified ? <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>🪪 Aadhaar ✅</span> : (w.aadhaar || w.aadhaarPhotoUrl) ? <span style={{ fontSize: 11, color: '#F59E0B' }}>🪪 Aadhaar ⏳</span> : <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>🪪 —</span>}
+                      {w.panVerified ? <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>💳 PAN ✅</span> : (w.pan || w.panPhotoUrl) ? <span style={{ fontSize: 11, color: '#F59E0B' }}>💳 PAN ⏳</span> : <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>💳 —</span>}
+                    </div>
                   </td>
-                  <td><span className={`badge badge-${w.isActive ? 'active' : 'inactive'}`}>{w.isActive ? 'Active' : 'Inactive'}</span></td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-xs btn-secondary" onClick={() => openEdit(w)}>✏️ Edit</button>
-                      <button className="btn btn-xs btn-primary" onClick={() => viewPayouts(w)}>💰 Payout</button>
-                       {w.workerId && (
-                         <button className="btn btn-xs" style={{ background: '#7C3AED', color: 'white' }} onClick={() => setCredModal(w)}>🔑 Creds</button>
-                       )}
-                      <button className={`btn btn-xs ${w.isActive ? 'btn-warning' : 'btn-success'}`} onClick={() => toggle(w._id)}>
-                        {w.isActive ? '⏸ Deactivate' : '▶ Activate'}
-                      </button>
+                    {w.isBlocked ? <span className="badge badge-inactive">🔒 Blocked</span>
+                      : w.registrationStatus === 'pending' ? <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.15)', color: '#F59E0B', fontWeight: 700 }}>⏳ Pending</span>
+                      : w.registrationStatus === 'rejected' ? <span className="badge badge-inactive">❌ Rejected</span>
+                      : <span className={`badge badge-${w.isActive ? 'active' : 'inactive'}`}>{w.isActive ? 'Active' : 'Inactive'}</span>}
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      <button className="btn btn-xs btn-secondary" onClick={() => setViewModal(w)}>👁 View</button>
+                      {!w.isActive && !w.isBlocked && w.registrationStatus !== 'rejected' && <button className="btn btn-xs btn-success" disabled={actionLoading === w._id+'_approve'} onClick={() => approveWorker(w)}>✅ Approve</button>}
+                      {w.workerId && <button className="btn btn-xs" style={{ background: '#7C3AED', color: 'white' }} onClick={() => setCredModal(w)}>🔑 Creds</button>}
+                      <button className={`btn btn-xs ${w.isBlocked ? 'btn-success' : 'btn-warning'}`} disabled={actionLoading === w._id+'_block'} onClick={() => blockWorker(w)}>{w.isBlocked ? '🔓 Unblock' : '🔒 Block'}</button>
                       <button className="btn btn-xs btn-danger" onClick={() => doDelete(w._id)}>🗑</button>
                     </div>
                   </td>
@@ -195,6 +254,103 @@ export default function WorkersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Worker Details Modal */}
+      {viewModal && (
+        <div className="modal-overlay" onClick={() => { setViewModal(null); setResetResult(null); setRejectReason(''); }}>
+          <div className="modal" style={{ maxWidth: 700, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>👁 Worker Details — {viewModal.name}</h3>
+                <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>{viewModal.workerId || 'No ID yet'} · Registered: {viewModal.registeredAt ? new Date(viewModal.registeredAt).toLocaleDateString('en-IN') : '—'}</div>
+              </div>
+              <button className="modal-close" onClick={() => { setViewModal(null); setResetResult(null); }}>✕</button>
+            </div>
+
+            {/* Info Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+              {[['👤 Full Name', viewModal.name], ['📧 Email', viewModal.email || '—'], ['📱 Phone', viewModal.phone], ['🏠 Address', viewModal.address || '—'], ['📍 City', viewModal.city || 'Hyderabad'], ['🛠 Category', viewModal.category], ['📅 Experience', viewModal.experience || '—'], ['⭐ Rating', (viewModal.rating || 0) + ' / 5.0'], ['🟢 Online', viewModal.isOnline ? 'Online' : 'Offline'], ['✅ Status', viewModal.registrationStatus || (viewModal.isActive ? 'approved' : 'pending')]].map(([label, val]) => (
+                <div key={label} style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--card2)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>{val || '—'}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Documents */}
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ margin: '0 0 10px' }}>📄 Identity Documents</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {/* Aadhaar */}
+                <div style={{ padding: 14, borderRadius: 12, background: 'var(--card2)', border: `1px solid ${viewModal.aadhaarVerified ? '#10B98133' : 'var(--border)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>🪪 Aadhaar</span>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: viewModal.aadhaarVerified ? '#10B98120' : '#F59E0B20', color: viewModal.aadhaarVerified ? '#10B981' : '#F59E0B', fontWeight: 700 }}>{viewModal.aadhaarVerified ? '✅ Verified' : (viewModal.aadhaar || viewModal.aadhaarPhotoUrl) ? '⏳ Pending' : '❌ Not Submitted'}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 8 }}>Number: <b>{viewModal.aadhaar || '—'}</b></div>
+                  {viewModal.aadhaarPhotoUrl && (
+                    <img src={viewModal.aadhaarPhotoUrl} alt="Aadhaar" style={{ width: '100%', borderRadius: 8, maxHeight: 120, objectFit: 'cover', cursor: 'pointer' }} onClick={() => window.open(viewModal.aadhaarPhotoUrl)} />
+                  )}
+                  {!viewModal.aadhaarVerified && (viewModal.aadhaar || viewModal.aadhaarPhotoUrl) && (
+                    <button className="btn btn-xs btn-success" style={{ marginTop: 8, width: '100%' }} disabled={actionLoading === viewModal._id+'_doc_aadhaar'} onClick={() => approveDoc(viewModal, 'aadhaar')}>✅ Approve Aadhaar</button>
+                  )}
+                </div>
+                {/* PAN */}
+                <div style={{ padding: 14, borderRadius: 12, background: 'var(--card2)', border: `1px solid ${viewModal.panVerified ? '#10B98133' : 'var(--border)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>💳 PAN Card</span>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: viewModal.panVerified ? '#10B98120' : '#F59E0B20', color: viewModal.panVerified ? '#10B981' : '#F59E0B', fontWeight: 700 }}>{viewModal.panVerified ? '✅ Verified' : (viewModal.pan || viewModal.panPhotoUrl) ? '⏳ Pending' : '❌ Not Submitted'}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 8 }}>Number: <b>{viewModal.pan || '—'}</b></div>
+                  {viewModal.panPhotoUrl && (
+                    <img src={viewModal.panPhotoUrl} alt="PAN" style={{ width: '100%', borderRadius: 8, maxHeight: 120, objectFit: 'cover', cursor: 'pointer' }} onClick={() => window.open(viewModal.panPhotoUrl)} />
+                  )}
+                  {!viewModal.panVerified && (viewModal.pan || viewModal.panPhotoUrl) && (
+                    <button className="btn btn-xs btn-success" style={{ marginTop: 8, width: '100%' }} disabled={actionLoading === viewModal._id+'_doc_pan'} onClick={() => approveDoc(viewModal, 'pan')}>✅ Approve PAN</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Details */}
+            {viewModal.bankDetails && (viewModal.bankDetails.account || viewModal.bankDetails.bankName) && (
+              <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, background: 'var(--card2)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 13 }}>🏦 Bank Details</div>
+                <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{viewModal.bankDetails.bankName} | A/C: {viewModal.bankDetails.account} | IFSC: {viewModal.bankDetails.ifsc}</div>
+              </div>
+            )}
+
+            {/* Reset Password result */}
+            {resetResult && resetResult.id === viewModal._id && (
+              <div style={{ padding: 12, borderRadius: 10, background: '#7C3AED15', border: '1px solid #7C3AED33', marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, color: '#7C3AED', marginBottom: 6 }}>🔑 New Credentials</div>
+                <div style={{ fontSize: 13 }}>Worker ID: <b>{resetResult.workerId}</b> | Password: <b style={{ color: '#10B981' }}>{resetResult.newPassword}</b></div>
+              </div>
+            )}
+
+            {/* Reject reason input */}
+            {viewModal.registrationStatus !== 'approved' && viewModal.registrationStatus !== 'rejected' && (
+              <div style={{ marginBottom: 12 }}>
+                <input className="input" placeholder="Rejection reason (optional)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ width: '100%' }} />
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 8 }}>
+              {!viewModal.isActive && !viewModal.isBlocked && viewModal.registrationStatus !== 'rejected' && (
+                <button className="btn btn-success" disabled={actionLoading === viewModal._id+'_approve'} onClick={() => approveWorker(viewModal)}>✅ Approve Worker</button>
+              )}
+              {viewModal.registrationStatus !== 'rejected' && !viewModal.isBlocked && (
+                <button className="btn btn-danger" disabled={actionLoading === viewModal._id+'_reject'} onClick={() => rejectWorker(viewModal)}>❌ Reject</button>
+              )}
+              <button className={`btn ${viewModal.isBlocked ? 'btn-success' : 'btn-warning'}`} disabled={actionLoading === viewModal._id+'_block'} onClick={() => blockWorker(viewModal)}>{viewModal.isBlocked ? '🔓 Unblock' : '🔒 Block'}</button>
+              {viewModal.workerId && <button className="btn btn-secondary" disabled={actionLoading === viewModal._id+'_reset'} onClick={() => resetPwd(viewModal)}>🔑 Reset Password</button>}
+              <button className="btn btn-secondary" onClick={() => { openEdit(viewModal); setViewModal(null); }}>✏️ Edit</button>
+              <button className="btn btn-secondary" onClick={() => { setViewModal(null); setResetResult(null); }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {modal && (

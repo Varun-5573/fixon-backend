@@ -990,6 +990,278 @@ app.patch('/api/workers/:id/toggle', (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
+//  WORKER VERIFICATION & APP ENDPOINTS
+// ══════════════════════════════════════════════════════════════
+
+// Worker submits document for verification (Aadhaar or PAN)
+app.post('/api/workers/:id/verify-document', (req, res) => {
+  const { documentType, documentNumber, documentFrontUrl, documentBackUrl } = req.body;
+  const w = adminWorkers.find(x => x._id === req.params.id || x.phone === req.params.id || x.workerId === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  if (documentType === 'Aadhaar') {
+    w.aadhaar = documentNumber || w.aadhaar;
+    if (documentFrontUrl) w.aadhaarPhotoUrl = documentFrontUrl;
+    if (documentBackUrl) w.aadhaarBackUrl = documentBackUrl;
+    w.aadhaarVerified = false;
+  } else if (documentType === 'PAN') {
+    w.pan = documentNumber || w.pan;
+    if (documentFrontUrl) w.panPhotoUrl = documentFrontUrl;
+    w.panVerified = false;
+  }
+
+  w.documentStatus = 'pending';
+  saveData();
+  io.emit('worker_document_submitted', { workerId: w._id, documentType, documentNumber });
+  console.log(`🪪 Document [${documentType}] submitted for worker ${w.name}`);
+  res.json({ success: true, message: 'Document submitted for review', worker: w });
+});
+
+// Admin approves worker application
+app.post('/api/workers/:id/approve', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.isActive = true;
+  w.active = true;
+  w.registrationStatus = 'approved';
+
+  if (!w.workerId || !w.workerPassword) {
+    const count = adminWorkers.filter(x => x.category === w.category && x.workerId).length;
+    const creds = generateWorkerCredentials(w.category, count);
+    w.workerId = creds.workerId;
+    w.workerPassword = creds.password;
+  }
+
+  saveData();
+  io.emit('worker_approved', w);
+  console.log(`✅ Worker ${w.name} approved! ID: ${w.workerId}`);
+  res.json({ success: true, worker: w });
+});
+
+// Admin rejects worker application
+app.post('/api/workers/:id/reject', (req, res) => {
+  const { reason } = req.body;
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.isActive = false;
+  w.active = false;
+  w.registrationStatus = 'rejected';
+  w.rejectionReason = reason || 'Application rejected by admin';
+
+  saveData();
+  io.emit('worker_rejected', w);
+  console.log(`❌ Worker ${w.name} rejected: ${w.rejectionReason}`);
+  res.json({ success: true, worker: w });
+});
+
+// Admin blocks / unblocks worker
+app.post('/api/workers/:id/block', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.isBlocked = !w.isBlocked;
+  if (w.isBlocked) {
+    w.isActive = false;
+    w.active = false;
+    w.isOnline = false;
+  }
+  saveData();
+  io.emit('worker_updated', w);
+  console.log(`🔒 Worker ${w.name} isBlocked: ${w.isBlocked}`);
+  res.json({ success: true, blocked: w.isBlocked, worker: w });
+});
+
+// Admin resets worker password
+app.post('/api/workers/:id/reset-password', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  const newPass = 'FXN' + Math.floor(1000 + Math.random() * 9000);
+  w.workerPassword = newPass;
+  saveData();
+  console.log(`🔑 New password generated for worker ${w.name}: ${newPass}`);
+  res.json({ success: true, workerId: w.workerId, newPassword: newPass, worker: w });
+});
+
+// Admin approves Aadhaar document
+app.post('/api/workers/:id/approve-aadhaar', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.aadhaarVerified = true;
+  saveData();
+  io.emit('worker_updated', w);
+  console.log(`🪪 Aadhaar approved for worker ${w.name}`);
+  res.json({ success: true, worker: w });
+});
+
+// Admin approves PAN document
+app.post('/api/workers/:id/approve-pan', (req, res) => {
+  const w = adminWorkers.find(x => x._id === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.panVerified = true;
+  saveData();
+  io.emit('worker_updated', w);
+  console.log(`💳 PAN approved for worker ${w.name}`);
+  res.json({ success: true, worker: w });
+});
+
+// Worker App Login
+app.post('/api/worker/login', (req, res) => {
+  const { workerId, password } = req.body;
+  if (!workerId || !password) {
+    return res.status(400).json({ success: false, error: 'Worker ID and password required' });
+  }
+
+  const worker = adminWorkers.find(
+    w => (w.workerId === workerId || w.phone === workerId || w.email === workerId) &&
+         (w.workerPassword === password || w.password === password)
+  );
+
+  if (!worker) {
+    return res.status(401).json({ success: false, error: 'Invalid Worker ID or password' });
+  }
+
+  if (worker.isBlocked) {
+    return res.status(403).json({ success: false, error: 'Your account has been blocked by admin.' });
+  }
+
+  worker.isOnline = true;
+  saveData();
+
+  res.json({
+    success: true,
+    token: 'WT' + Date.now(),
+    worker
+  });
+});
+
+// Worker Dashboard Stats
+app.get('/api/worker/:id/dashboard', (req, res) => {
+  const workerId = req.params.id;
+  const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+  if (!worker) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  const workerBookings = bookings.filter(b =>
+    (b.workerId === workerId || b.workerId?._id === workerId || b.workerId?.workerId === workerId || (worker && b.workerId?.name === worker.name))
+  );
+
+  const completed = workerBookings.filter(b => b.status === 'completed');
+  const pending = workerBookings.filter(b => b.status === 'accepted' || b.status === 'assigned');
+  const earnings = completed.reduce((sum, b) => sum + Math.round((b.price || 0) * 0.7), 0);
+
+  res.json({
+    success: true,
+    stats: {
+      totalJobs: completed.length,
+      pendingJobs: pending.length,
+      totalEarnings: earnings,
+      rating: worker.rating || 5.0,
+      isOnline: worker.isOnline || false,
+    }
+  });
+});
+
+// Worker Pending Bookings (Jobs assigned or matching category)
+app.get('/api/worker/:id/pending-bookings', (req, res) => {
+  const workerId = req.params.id;
+  const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+
+  const pending = bookings.filter(b => {
+    const isAssignedToMe = (b.workerId === workerId || b.workerId?._id === workerId || (worker && b.workerId?.name === worker.name));
+    const isCategoryMatch = !b.workerId && b.category === worker?.category && b.status === 'pending';
+    const isStatusPendingOrAccepted = (b.status === 'accepted' || b.status === 'pending' || b.status === 'assigned');
+    return (isAssignedToMe || isCategoryMatch) && isStatusPendingOrAccepted;
+  });
+
+  res.json({ success: true, bookings: pending.map(enrichBooking).reverse() });
+});
+
+// Worker Assigned/My Bookings
+app.get('/api/worker/:id/bookings', (req, res) => {
+  const workerId = req.params.id;
+  const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+
+  const myJobs = bookings.filter(b =>
+    b.workerId === workerId ||
+    b.workerId?._id === workerId ||
+    b.workerId?.workerId === workerId ||
+    (worker && b.workerId?.name === worker.name)
+  );
+
+  res.json({ success: true, bookings: myJobs.map(enrichBooking).reverse() });
+});
+
+// Worker Accept Booking
+app.post('/api/worker/:id/accept-booking/:bookingId', (req, res) => {
+  const workerId = req.params.id;
+  const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+  const b = bookings.find(x => x._id === req.params.bookingId);
+  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
+
+  b.status = 'accepted';
+  if (worker) {
+    b.workerId = { _id: worker._id, name: worker.name, phone: worker.phone };
+  }
+  saveData();
+
+  io.emit('booking_update', { bookingId: b._id, status: 'accepted', booking: b });
+  console.log(`✅ Worker ${worker?.name || workerId} accepted booking ${b._id}`);
+  res.json({ success: true, booking: enrichBooking(b) });
+});
+
+// Worker Reject Booking
+app.post('/api/worker/:id/reject-booking/:bookingId', (req, res) => {
+  const b = bookings.find(x => x._id === req.params.bookingId);
+  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
+
+  b.status = 'pending';
+  b.workerId = null;
+  saveData();
+
+  io.emit('booking_update', { bookingId: b._id, status: 'pending', booking: b });
+  res.json({ success: true, booking: enrichBooking(b) });
+});
+
+// Worker Update Job Status (in_progress, completed, cancelled)
+app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
+  const b = bookings.find(x => x._id === req.params.bookingId);
+  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
+
+  const action = req.params.action;
+  let newStatus = action;
+  if (action === 'start') newStatus = 'in_progress';
+  if (action === 'complete') newStatus = 'completed';
+  if (action === 'cancel') newStatus = 'cancelled';
+
+  b.status = newStatus;
+  if (newStatus === 'completed') {
+    b.completedAt = new Date().toISOString();
+  }
+  saveData();
+
+  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: b });
+  console.log(`🛠️ Worker updated booking ${b._id} status → ${newStatus}`);
+  res.json({ success: true, booking: enrichBooking(b) });
+});
+
+// Worker Toggle Online Status
+app.put('/api/worker/:id/status', (req, res) => {
+  const { isOnline } = req.body;
+  const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
+  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+
+  w.isOnline = !!isOnline;
+  saveData();
+
+  io.emit('worker_status_changed', { workerId: w._id, isOnline: w.isOnline });
+  res.json({ success: true, worker: w });
+});
+
+// ══════════════════════════════════════════════════════════════
 //  WORKER PAYOUT ROUTE
 // ══════════════════════════════════════════════════════════════
 

@@ -88,11 +88,73 @@ export const adminApi = {
     return { success: true, users: DEMO_USERS };
   },
   blockUser:     (id) => safe(() => api.patch(`/api/admin/users/${id}/block`), { success: true }),
-  getWorkers:    () => safe(() => api.get('/api/workers'),        { success: true, workers: DEMO_WORKERS }),
-  addWorker:     (d) => safe(() => api.post('/api/workers', d),   { success: true }),
-  updateWorker:  (id, d) => safe(() => api.put(`/api/workers/${id}`, d), { success: true }),
-  deleteWorker:  (id) => safe(() => api.delete(`/api/workers/${id}`), { success: true }),
-  toggleWorker:  (id) => safe(() => api.patch(`/api/workers/${id}/toggle`), { success: true }),
+  getWorkers:    async () => {
+    let localW = [];
+    let cloudW = [];
+    try { const r = await localApi.get('/api/workers'); localW = r.data?.workers || []; } catch {}
+    try { const r = await axios.get(`${CLOUD}/api/workers`, { timeout: 15000 }); cloudW = r.data?.workers || []; } catch {}
+    const map = new Map();
+    [...localW, ...cloudW].forEach(w => { if (w._id) map.set(w._id, w); });
+    const merged = Array.from(map.values());
+    if (merged.length > 0) return { success: true, workers: merged };
+    return { success: true, workers: DEMO_WORKERS };
+  },
+  addWorker:     async (d) => {
+    const r = await localApi.post('/api/workers', d).then(x => x.data);
+    try { axios.post(`${CLOUD}/api/workers`, d, { timeout: 10000 }); } catch {}
+    return r;
+  },
+  updateWorker:  async (id, d) => {
+    const r = await localApi.put(`/api/workers/${id}`, d).then(x => x.data);
+    try { axios.put(`${CLOUD}/api/workers/${id}`, d, { timeout: 10000 }); } catch {}
+    return r;
+  },
+  deleteWorker:  async (id) => {
+    const r = await localApi.delete(`/api/workers/${id}`).then(x => x.data);
+    try { axios.delete(`${CLOUD}/api/workers/${id}`, { timeout: 10000 }); } catch {}
+    return r;
+  },
+  toggleWorker:  async (id) => {
+    const r = await localApi.patch(`/api/workers/${id}/toggle`).then(x => x.data);
+    try { axios.patch(`${CLOUD}/api/workers/${id}/toggle`, {}, { timeout: 10000 }); } catch {}
+    return r;
+  },
+  approveWorker: async (id) => {
+    let r;
+    try { r = await localApi.post(`/api/workers/${id}/approve`).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/workers/${id}/approve`, {}, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  rejectWorker: async (id, reason) => {
+    let r;
+    try { r = await localApi.post(`/api/workers/${id}/reject`, { reason }).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/workers/${id}/reject`, { reason }, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  blockWorker: async (id) => {
+    let r;
+    try { r = await localApi.post(`/api/workers/${id}/block`).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/workers/${id}/block`, {}, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  resetPassword: async (id) => {
+    let r;
+    try { r = await localApi.post(`/api/workers/${id}/reset-password`).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/workers/${id}/reset-password`, {}, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  approveAadhaar: async (id) => {
+    let r;
+    try { r = await localApi.post(`/api/workers/${id}/approve-aadhaar`).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/workers/${id}/approve-aadhaar`, {}, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  approvePan: async (id) => {
+    let r;
+    try { r = await localApi.post(`/api/workers/${id}/approve-pan`).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/workers/${id}/approve-pan`, {}, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
 
   // Bookings — merge local server + Render cloud so admin sees ALL bookings
   getBookings: async () => {
@@ -127,20 +189,28 @@ export const adminApi = {
     return { success: true, bookings: DEMO_BOOKINGS };
   },
 
-  updateBooking: (id, d) => {
-    // Try local server first, then external
-    return localApi.put(`/api/bookings/${id}/status`, d)
-      .then(r => r.data)
-      .catch(() => safe(() => api.patch(`/api/bookings/${id}`, d), { success: true }));
+  updateBooking: async (id, d) => {
+    let r;
+    try { r = await localApi.put(`/api/bookings/${id}/status`, d).then(x => x.data); } catch {}
+    try { const cloudRes = await axios.put(`${CLOUD}/api/bookings/${id}/status`, d, { timeout: 10000 }); if (!r) r = cloudRes.data; } catch {}
+    return r || { success: true };
   },
 
-  confirmBooking: (id, workerId, workerName) => {
-    return localApi.put(`/api/bookings/${id}/status`, { status: 'accepted', workerId, workerName })
-      .then(r => r.data)
-      .catch(() => safe(() => api.patch(`/api/bookings/${id}`, { status: 'accepted' }), { success: true }));
+  confirmBooking: async (id, workerId, workerName) => {
+    let r;
+    const body = { status: 'accepted', workerId, workerName };
+    try { r = await localApi.put(`/api/bookings/${id}/status`, body).then(x => x.data); } catch {}
+    try { const cloudRes = await axios.put(`${CLOUD}/api/bookings/${id}/status`, body, { timeout: 10000 }); if (!r) r = cloudRes.data; } catch {}
+    return r || { success: true };
   },
 
-  assignWorker:  (bId, wId) => safe(() => api.patch(`/api/bookings/${bId}/assign`, { workerId: wId }), { success: true }),
+  assignWorker: async (bId, wId, wName) => {
+    let r;
+    const body = { status: 'accepted', workerId: wId, workerName: wName };
+    try { r = await localApi.put(`/api/bookings/${bId}/status`, body).then(x => x.data); } catch {}
+    try { const cloudRes = await axios.put(`${CLOUD}/api/bookings/${bId}/status`, body, { timeout: 10000 }); if (!r) r = cloudRes.data; } catch {}
+    return r || { success: true };
+  },
   getPayments:   () => safe(() => api.get('/api/payment/all'),    { success: true, payments: DEMO_PAYMENTS }),
   // Chat always uses local server — messages live here
   getMessages:   async () => {
@@ -226,12 +296,5 @@ export const adminApi = {
   // Invoice for a booking
   getInvoice: (bookingId) => localApi.get(`/api/bookings/${bookingId}/invoice`).then(r => r.data).catch(() => ({ success: false })),
 
-  // ── Worker Admin Actions ───────────────────────────────────
-  approveWorker:   (id) => localApi.post(`/api/admin/workers/${id}/approve`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
-  rejectWorker:    (id, reason) => localApi.post(`/api/admin/workers/${id}/reject`, { reason }).then(r => r.data).catch(e => ({ success: false, error: e.message })),
-  blockWorker:     (id) => localApi.post(`/api/admin/workers/${id}/block`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
-  resetPassword:   (id) => localApi.post(`/api/admin/workers/${id}/reset-password`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
-  approveAadhaar:  (id) => localApi.post(`/api/admin/workers/${id}/approve-aadhaar`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
-  approvePan:      (id) => localApi.post(`/api/admin/workers/${id}/approve-pan`).then(r => r.data).catch(e => ({ success: false, error: e.message })),
 };
 

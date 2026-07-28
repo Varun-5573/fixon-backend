@@ -672,6 +672,79 @@ function enrichBooking(b) {
   return bookingCopy;
 }
 
+// ── Upload Before/After Photos for a Booking ─────────────────
+app.post('/api/bookings/:id/photos', async (req, res) => {
+  const bookingId = req.params.id;
+  const { beforePhoto, afterPhoto, workerNotes, completionNotes } = req.body;
+
+  if (!bookingPhotos[bookingId]) bookingPhotos[bookingId] = {};
+
+  if (beforePhoto) {
+    bookingPhotos[bookingId].beforePhoto = beforePhoto;
+    bookingPhotos[bookingId].beforePhotoUploadedAt = new Date().toISOString();
+  }
+  if (afterPhoto) {
+    bookingPhotos[bookingId].afterPhoto = afterPhoto;
+    bookingPhotos[bookingId].afterPhotoUploadedAt = new Date().toISOString();
+  }
+  if (workerNotes)     bookingPhotos[bookingId].workerNotes = workerNotes;
+  if (completionNotes) bookingPhotos[bookingId].completionNotes = completionNotes;
+
+  // Also store on the booking object itself for persistence
+  const b = bookings.find(x => x._id === bookingId);
+  if (b) {
+    if (beforePhoto) b.beforePhoto = beforePhoto;
+    if (afterPhoto)  b.afterPhoto  = afterPhoto;
+    if (workerNotes)     b.workerNotes = workerNotes;
+    if (completionNotes) b.completionNotes = completionNotes;
+  }
+
+  // Persist photos to MongoDB separately (large data)
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      await BookingPhoto.findOneAndUpdate(
+        { bookingId },
+        { bookingId, ...bookingPhotos[bookingId] },
+        { upsert: true, new: true }
+      );
+    } catch (err) {
+      console.error('⚠️ Failed to save photo to MongoDB:', err.message);
+    }
+  }
+
+  saveData();
+
+  // Notify admin and customer about photo upload
+  io.emit('booking_photos_updated', {
+    bookingId,
+    beforePhoto: bookingPhotos[bookingId].beforePhoto || null,
+    afterPhoto: bookingPhotos[bookingId].afterPhoto || null,
+  });
+
+  const photoType = beforePhoto ? 'Before' : 'After';
+  console.log(`📸 ${photoType} photo uploaded for booking ${bookingId}`);
+  res.json({ success: true, photos: bookingPhotos[bookingId], booking: b ? enrichBooking(b) : null });
+});
+
+// GET photos for a booking
+app.get('/api/bookings/:id/photos', async (req, res) => {
+  const bookingId = req.params.id;
+  let photos = bookingPhotos[bookingId] || {};
+
+  // Try MongoDB if not in memory
+  if ((!photos.beforePhoto && !photos.afterPhoto) && MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await BookingPhoto.findOne({ bookingId }).lean();
+      if (doc) {
+        bookingPhotos[bookingId] = doc;
+        photos = doc;
+      }
+    } catch {}
+  }
+
+  res.json({ success: true, photos });
+});
+
 // Mobile app creates a booking  /  Admin seed import
 app.post('/api/bookings', (req, res) => {
   const {
@@ -1226,24 +1299,56 @@ app.post('/api/worker/:id/reject-booking/:bookingId', (req, res) => {
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
-// Worker Update Job Status (in_progress, completed, cancelled)
+// Worker Update Job Status (on-the-way, start, complete, cancel)
 app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
   const b = bookings.find(x => x._id === req.params.bookingId);
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
 
   const action = req.params.action;
   let newStatus = action;
-  if (action === 'start') newStatus = 'in_progress';
-  if (action === 'complete') newStatus = 'completed';
-  if (action === 'cancel') newStatus = 'cancelled';
+  if (action === 'on-the-way')   newStatus = 'on_the_way';
+  if (action === 'start')        newStatus = 'ongoing';
+  if (action === 'in_progress')  newStatus = 'ongoing';
+  if (action === 'complete')     newStatus = 'completed';
+  if (action === 'cancel')       newStatus = 'cancelled';
 
   b.status = newStatus;
   if (newStatus === 'completed') {
     b.completedAt = new Date().toISOString();
   }
+  if (newStatus === 'ongoing') {
+    b.startedAt = new Date().toISOString();
+  }
   saveData();
 
-  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: b });
+  // ── Notify customer for each step ─────────────────────────
+  const customerId = b.userId?._id || b.userId;
+  const notifMessages = {
+    on_the_way:  { title: '🏍️ Worker On The Way!',  msg: `Your ${b.service} worker is on the way to you.` },
+    ongoing:     { title: '🔧 Work Started!',         msg: `Work has started for your ${b.service} booking.` },
+    completed:   { title: '✅ Job Completed!',         msg: `Your ${b.service} job is complete! Please rate your worker.` },
+    cancelled:   { title: '❌ Booking Cancelled',     msg: `Your ${b.service} booking has been cancelled by the worker.` },
+  };
+
+  if (customerId && notifMessages[newStatus]) {
+    const n = notifMessages[newStatus];
+    const custNotif = {
+      _id: 'N' + Date.now(),
+      userId: customerId,
+      title: n.title,
+      message: n.msg,
+      type: 'booking',
+      bookingId: b._id,
+      status: newStatus,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    notificationsList.push(custNotif);
+    io.emit('new_notification', custNotif);
+    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: newStatus, booking: enrichBooking(b) });
+  }
+
+  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: enrichBooking(b) });
   console.log(`🛠️ Worker updated booking ${b._id} status → ${newStatus}`);
   res.json({ success: true, booking: enrichBooking(b) });
 });

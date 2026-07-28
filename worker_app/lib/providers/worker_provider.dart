@@ -159,13 +159,24 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> acceptBooking(String bookingId) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/accept-booking/$bookingId'), headers: kHeaders).timeout(const Duration(seconds: 15));
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/accept-booking/$bookingId'),
+        headers: kHeaders,
+      ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _connectionError = false;
-        await fetchPendingBookings();
-        await fetchMyBookings();
-        await fetchDashboard();
+        // Update local pending bookings to remove accepted one
+        _pendingBookings = _pendingBookings.where((b) => b['_id'] != bookingId).toList();
+        // Add to my bookings if returned in response
+        if (data['booking'] != null) {
+          final exists = _myBookings.any((b) => b['_id'] == bookingId);
+          if (!exists) _myBookings.insert(0, data['booking']);
+        }
+        notifyListeners();
+        // Refresh from server in background
+        fetchMyBookings();
+        fetchDashboard();
       }
       return data['success'] == true;
     } catch (_) {
@@ -178,11 +189,16 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> rejectBooking(String bookingId) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/reject-booking/$bookingId'), headers: kHeaders).timeout(const Duration(seconds: 15));
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/reject-booking/$bookingId'),
+        headers: kHeaders,
+      ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _connectionError = false;
-        await fetchPendingBookings();
+        _pendingBookings = _pendingBookings.where((b) => b['_id'] != bookingId).toList();
+        notifyListeners();
+        fetchPendingBookings();
       }
       return data['success'] == true;
     } catch (_) {
@@ -195,12 +211,33 @@ class WorkerProvider extends ChangeNotifier {
   Future<bool> updateBookingStatus(String bookingId, String action) async {
     if (_worker == null) return false;
     try {
-      final res = await http.post(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/booking/$bookingId/$action'), headers: kHeaders).timeout(const Duration(seconds: 15));
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/booking/$bookingId/$action'),
+        headers: kHeaders,
+      ).timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _connectionError = false;
-        await fetchMyBookings();
-        await fetchDashboard();
+        // Optimistically update status in local list
+        final actionToStatus = {
+          'on-the-way':  'on_the_way',
+          'start':       'ongoing',
+          'in_progress': 'ongoing',
+          'complete':    'completed',
+          'cancel':      'cancelled',
+        };
+        final newStatus = actionToStatus[action] ?? action;
+        final updatedBooking = data['booking'];
+        _myBookings = _myBookings.map((b) {
+          if (b['_id'] == bookingId) {
+            return updatedBooking ?? { ...b, 'status': newStatus };
+          }
+          return b;
+        }).toList();
+        notifyListeners();
+        // Also refresh from server
+        fetchMyBookings();
+        fetchDashboard();
       }
       return data['success'] == true;
     } catch (_) {
@@ -288,6 +325,30 @@ class WorkerProvider extends ChangeNotifier {
     } catch (e) {
       print("📍 Error pushing worker location: $e");
       // Silently fail — don't block app
+    }
+  }
+  Future<Map<String, dynamic>> registerWorker(Map<String, dynamic> body) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/api/workers/register'),
+        headers: kHeaders,
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 30));
+      return jsonDecode(res.body);
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error — check if server is running'};
+    }
+  }
+
+  Future<Map<String, dynamic>> checkRegistrationStatus(String phone) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$kBaseUrl/api/workers/registration-status/$phone'),
+        headers: kHeaders,
+      ).timeout(const Duration(seconds: 15));
+      return jsonDecode(res.body);
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error — check if server is running'};
     }
   }
 }

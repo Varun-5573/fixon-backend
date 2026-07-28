@@ -1242,12 +1242,28 @@ app.get('/api/worker/:id/dashboard', (req, res) => {
 app.get('/api/worker/:id/pending-bookings', (req, res) => {
   const workerId = req.params.id;
   const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+  const wId = worker ? worker._id : workerId;
 
   const pending = bookings.filter(b => {
-    const isAssignedToMe = (b.workerId === workerId || b.workerId?._id === workerId || (worker && b.workerId?.name === worker.name));
-    const isCategoryMatch = !b.workerId && b.category === worker?.category && b.status === 'pending';
-    const isStatusPendingOrAccepted = (b.status === 'accepted' || b.status === 'pending' || b.status === 'assigned');
-    return (isAssignedToMe || isCategoryMatch) && isStatusPendingOrAccepted;
+    // Exclude if already accepted, completed, or cancelled
+    if (['accepted', 'on_the_way', 'ongoing', 'in_progress', 'completed', 'cancelled'].includes(b.status)) {
+      return false;
+    }
+    // Exclude if rejected by this worker
+    if (b.rejectedBy && Array.isArray(b.rejectedBy) && (b.rejectedBy.includes(workerId) || b.rejectedBy.includes(wId))) {
+      return false;
+    }
+
+    const isAssignedToMe = (
+      b.workerId === workerId ||
+      b.workerId === wId ||
+      b.workerId?._id === workerId ||
+      b.workerId?._id === wId ||
+      (worker && b.workerId?.name === worker.name)
+    );
+    const isCategoryMatch = (!b.workerId || !b.workerId._id) && (b.category === worker?.category || b.service === worker?.category);
+
+    return (isAssignedToMe || isCategoryMatch) && (b.status === 'pending' || b.status === 'assigned');
   });
 
   res.json({ success: true, bookings: pending.map(enrichBooking).reverse() });
@@ -1257,13 +1273,19 @@ app.get('/api/worker/:id/pending-bookings', (req, res) => {
 app.get('/api/worker/:id/bookings', (req, res) => {
   const workerId = req.params.id;
   const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+  const wId = worker ? worker._id : workerId;
 
-  const myJobs = bookings.filter(b =>
-    b.workerId === workerId ||
-    b.workerId?._id === workerId ||
-    b.workerId?.workerId === workerId ||
-    (worker && b.workerId?.name === worker.name)
-  );
+  const myJobs = bookings.filter(b => {
+    const isAssignedToMe = (
+      b.workerId === workerId ||
+      b.workerId === wId ||
+      b.workerId?._id === workerId ||
+      b.workerId?._id === wId ||
+      (worker && b.workerId?.name === worker.name)
+    );
+    // Show in My Jobs if assigned to me and status is accepted / on_the_way / ongoing / completed
+    return isAssignedToMe && (b.status !== 'pending' || b.assignedTo === wId || b.assignedTo === workerId);
+  });
 
   res.json({ success: true, bookings: myJobs.map(enrichBooking).reverse() });
 });
@@ -1276,26 +1298,56 @@ app.post('/api/worker/:id/accept-booking/:bookingId', (req, res) => {
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
 
   b.status = 'accepted';
+  b.acceptedAt = new Date().toISOString();
   if (worker) {
-    b.workerId = { _id: worker._id, name: worker.name, phone: worker.phone };
+    b.workerId = { _id: worker._id, name: worker.name, phone: worker.phone, rating: worker.rating || 5.0 };
+    b.assignedWorker = worker.name;
   }
   saveData();
 
-  io.emit('booking_update', { bookingId: b._id, status: 'accepted', booking: b });
+  // Notify customer
+  const customerId = b.userId?._id || b.userId;
+  if (customerId) {
+    const custNotif = {
+      _id: 'N' + Date.now(),
+      userId: customerId,
+      title: '✅ Booking Accepted!',
+      message: `${worker?.name || 'Worker'} has accepted your ${b.service} booking.`,
+      type: 'booking',
+      bookingId: b._id,
+      status: 'accepted',
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    notificationsList.push(custNotif);
+    io.emit('new_notification', custNotif);
+    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: 'accepted', booking: enrichBooking(b) });
+  }
+
+  // Real-time broadcast to all (Admin, Worker, Customer)
+  io.emit('booking_update', { bookingId: b._id, status: 'accepted', booking: enrichBooking(b) });
   console.log(`✅ Worker ${worker?.name || workerId} accepted booking ${b._id}`);
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
 // Worker Reject Booking
 app.post('/api/worker/:id/reject-booking/:bookingId', (req, res) => {
+  const workerId = req.params.id;
+  const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
+  const wId = worker ? worker._id : workerId;
   const b = bookings.find(x => x._id === req.params.bookingId);
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
 
   b.status = 'pending';
   b.workerId = null;
+  b.rejectedBy = b.rejectedBy || [];
+  if (!b.rejectedBy.includes(workerId)) b.rejectedBy.push(workerId);
+  if (wId && !b.rejectedBy.includes(wId)) b.rejectedBy.push(wId);
+
   saveData();
 
-  io.emit('booking_update', { bookingId: b._id, status: 'pending', booking: b });
+  io.emit('booking_update', { bookingId: b._id, status: 'pending', booking: enrichBooking(b) });
+  console.log(`❌ Worker ${worker?.name || workerId} rejected booking ${b._id}`);
   res.json({ success: true, booking: enrichBooking(b) });
 });
 

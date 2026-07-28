@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../utils/constants.dart';
 
 class WorkerProvider extends ChangeNotifier {
@@ -17,6 +18,7 @@ class WorkerProvider extends ChangeNotifier {
   Timer? _locationBroadcastTimer;
   double? _currentLat;
   double? _currentLng;
+  IO.Socket? _socket;
 
   Map<String, dynamic>? get worker => _worker;
   String? get token => _token;
@@ -29,6 +31,41 @@ class WorkerProvider extends ChangeNotifier {
   bool get isOnline => _worker?['isOnline'] == true;
   double? get currentLat => _currentLat;
   double? get currentLng => _currentLng;
+
+  void _initSocket() {
+    if (_socket != null || _worker == null) return;
+    try {
+      final workerId = _worker!['_id'] ?? _worker!['workerId'];
+      _socket = IO.io(
+        kBaseUrl,
+        IO.OptionBuilder()
+            .setTransports(['websocket', 'polling'])
+            .enableAutoConnect()
+            .build(),
+      );
+
+      _socket!.onConnect((_) {
+        debugPrint('⚡ Worker Socket Connected for $workerId');
+        _socket!.emit('worker_join', {'workerId': workerId});
+      });
+
+      _socket!.on('booking_update', (_) => _handleRealtimeUpdate());
+      _socket!.on('new_booking', (_) => _handleRealtimeUpdate());
+      _socket!.on('new_booking_assigned', (_) => _handleRealtimeUpdate());
+      _socket!.on('booking_photos_updated', (_) => _handleRealtimeUpdate());
+
+      _socket!.onDisconnect((_) => debugPrint('🔌 Worker Socket Disconnected'));
+    } catch (e) {
+      debugPrint('⚠️ Worker socket init error: $e');
+    }
+  }
+
+  void _handleRealtimeUpdate() {
+    if (_worker == null) return;
+    fetchPendingBookings();
+    fetchMyBookings();
+    fetchDashboard();
+  }
 
   Future<void> loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -52,6 +89,7 @@ class WorkerProvider extends ChangeNotifier {
         _myBookings = jsonDecode(myBookingsJson);
       }
       
+      _initSocket();
       notifyListeners();
     }
   }
@@ -73,6 +111,7 @@ class WorkerProvider extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('worker_data', jsonEncode(_worker));
         await prefs.setString('worker_token', _token!);
+        _initSocket();
       }
       _loading = false;
       notifyListeners();
@@ -87,6 +126,9 @@ class WorkerProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     await toggleOnline(false);
+    _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
     _worker = null;
     _token = null;
     _dashboardStats = null;

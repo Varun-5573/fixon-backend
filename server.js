@@ -1428,9 +1428,6 @@ app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
     completed:   { title: '🎉 Job Completed!',        msg: `Your ${b.service} booking has been completed!` },
     cancelled:   { title: '❌ Booking Cancelled',     msg: `Your ${b.service} booking was cancelled.` },
   };
-    completed:   { title: '✅ Job Completed!',         msg: `Your ${b.service} job is complete! Please rate your worker.` },
-    cancelled:   { title: '❌ Booking Cancelled',     msg: `Your ${b.service} booking has been cancelled by the worker.` },
-  };
 
   if (customerId && notifMessages[newStatus]) {
     const n = notifMessages[newStatus];

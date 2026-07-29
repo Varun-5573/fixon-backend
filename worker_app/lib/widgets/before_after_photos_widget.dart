@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,6 +16,7 @@ class BeforeAfterPhotosWidget extends StatefulWidget {
   final String? initialAfterPhoto;
   final bool canUploadBefore;
   final bool canUploadAfter;
+  final VoidCallback? onPhotoUploaded;
 
   const BeforeAfterPhotosWidget({
     super.key,
@@ -24,6 +25,7 @@ class BeforeAfterPhotosWidget extends StatefulWidget {
     this.initialAfterPhoto,
     this.canUploadBefore = false,
     this.canUploadAfter = false,
+    this.onPhotoUploaded,
   });
 
   @override
@@ -91,6 +93,7 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
         _showSnack(isBefore
             ? '✅ Before photo uploaded!'
             : '✅ After photo uploaded!');
+        widget.onPhotoUploaded?.call();
         try {
           context.read<WorkerProvider>().fetchMyBookings();
         } catch (_) {}

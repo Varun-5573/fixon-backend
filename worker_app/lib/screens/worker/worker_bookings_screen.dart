@@ -108,14 +108,25 @@ class _WorkerBookingsScreenState extends State<WorkerBookingsScreen> {
   }
 }
 
-class _BookingCard extends StatelessWidget {
+class _BookingCard extends StatefulWidget {
   final Map<String, dynamic> booking;
   final bool isNew;
   final VoidCallback? onRefresh;
   const _BookingCard({required this.booking, required this.isNew, this.onRefresh});
 
   @override
+  State<_BookingCard> createState() => _BookingCardState();
+}
+
+class _BookingCardState extends State<_BookingCard> {
+  bool _uploadedBeforePhoto = false;
+  bool _uploadedAfterPhoto = false;
+
+  @override
   Widget build(BuildContext context) {
+    final booking = widget.booking;
+    final isNew = widget.isNew;
+    final onRefresh = widget.onRefresh;
     final wp = context.read<WorkerProvider>();
     final status = booking['status']?.toString() ?? 'pending';
 
@@ -157,8 +168,8 @@ class _BookingCard extends StatelessWidget {
     // Photo flags
     final beforePhoto = booking['beforePhoto']?.toString() ?? '';
     final afterPhoto  = booking['afterPhoto']?.toString()  ?? '';
-    final hasBeforePhoto = beforePhoto.isNotEmpty;
-    final hasAfterPhoto  = afterPhoto.isNotEmpty;
+    final hasBeforePhoto = beforePhoto.isNotEmpty || _uploadedBeforePhoto;
+    final hasAfterPhoto  = afterPhoto.isNotEmpty || _uploadedAfterPhoto;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -367,6 +378,12 @@ class _BookingCard extends StatelessWidget {
                   initialAfterPhoto: null,
                   canUploadBefore: true,
                   canUploadAfter: false,
+                  onPhotoUploaded: () {
+                    if (mounted) {
+                      setState(() { _uploadedBeforePhoto = true; });
+                      onRefresh?.call();
+                    }
+                  },
                 ),
                 btnLabel: hasBeforePhoto ? '🔧 Start Work Now' : '📸 Upload Before Photo First',
                 btnColor: hasBeforePhoto ? AppColors.secondary : AppColors.textSub,
@@ -396,6 +413,12 @@ class _BookingCard extends StatelessWidget {
                   initialAfterPhoto: hasAfterPhoto ? afterPhoto : null,
                   canUploadBefore: false,
                   canUploadAfter: true,
+                  onPhotoUploaded: () {
+                    if (mounted) {
+                      setState(() { _uploadedAfterPhoto = true; });
+                      onRefresh?.call();
+                    }
+                  },
                 ),
                 btnLabel: hasAfterPhoto ? '✅ Mark Job as Complete' : '📸 Upload After Photo First',
                 btnColor: hasAfterPhoto ? AppColors.success : AppColors.textSub,

@@ -245,8 +245,6 @@ async function savePhotos(bookingId) {
   }
 }
 
-}
-
 // Debounced saveData — prevents blocking API responses with heavy writes on every request
 let _saveTimer = null;
 function saveData() {

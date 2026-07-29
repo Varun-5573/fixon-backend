@@ -41,6 +41,10 @@ class WorkerProvider extends ChangeNotifier {
         IO.OptionBuilder()
             .setTransports(['websocket', 'polling'])
             .enableAutoConnect()
+            .enableReconnection()
+            .setReconnectionDelay(2000)
+            .setReconnectionAttempts(99)
+            .setTimeout(5000)
             .build(),
       );
 
@@ -52,7 +56,7 @@ class WorkerProvider extends ChangeNotifier {
       _socket!.on('booking_update', (_) => _handleRealtimeUpdate());
       _socket!.on('new_booking', (_) => _handleRealtimeUpdate());
       _socket!.on('new_booking_assigned', (_) => _handleRealtimeUpdate());
-      _socket!.on('booking_photos_updated', (_) => _handleRealtimeUpdate());
+      _socket!.on('booking_photos_updated', (_) => _handlePhotoUpdate());
 
       _socket!.onDisconnect((_) => debugPrint('🔌 Worker Socket Disconnected'));
     } catch (e) {
@@ -60,11 +64,20 @@ class WorkerProvider extends ChangeNotifier {
     }
   }
 
+  Timer? _realtimeDebounce;
   void _handleRealtimeUpdate() {
     if (_worker == null) return;
-    fetchPendingBookings();
+    // Debounce: wait 500ms before fetching to batch rapid events
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 500), () {
+      fetchPendingBookings();
+      fetchMyBookings();
+    });
+  }
+
+  void _handlePhotoUpdate() {
+    // Only refresh my bookings for photo events (lighter)
     fetchMyBookings();
-    fetchDashboard();
   }
 
   Future<void> loadFromPrefs() async {
@@ -103,7 +116,7 @@ class WorkerProvider extends ChangeNotifier {
         Uri.parse('$kBaseUrl/api/worker/login'),
         headers: kHeaders,
         body: jsonEncode({'workerId': workerId, 'password': password}),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 10));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _worker = data['worker'];
@@ -112,6 +125,12 @@ class WorkerProvider extends ChangeNotifier {
         await prefs.setString('worker_data', jsonEncode(_worker));
         await prefs.setString('worker_token', _token!);
         _initSocket();
+        // Fetch all data in parallel for faster startup
+        unawaited(Future.wait([
+          fetchPendingBookings(),
+          fetchMyBookings(),
+          fetchDashboard(),
+        ]));
       }
       _loading = false;
       notifyListeners();
@@ -147,7 +166,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchDashboard() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/dashboard'), headers: kHeaders).timeout(const Duration(seconds: 15));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/dashboard'), headers: kHeaders).timeout(const Duration(seconds: 5));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _dashboardStats = data['stats'];
@@ -165,7 +184,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchPendingBookings() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/pending-bookings'), headers: kHeaders).timeout(const Duration(seconds: 15));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/pending-bookings'), headers: kHeaders).timeout(const Duration(seconds: 5));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _pendingBookings = data['bookings'];
@@ -183,7 +202,7 @@ class WorkerProvider extends ChangeNotifier {
   Future<void> fetchMyBookings() async {
     if (_worker == null) return;
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/bookings'), headers: kHeaders).timeout(const Duration(seconds: 15));
+      final res = await http.get(Uri.parse('$kBaseUrl/api/worker/${_worker!['_id']}/bookings'), headers: kHeaders).timeout(const Duration(seconds: 5));
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         _myBookings = data['bookings'];

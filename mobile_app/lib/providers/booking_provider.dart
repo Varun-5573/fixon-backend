@@ -176,15 +176,21 @@ class BookingProvider extends ChangeNotifier {
               'Authorization': 'Bearer $_currentToken',
             },
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (data['success'] == true) {
-          _bookings = List<Map<String, dynamic>>.from(
+          final fresh = List<Map<String, dynamic>>.from(
             (data['bookings'] as List? ?? [])
                 .map((b) => Map<String, dynamic>.from(b as Map)),
           );
+          // Only rebuild UI if data actually changed
+          if (fresh.length != _bookings.length ||
+              jsonEncode(fresh.map((b) => b['_id']).toList()) !=
+                  jsonEncode(_bookings.map((b) => b['_id']).toList())) {
+            _bookings = fresh;
+          }
           _loading = false;
           _saveCachedBookings();
           notifyListeners();
@@ -207,11 +213,12 @@ class BookingProvider extends ChangeNotifier {
       _socket = IO.io(
         kBaseUrl,
         IO.OptionBuilder()
-            .setTransports(['websocket'])
+            .setTransports(['websocket', 'polling'])
             .enableAutoConnect()
             .enableReconnection()
             .setReconnectionDelay(1000)
             .setReconnectionAttempts(99)
+            .setTimeout(5000)
             .build(),
       );
 
@@ -220,7 +227,22 @@ class BookingProvider extends ChangeNotifier {
         _socket!.emit('customer_join', {'userId': _currentUserId});
       });
 
-      // Admin panel emits 'booking_update' on every status change
+      // Booking status push — most important real-time event
+      _socket!.on('booking_status_update', (data) {
+        try {
+          final payload = data is Map ? Map<String, dynamic>.from(data) : null;
+          if (payload == null) return;
+          // Only process if meant for this user
+          final targetUserId = payload['userId']?.toString();
+          if (targetUserId != null && targetUserId != _currentUserId) return;
+          final updatedBooking = payload['booking'] as Map?;
+          if (updatedBooking != null) {
+            applyBookingUpdate(Map<String, dynamic>.from(updatedBooking));
+          }
+        } catch (e) {
+          debugPrint('⚠️ Socket booking_status_update error: $e');
+        }
+      });
       _socket!.on('booking_update', (data) {
         debugPrint('📡 booking_update received: $data');
         try {
@@ -263,10 +285,10 @@ class BookingProvider extends ChangeNotifier {
     }
   }
 
-  /// Periodic polling every 15s as fallback when socket misses events
+  /// Periodic polling every 30s as fallback when socket misses events
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) => _doFetch());
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _doFetch());
   }
 
   /// Applies a single booking update in-place → instant UI refresh

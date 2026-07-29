@@ -62,7 +62,10 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
   Future<void> _uploadPhoto({required bool isBefore}) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
-        source: ImageSource.camera, imageQuality: 75);
+        source: ImageSource.camera,
+        imageQuality: 55,    // Compress to ~55% quality (good enough for proof photos)
+        maxWidth: 800,        // Limit resolution to reduce payload size
+        maxHeight: 800);
     if (picked == null) return;
 
     setState(() => _uploading = true);

@@ -71,7 +71,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
               leading: Icon(Icons.camera_alt, color: AppColors.primary),
               title: Text('Take Camera Photo', style: GoogleFonts.inter(color: AppColors.text)),
               onTap: () async {
-                final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 75);
+                final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 55, maxWidth: 800, maxHeight: 800);
                 if (ctx.mounted) Navigator.pop(ctx, file);
               },
             ),
@@ -79,7 +79,7 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
               leading: Icon(Icons.photo_library, color: AppColors.secondary),
               title: Text('Choose from Gallery', style: GoogleFonts.inter(color: AppColors.text)),
               onTap: () async {
-                final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+                final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 55, maxWidth: 800, maxHeight: 800);
                 if (ctx.mounted) Navigator.pop(ctx, file);
               },
             ),

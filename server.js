@@ -7,6 +7,10 @@ const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const mongoose = require('mongoose');
 
+// ── Try to load optional compression (installed separately) ───
+let compression;
+try { compression = require('compression'); } catch (_) { compression = null; }
+
 // ── MongoDB Atlas Connection ─────────────────────────────────
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -34,13 +38,23 @@ const BookingPhotoSchema = new mongoose.Schema({
 const BookingPhoto = mongoose.models.BookingPhoto || mongoose.model('BookingPhoto', BookingPhotoSchema);
 
 const app = express();
+if (compression) app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cors());
+// Cache-control for static assets only – APIs remain no-cache
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) res.setHeader('Cache-Control', 'public, max-age=300');
+  else res.setHeader('Cache-Control', 'no-cache');
+  next();
+});
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST', 'PUT'] }
+  cors: { origin: '*', methods: ['GET', 'POST', 'PUT'] },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
 });
 
 // ── Persistent file storage (local fallback) ─────────────────
@@ -231,12 +245,22 @@ async function savePhotos(bookingId) {
   }
 }
 
-async function saveData() {
-  // Strip photos from bookings and notificationsList copies before saving to prevent memory bloat
+}
+
+// Debounced saveData — prevents blocking API responses with heavy writes on every request
+let _saveTimer = null;
+function saveData() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(_doSave, 2000);
+}
+
+async function _doSave() {
+  // Strip photos from bookings before saving to prevent memory bloat
   const cleanBookings = bookings.map(b => {
     const copy = { ...b };
     delete copy.beforePhoto;
     delete copy.afterPhoto;
+    delete copy.problemPhoto;
     delete copy.beforePhotoUploadedAt;
     delete copy.afterPhotoUploadedAt;
     return copy;
@@ -248,8 +272,7 @@ async function saveData() {
       const bCopy = { ...copy.booking };
       delete bCopy.beforePhoto;
       delete bCopy.afterPhoto;
-      delete bCopy.beforePhotoUploadedAt;
-      delete bCopy.afterPhotoUploadedAt;
+      delete bCopy.problemPhoto;
       copy.booking = bCopy;
       return copy;
     }
@@ -648,7 +671,7 @@ app.get('/api/location/customers', (req, res) => {
 //  BOOKING ROUTES (for mobile app — no separate backend)
 // ══════════════════════════════════════════════════════════════
 
-// Helper to dynamically enrich workerId with worker's average rating and booking photos
+// Full enrich — includes photos (used for individual booking detail/photos APIs)
 function enrichBooking(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
@@ -662,17 +685,47 @@ function enrichBooking(b) {
 
   // Attach photos if present
   const photoData = bookingPhotos[bookingCopy._id];
-  const beforePhoto = photoData?.beforePhoto || b.beforePhoto || b.problemPhoto || null;
-  const afterPhoto = photoData?.afterPhoto || b.afterPhoto || null;
+  const hasPhoto = !!(photoData?.beforePhoto || b.beforePhoto || b.problemPhoto);
+  const hasAfter = !!(photoData?.afterPhoto || b.afterPhoto);
 
-  bookingCopy.beforePhoto = beforePhoto;
-  bookingCopy.afterPhoto = afterPhoto;
-  bookingCopy.problemPhoto = b.problemPhoto || beforePhoto;
+  bookingCopy.beforePhoto = photoData?.beforePhoto || b.beforePhoto || b.problemPhoto || null;
+  bookingCopy.afterPhoto = photoData?.afterPhoto || b.afterPhoto || null;
+  bookingCopy.problemPhoto = b.problemPhoto || bookingCopy.beforePhoto;
+  // Flags for the app to know whether photos exist (without sending the data)
+  bookingCopy.hasBeforePhoto = hasPhoto;
+  bookingCopy.hasAfterPhoto = hasAfter;
 
   if (photoData) {
     bookingCopy.beforePhotoUploadedAt = photoData.beforePhotoUploadedAt || null;
     bookingCopy.afterPhotoUploadedAt = photoData.afterPhotoUploadedAt || null;
   }
+
+  return bookingCopy;
+}
+
+// Light enrich — NO photos, only flags (used for list APIs to keep payloads small)
+function enrichBookingLight(b) {
+  if (!b) return b;
+  const bookingCopy = { ...b };
+  // Remove photo data from list response
+  delete bookingCopy.beforePhoto;
+  delete bookingCopy.afterPhoto;
+  delete bookingCopy.problemPhoto;
+
+  if (bookingCopy.workerId && bookingCopy.workerId._id) {
+    const worker = adminWorkers.find(w => w._id === bookingCopy.workerId._id);
+    bookingCopy.workerId = {
+      _id: bookingCopy.workerId._id,
+      name: bookingCopy.workerId.name,
+      phone: bookingCopy.workerId.phone,
+      rating: worker?.rating || 4.5,
+    };
+  }
+
+  // Only send photo existence flags, not the actual base64 data
+  const photoData = bookingPhotos[bookingCopy._id];
+  bookingCopy.hasBeforePhoto = !!(photoData?.beforePhoto || b.beforePhoto || b.problemPhoto);
+  bookingCopy.hasAfterPhoto = !!(photoData?.afterPhoto || b.afterPhoto);
 
   return bookingCopy;
 }
@@ -812,7 +865,7 @@ app.post('/api/bookings', (req, res) => {
 // Mobile app: get user's bookings
 app.get('/api/bookings/user/:userId', (req, res) => {
   const userBookings = bookings.filter(b => b.userId?._id === req.params.userId);
-  res.json({ success: true, bookings: userBookings.map(enrichBooking).reverse() });
+  res.json({ success: true, bookings: userBookings.map(enrichBookingLight).reverse() });
 });
 
 // Admin: update booking status
@@ -891,7 +944,7 @@ app.get('/api/bookings', async (req, res) => {
       // Fall through to in-memory
     }
   }
-  res.json({ success: true, bookings: bookings.map(enrichBooking).reverse() });
+  res.json({ success: true, bookings: bookings.map(enrichBookingLight).reverse() });
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -911,7 +964,7 @@ app.get('/api/admin/users/count', (req, res) => {
 
 // 17.2: GET /api/admin/bookings
 app.get('/api/admin/bookings', (req, res) => {
-  res.json({ success: true, bookings: bookings.map(enrichBooking).reverse() });
+  res.json({ success: true, bookings: bookings.map(enrichBookingLight).reverse() });
 });
 
 // 17.2: POST /api/bookings/create
@@ -1275,7 +1328,7 @@ app.get('/api/worker/:id/pending-bookings', (req, res) => {
     return (isAssignedToMe || isCategoryMatch) && (b.status === 'pending' || b.status === 'assigned');
   });
 
-  res.json({ success: true, bookings: pending.map(enrichBooking).reverse() });
+  res.json({ success: true, bookings: pending.map(enrichBookingLight).reverse() });
 });
 
 // Worker Assigned/My Bookings
@@ -1296,7 +1349,7 @@ app.get('/api/worker/:id/bookings', (req, res) => {
     return isAssignedToMe && (b.status !== 'pending' || b.assignedTo === wId || b.assignedTo === workerId);
   });
 
-  res.json({ success: true, bookings: myJobs.map(enrichBooking).reverse() });
+  res.json({ success: true, bookings: myJobs.map(enrichBookingLight).reverse() });
 });
 
 // Worker Accept Booking
@@ -2572,7 +2625,7 @@ app.get('/api/worker/:id/bookings', (req, res) => {
     const wId = b.workerId?._id || b.workerId;
     return wId === w._id;
   });
-  res.json({ success: true, bookings: myBookings.map(enrichBooking) });
+  res.json({ success: true, bookings: mybookings.map(enrichBookingLight) });
 });
 
 // W4. Get Pending Bookings (for worker's category — new bookings to accept)
@@ -2591,7 +2644,7 @@ app.get('/api/worker/:id/pending-bookings', (req, res) => {
     
     return b.status === 'pending' && !b.workerId && matches && !hasRejected;
   });
-  res.json({ success: true, bookings: pending.map(enrichBooking) });
+  res.json({ success: true, bookings: pending.map(enrichBookingLight) });
 });
 
 // W5. Accept Booking

@@ -28,7 +28,7 @@ function setupSocket(s, name) {
     console.log(`⚠️ [Socket ${name}] Connect error: ${e.message}`);
   });
 
-  // Forward all incoming real-time events to registered listeners
+  // Forward all incoming real-time events to registered listeners with deduplication
   const events = [
     'new_booking',
     'booking_update',
@@ -41,8 +41,16 @@ function setupSocket(s, name) {
     'new_notification'
   ];
 
+  const recentEvents = new Set();
+
   events.forEach(evt => {
     s.on(evt, (data) => {
+      // Create event key for deduplication across dual sockets
+      const eventKey = `${evt}:${JSON.stringify(data?.bookingId || data?.id || data?.userId || data)}`;
+      if (recentEvents.has(eventKey)) return; // Skip duplicate from second socket
+      recentEvents.add(eventKey);
+      setTimeout(() => recentEvents.delete(eventKey), 1000);
+
       console.log(`📡 [Socket ${name}] Event: ${evt}`, data);
       if (listeners[evt]) {
         listeners[evt].forEach(fn => fn(data));

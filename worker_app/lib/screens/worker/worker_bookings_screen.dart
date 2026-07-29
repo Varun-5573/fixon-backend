@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -207,6 +208,8 @@ class _BookingCard extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ── Details ────────────────────────────────────────
+          _row(Icons.tag_rounded, 'Booking ID: #${booking['_id']}'),
+          const SizedBox(height: 6),
           _row(Icons.location_on_outlined, address),
           if (dt != null) ...[
             const SizedBox(height: 6),
@@ -216,6 +219,15 @@ class _BookingCard extends StatelessWidget {
           const SizedBox(height: 6),
           _row(Icons.currency_rupee,
               '₹${booking['price'] ?? 0}  (Your share: ₹${((booking['price'] ?? 0) * 0.8).round()})'),
+
+          // ── Customer Problem Photo & Description Section ──
+          if ((booking['description'] != null && booking['description'].toString().isNotEmpty) ||
+              (booking['problemDescription'] != null && booking['problemDescription'].toString().isNotEmpty) ||
+              (booking['beforePhoto'] != null && booking['beforePhoto'].toString().isNotEmpty) ||
+              (booking['problemPhoto'] != null && booking['problemPhoto'].toString().isNotEmpty)) ...[
+            const SizedBox(height: 10),
+            _buildProblemBox(booking),
+          ],
 
           // ── Phone / Chat ───────────────────────────────────
           if (userPhone.isNotEmpty) ...[
@@ -580,5 +592,73 @@ class _BookingCard extends StatelessWidget {
       'Pest Control': '🐛', 'CCTV Setup': '📹',
     };
     return icons[cat] ?? '🔧';
+  }
+
+  Widget _buildProblemBox(Map<String, dynamic> booking) {
+    final description = booking['description']?.toString() ?? booking['problemDescription']?.toString() ?? '';
+    final problemPhoto = booking['problemPhoto']?.toString() ?? booking['beforePhoto']?.toString() ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('📝', style: TextStyle(fontSize: 15)),
+              const SizedBox(width: 6),
+              Text('Customer Problem Description:', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+            ],
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: GoogleFonts.inter(fontSize: 13, color: AppColors.text, fontWeight: FontWeight.w500),
+            ),
+          ],
+          if (problemPhoto.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Text('📸', style: TextStyle(fontSize: 15)),
+                const SizedBox(width: 6),
+                Text('Problem Photo:', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                height: 140,
+                width: double.infinity,
+                child: _buildImageWidget(problemPhoto),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(String src) {
+    if (src.startsWith('data:image')) {
+      try {
+        final decodedBytes = base64Decode(src.split(',').last);
+        return Image.memory(decodedBytes, fit: BoxFit.cover);
+      } catch (_) {}
+    }
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      return Image.network(src, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white54));
+    }
+    return Container(
+      color: Colors.black26,
+      child: const Center(child: Icon(Icons.image, color: Colors.white54, size: 32)),
+    );
   }
 }

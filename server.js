@@ -662,9 +662,14 @@ function enrichBooking(b) {
 
   // Attach photos if present
   const photoData = bookingPhotos[bookingCopy._id];
+  const beforePhoto = photoData?.beforePhoto || b.beforePhoto || b.problemPhoto || null;
+  const afterPhoto = photoData?.afterPhoto || b.afterPhoto || null;
+
+  bookingCopy.beforePhoto = beforePhoto;
+  bookingCopy.afterPhoto = afterPhoto;
+  bookingCopy.problemPhoto = b.problemPhoto || beforePhoto;
+
   if (photoData) {
-    bookingCopy.beforePhoto = photoData.beforePhoto || null;
-    bookingCopy.afterPhoto = photoData.afterPhoto || null;
     bookingCopy.beforePhotoUploadedAt = photoData.beforePhotoUploadedAt || null;
     bookingCopy.afterPhotoUploadedAt = photoData.afterPhotoUploadedAt || null;
   }
@@ -754,16 +759,13 @@ app.post('/api/bookings', (req, res) => {
     rating, ratingComment, completedAt, description,
     userName, userPhone,
     paymentMethod, paymentStatus,
+    beforePhoto, problemPhoto,
   } = req.body;
 
   // Resolve user name
   const realUser = registeredUsers.find(u => u._id === userId);
-  const finalName = userName || name || realUser?.name || users[userId]?.name || 'Customer';
-
-  // Register user in live map if not seen
-  if (userId && !users[userId]) {
-    users[userId] = { _id: userId, name: finalName, email: realUser?.email || '' };
-  }
+  const finalName = name || userName || realUser?.name || 'Customer';
+  const photo = beforePhoto || problemPhoto || null;
 
   const booking = {
     _id: 'BK' + Date.now(),

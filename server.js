@@ -680,12 +680,16 @@ function enrichBooking(b) {
 // ── Upload Before/After Photos for a Booking ─────────────────
 app.post('/api/bookings/:id/photos', async (req, res) => {
   const bookingId = req.params.id;
-  const { beforePhoto, afterPhoto, workerNotes, completionNotes } = req.body;
+  const { beforePhoto, afterPhoto, problemPhoto, workerNotes, completionNotes } = req.body;
+
+  // Use problemPhoto as an alias for beforePhoto if beforePhoto is not provided
+  const resolvedBeforePhoto = beforePhoto || problemPhoto || null;
 
   if (!bookingPhotos[bookingId]) bookingPhotos[bookingId] = {};
 
-  if (beforePhoto) {
-    bookingPhotos[bookingId].beforePhoto = beforePhoto;
+  if (resolvedBeforePhoto) {
+    bookingPhotos[bookingId].beforePhoto = resolvedBeforePhoto;
+    bookingPhotos[bookingId].problemPhoto = resolvedBeforePhoto;
     bookingPhotos[bookingId].beforePhotoUploadedAt = new Date().toISOString();
   }
   if (afterPhoto) {
@@ -698,7 +702,10 @@ app.post('/api/bookings/:id/photos', async (req, res) => {
   // Also store on the booking object itself for persistence
   const b = bookings.find(x => x._id === bookingId);
   if (b) {
-    if (beforePhoto) b.beforePhoto = beforePhoto;
+    if (resolvedBeforePhoto) {
+      b.beforePhoto = resolvedBeforePhoto;
+      b.problemPhoto = resolvedBeforePhoto;
+    }
     if (afterPhoto)  b.afterPhoto  = afterPhoto;
     if (workerNotes)     b.workerNotes = workerNotes;
     if (completionNotes) b.completionNotes = completionNotes;

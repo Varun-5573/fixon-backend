@@ -307,6 +307,18 @@ class BookingProvider extends ChangeNotifier {
 
   Future<bool> createBooking(
       Map<String, dynamic> bookingData, String token) async {
+    // Extract the photo BEFORE creating booking (send it separately for reliability)
+    final problemPhoto = bookingData['problemPhoto']?.toString() ?? '';
+    final beforePhoto  = bookingData['beforePhoto']?.toString() ?? '';
+    final photoToUpload = problemPhoto.isNotEmpty ? problemPhoto : (beforePhoto.isNotEmpty ? beforePhoto : '');
+
+    // Create booking payload WITHOUT the large base64 photo (to avoid payload size issues)
+    final payloadWithoutPhoto = Map<String, dynamic>.from(bookingData);
+    payloadWithoutPhoto.remove('problemPhoto');
+    payloadWithoutPhoto.remove('beforePhoto');
+
+    String? createdBookingId;
+
     try {
       final res = await http
           .post(
@@ -315,18 +327,42 @@ class BookingProvider extends ChangeNotifier {
               ...kHeaders,
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode(bookingData),
+            body: jsonEncode(payloadWithoutPhoto),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body) as Map<String, dynamic>;
 
       if (data['success'] == true) {
-        _bookings.insert(0, data['booking'] ?? {
+        final booking = data['booking'] as Map<String, dynamic>? ?? {
           '_id': 'BK${DateTime.now().millisecondsSinceEpoch}',
-          ...bookingData,
+          ...payloadWithoutPhoto,
           'status': 'pending',
           'workerId': null,
-        });
+        };
+
+        createdBookingId = booking['_id']?.toString();
+
+        // ── Upload problem photo SEPARATELY for reliability ──────
+        if (photoToUpload.isNotEmpty && createdBookingId != null) {
+          try {
+            await http.post(
+              Uri.parse('$kBaseUrl/api/bookings/$createdBookingId/photos'),
+              headers: {...kHeaders, 'Authorization': 'Bearer $token'},
+              body: jsonEncode({
+                'beforePhoto': photoToUpload,
+                'problemPhoto': photoToUpload,
+              }),
+            ).timeout(const Duration(seconds: 30));
+            debugPrint('📸 Problem photo uploaded for booking $createdBookingId');
+            // Attach photo to booking in memory too
+            booking['beforePhoto'] = photoToUpload;
+            booking['problemPhoto'] = photoToUpload;
+          } catch (e) {
+            debugPrint('⚠️ Photo upload error (non-fatal): $e');
+          }
+        }
+
+        _bookings.insert(0, booking);
         notifyListeners();
         return true;
       }
@@ -337,7 +373,7 @@ class BookingProvider extends ChangeNotifier {
     // Offline / Demo mode fallback
     _bookings.insert(0, {
       '_id': 'offline_${DateTime.now().millisecondsSinceEpoch}',
-      ...bookingData,
+      ...payloadWithoutPhoto,
       'status': 'pending',
       'workerId': null,
     });

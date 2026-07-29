@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
 import '../../utils/constants.dart';
 import 'worker_home_screen.dart';
+import 'worker_register_screen.dart';
 
 class WorkerLoginScreen extends StatefulWidget {
   const WorkerLoginScreen({super.key});
@@ -182,7 +183,42 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen>
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+
+                  // Register / Check Status button
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const WorkerRegisterScreen(),
+                          ),
+                        );
+                      },
+                      child: RichText(
+                        text: TextSpan(
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                          children: [
+                            const TextSpan(text: 'New Worker? '),
+                            TextSpan(
+                              text: 'Register / Track Application',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
 
                   // Info Card
                   Container(

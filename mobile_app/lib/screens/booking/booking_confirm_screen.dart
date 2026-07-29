@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
@@ -24,6 +27,8 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
   bool _done = false;
   String _coupon = '';
   final _couponCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
+  String? _problemPhotoBase64;
   int _discount = 0;
   String _paymentMethod = 'Online'; // 'Online', 'COD', 'AfterService'
 
@@ -49,7 +54,74 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
     }
   }
 
+  Future<void> _pickProblemPhoto() async {
+    final picker = ImagePicker();
+    final picked = await showModalBottomSheet<XFile?>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('📸 Select Problem Photo Source', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(Icons.camera_alt, color: AppColors.primary),
+              title: Text('Take Camera Photo', style: GoogleFonts.inter(color: AppColors.text)),
+              onTap: () async {
+                final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 75);
+                if (ctx.mounted) Navigator.pop(ctx, file);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library, color: AppColors.secondary),
+              title: Text('Choose from Gallery', style: GoogleFonts.inter(color: AppColors.text)),
+              onTap: () async {
+                final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+                if (ctx.mounted) Navigator.pop(ctx, file);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (picked != null) {
+      try {
+        final bytes = await File(picked.path).readAsBytes();
+        final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+        setState(() {
+          _problemPhotoBase64 = base64Str;
+        });
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error reading photo: $e'), backgroundColor: AppColors.error));
+        }
+      }
+    }
+  }
+
   Future<void> _handleConfirmAction() async {
+    // 🛑 Mandatory Field Validations
+    if (_descriptionCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('📝 Please enter a problem description (e.g. Water leakage, AC not cooling)'),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    if (_problemPhotoBase64 == null || _problemPhotoBase64!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('📸 Mandatory: Please upload at least one problem photo before submitting!'),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
     if (_paymentMethod == 'Online') {
       await _processPayment();
     } else {
@@ -77,12 +149,15 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
       'userId': auth.user?['_id'] ?? 'guest',
       'name': auth.user?['name'] ?? 'Customer',
       'service': widget.service['name'],
+      'description': _descriptionCtrl.text.trim(),
+      'beforePhoto': _problemPhotoBase64,
+      'problemPhoto': _problemPhotoBase64,
       'price': _total,
       'scheduledTime': widget.scheduledTime.toIso8601String(),
       'address': widget.address,
       'lat': loc.lat,
       'lng': loc.lng,
-      'location': { 'address': widget.address, 'lat': loc.lat, 'lng': loc.lng }, // frontend compat
+      'location': { 'address': widget.address, 'lat': loc.lat, 'lng': loc.lng },
       'category': widget.service['name'],
       if (widget.worker != null) 'workerId': widget.worker!['_id'],
       if (widget.worker != null) 'workerName': widget.worker!['name'],
@@ -146,7 +221,115 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
                         ])),
                         Text('₹${widget.subService['price']}', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
                       ]),
-                    ),                    const SizedBox(height: 18),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // 📸 MANDATORY: Problem Photo & Description Section
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: _problemPhotoBase64 == null ? AppColors.error.withOpacity(0.5) : AppColors.primary),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text('📝 Problem Description', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: AppColors.error.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                                child: Text('Required', style: GoogleFonts.inter(fontSize: 10, color: AppColors.error, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _descriptionCtrl,
+                            maxLines: 3,
+                            style: GoogleFonts.inter(fontSize: 13, color: AppColors.text),
+                            decoration: InputDecoration(
+                              hintText: 'Describe the problem clearly...\nExamples: Water leakage, AC not cooling, Switch board damaged, Pipe broken',
+                              hintStyle: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub.withOpacity(0.7)),
+                              contentPadding: const EdgeInsets.all(12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+                              filled: true,
+                              fillColor: AppColors.surface,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Text('📸 Problem Photo', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: AppColors.error.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                                child: Text('Required', style: GoogleFonts.inter(fontSize: 10, color: AppColors.error, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _pickProblemPhoto,
+                            child: Container(
+                              height: 110,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _problemPhotoBase64 != null ? AppColors.success : AppColors.primary.withOpacity(0.5),
+                                  width: _problemPhotoBase64 != null ? 2 : 1,
+                                ),
+                              ),
+                              child: _problemPhotoBase64 != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Image.memory(
+                                            base64Decode(_problemPhotoBase64!.split(',').last),
+                                            fit: BoxFit.cover,
+                                          ),
+                                          Positioned(
+                                            top: 8,
+                                            right: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(color: Colors.black70, borderRadius: BorderRadius.circular(8)),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.edit, color: Colors.white, size: 12),
+                                                  const SizedBox(width: 4),
+                                                  Text('Change', style: GoogleFonts.inter(color: Colors.white, fontSize: 11)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 32),
+                                        const SizedBox(height: 6),
+                                        Text('Tap to take or upload problem photo', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                                        Text('Mandatory proof for worker', style: GoogleFonts.inter(fontSize: 10, color: AppColors.textSub)),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
 
                     // Details
                     _DetailCard(items: [

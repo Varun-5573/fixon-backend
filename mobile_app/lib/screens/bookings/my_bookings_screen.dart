@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../utils/constants.dart';
 import 'booking_tracking_screen.dart';
+import '../booking/invoice_screen.dart';
 import '../chat/worker_chat_screen.dart';
 import '../../widgets/before_after_photos_widget.dart';
 
@@ -215,14 +216,16 @@ class _BookingCard extends StatelessWidget {
           LinearProgressIndicator(backgroundColor: AppColors.card2, color: AppColors.primary, borderRadius: BorderRadius.circular(4)),
         ],
 
-        // Before/After Photos
-        if (booking['_id'] != null) ...[
+        // Before/After Photos (display only if photos exist)
+        if (booking['_id'] != null &&
+            ((booking['beforePhoto']?.toString().isNotEmpty ?? false) ||
+             (booking['afterPhoto']?.toString().isNotEmpty ?? false))) ...[
           const SizedBox(height: 8),
           BeforeAfterPhotosWidget(
             bookingId: booking['_id'] as String,
             initialBeforePhoto: booking['beforePhoto'] as String?,
             initialAfterPhoto: booking['afterPhoto'] as String?,
-            canUploadBefore: true,
+            canUploadBefore: false,
             canUploadAfter: false,
           ),
         ],
@@ -249,18 +252,22 @@ class _BookingCard extends StatelessWidget {
               ),
             )),
           if (status == 'completed') ...[
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InvoiceScreen(booking: booking))),
+              icon: const Icon(Icons.receipt_long_rounded, size: 16, color: Colors.white),
+              label: Text('🧾 Invoice', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            )),
+            const SizedBox(width: 10),
             Expanded(child: OutlinedButton.icon(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BookingTrackingScreen(booking: booking))),
               icon: const Icon(Icons.star_outline, size: 16),
               label: Text('Rate', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
               style: OutlinedButton.styleFrom(foregroundColor: AppColors.accent, side: BorderSide(color: AppColors.accent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text('Rebook', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
-              style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
             )),
           ],
         ]),

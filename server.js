@@ -1351,7 +1351,43 @@ app.post('/api/worker/:id/reject-booking/:bookingId', (req, res) => {
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
-// Worker Update Job Status (on-the-way, start, complete, cancel)
+// GET invoice for a booking
+app.get('/api/bookings/:id/invoice', (req, res) => {
+  const b = bookings.find(x => x._id === req.params.id);
+  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
+
+  const basePrice = b.price || 0;
+  const discount = b.discount || 0;
+  const platformFee = Math.round(basePrice * 0.05);
+  const gstTax = Math.round((basePrice + platformFee - discount) * 0.18);
+  const totalAmount = basePrice + platformFee + gstTax - discount;
+
+  const invoice = {
+    invoiceNumber: `INV-${new Date(b.createdAt || Date.now()).getFullYear()}-${b._id.replace(/[^0-9]/g, '').slice(-6)}`,
+    bookingId: b._id,
+    customerName: b.userName || b.userId?.name || 'Customer',
+    customerPhone: b.userPhone || b.userId?.phone || '',
+    customerAddress: b.location?.address || b.address || '',
+    workerName: b.workerId?.name || b.workerName || 'Assigned Worker',
+    workerPhone: b.workerId?.phone || '',
+    serviceCategory: b.category || b.service,
+    serviceName: b.service,
+    bookingDate: b.createdAt || b.scheduledTime,
+    completionDate: b.completedAt || new Date().toISOString(),
+    labourCharge: basePrice,
+    materialCharge: b.materialCharge || 0,
+    platformFee: platformFee,
+    discount: discount,
+    gstTax: gstTax,
+    totalAmount: totalAmount,
+    paymentStatus: b.paymentStatus || 'Paid',
+    paymentMethod: b.paymentMethod || 'Online (UPI)',
+  };
+
+  res.json({ success: true, invoice });
+});
+
+// Worker Update Job Status (on-the-way, arrived, start, complete, cancel)
 app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
   const b = bookings.find(x => x._id === req.params.bookingId);
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
@@ -1359,6 +1395,7 @@ app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
   const action = req.params.action;
   let newStatus = action;
   if (action === 'on-the-way')   newStatus = 'on_the_way';
+  if (action === 'arrived')      newStatus = 'arrived';
   if (action === 'start')        newStatus = 'ongoing';
   if (action === 'in_progress')  newStatus = 'ongoing';
   if (action === 'complete')     newStatus = 'completed';
@@ -1377,7 +1414,11 @@ app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
   const customerId = b.userId?._id || b.userId;
   const notifMessages = {
     on_the_way:  { title: '🏍️ Worker On The Way!',  msg: `Your ${b.service} worker is on the way to you.` },
+    arrived:     { title: '📍 Worker Arrived!',     msg: `Your ${b.service} worker has arrived at your location.` },
     ongoing:     { title: '🔧 Work Started!',         msg: `Work has started for your ${b.service} booking.` },
+    completed:   { title: '🎉 Job Completed!',        msg: `Your ${b.service} booking has been completed!` },
+    cancelled:   { title: '❌ Booking Cancelled',     msg: `Your ${b.service} booking was cancelled.` },
+  };
     completed:   { title: '✅ Job Completed!',         msg: `Your ${b.service} job is complete! Please rate your worker.` },
     cancelled:   { title: '❌ Booking Cancelled',     msg: `Your ${b.service} booking has been cancelled by the worker.` },
   };

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/worker_provider.dart';
 import '../../utils/constants.dart';
 
 class WorkerVerificationScreen extends StatefulWidget {
@@ -58,8 +59,18 @@ class _WorkerVerificationScreenState extends State<WorkerVerificationScreen> {
     setState(() => _submitting = true);
 
     try {
-      final workerId =
-          context.read<AuthProvider>().user?['_id'] ?? 'guest';
+      // FIX: Use WorkerProvider for worker app, fall back to AuthProvider for customer app
+      final workerProvider = context.read<WorkerProvider>();
+      final authProvider = context.read<AuthProvider>();
+      final workerId = workerProvider.worker?['_id'] 
+          ?? authProvider.user?['_id'] 
+          ?? 'guest';
+
+      if (workerId == 'guest') {
+        setState(() => _submitting = false);
+        _showSnack('Please log in to the Worker App first before submitting documents.', isError: true);
+        return;
+      }
 
       String? frontUrl;
       String? backUrl;
@@ -82,7 +93,7 @@ class _WorkerVerificationScreenState extends State<WorkerVerificationScreen> {
           'documentFrontUrl': frontUrl,
           'documentBackUrl': backUrl,
         }),
-      );
+      ).timeout(const Duration(seconds: 60));
 
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
@@ -91,14 +102,14 @@ class _WorkerVerificationScreenState extends State<WorkerVerificationScreen> {
           _submitted = true;
           _verificationStatus = 'pending';
         });
-        _showSnack('Documents submitted! Admin will review within 24 hours. ✅');
+        _showSnack('$_docType submitted! Admin will verify within 24 hours. ✅');
       } else {
         setState(() => _submitting = false);
-        _showSnack('Submission failed. Try again.', isError: true);
+        _showSnack(data['error'] ?? 'Submission failed. Try again.', isError: true);
       }
     } catch (e) {
       setState(() => _submitting = false);
-      _showSnack('Connection error. Make sure server is running.', isError: true);
+      _showSnack('Connection error: $e', isError: true);
     }
   }
 

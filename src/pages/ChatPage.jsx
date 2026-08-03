@@ -26,40 +26,46 @@ export default function ChatPage({ socket }) {
   useEffect(() => { if (active) { filterMessages(active._id); clearUnread(active._id); } }, [active, allMessages]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Real-time incoming messages
+  // Real-time incoming messages using activeRef
   useEffect(() => {
     if (socket) {
-      socket.on('receive_message', (msg) => {
-        setAllMessages(prev => {
-          const updated = [...prev, msg];
-          return updated;
-        });
-        if (active && (msg.senderId === active._id || msg.receiverId === active._id)) {
+      const handleReceiveMessage = (msg) => {
+        setAllMessages(prev => [...prev, msg]);
+        const currentActive = activeRef.current;
+        const msgSender = String(msg.senderId || '');
+        const msgReceiver = String(msg.receiverId || '');
+        const activeId = currentActive ? String(currentActive._id) : '';
+
+        if (activeId && (msgSender === activeId || msgReceiver === activeId)) {
           setMessages(p => [...p, msg]);
-        } else {
-          // Increment unread for that user
-          if (msg.senderType === 'customer') {
-            const senderId = msg.senderId;
-            setUnread(p => ({ ...p, [senderId]: (p[senderId] || 0) + 1 }));
-            // Auto-add sender to user list if not there
-            setUsers(prev => {
-              if (prev.find(u => u._id === senderId)) return prev;
-              return [...prev, { _id: senderId, name: 'Customer ' + senderId.slice(-4), online: true }];
-            });
-            toast(`💬 New message from Customer`, { duration: 3000 });
-          }
+        } else if (msg.senderType === 'customer') {
+          const sId = msgSender;
+          setUnread(p => ({ ...p, [sId]: (p[sId] || 0) + 1 }));
+          setUsers(prev => {
+            if (prev.find(u => String(u._id) === sId)) return prev;
+            return [...prev, { _id: sId, name: msg.senderName || ('Customer ' + sId.slice(-4)), online: true }];
+          });
+          toast(`💬 New message from ${msg.senderName || 'Customer'}`, { duration: 3000 });
         }
-      });
-      socket.on('new_user', (user) => {
+      };
+
+      const handleNewUser = (user) => {
         setUsers(p => {
-          if (p.find(u => u._id === user._id)) return p;
+          if (p.find(u => String(u._id) === String(user._id))) return p;
           return [...p, user];
         });
         toast(`👤 New customer joined: ${user.name}`);
-      });
+      };
+
+      socket.on('receive_message', handleReceiveMessage);
+      socket.on('new_user', handleNewUser);
+
+      return () => {
+        socket.off('receive_message', handleReceiveMessage);
+        socket.off('new_user', handleNewUser);
+      };
     }
-    return () => { socket?.off('receive_message'); socket?.off('new_user'); };
-  }, [socket, active]);
+  }, [socket]);
 
   const clearUnread = (id) => setUnread(p => ({ ...p, [id]: 0 }));
 
@@ -110,25 +116,33 @@ export default function ChatPage({ socket }) {
       });
 
       const userList = Array.from(userMap.values());
-      if (userList.length > 0) setUsers(userList);
+      if (userList.length > 0) {
+        setUsers(userList);
+        if (!activeRef.current) {
+          setActive(userList[0]);
+        }
+      }
 
       // Auto-refresh active conversation if one is open
       const currentActive = activeRef.current;
       if (currentActive) {
+        const targetId = String(currentActive._id);
         setMessages(msgs.filter(m =>
-          m.senderId === currentActive._id ||
-          m.receiverId === currentActive._id ||
-          (m.senderType === 'bot' && m.receiverId === currentActive._id)
+          String(m.senderId) === targetId ||
+          String(m.receiverId) === targetId ||
+          (m.senderType === 'bot' && String(m.receiverId) === targetId)
         ));
       }
     } catch {}
   };
 
   const filterMessages = (userId) => {
+    if (!userId) return;
+    const targetId = String(userId);
     setMessages(allMessages.filter(m =>
-      m.senderId === userId ||
-      m.receiverId === userId ||
-      (m.senderType === 'bot' && m.receiverId === userId)
+      String(m.senderId) === targetId ||
+      String(m.receiverId) === targetId ||
+      (m.senderType === 'bot' && String(m.receiverId) === targetId)
     ));
   };
 

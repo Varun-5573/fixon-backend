@@ -673,6 +673,7 @@ app.get('/api/location/customers', (req, res) => {
 function enrichBooking(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
+  bookingCopy.status = normalizeStatus(bookingCopy.status);
   if (bookingCopy.workerId && bookingCopy.workerId._id) {
     const worker = adminWorkers.find(w => w._id === bookingCopy.workerId._id);
     bookingCopy.workerId = {
@@ -681,17 +682,21 @@ function enrichBooking(b) {
     };
   }
 
-  // Attach photos if present
-  const photoData = bookingPhotos[bookingCopy._id];
-  const hasPhoto = !!(photoData?.beforePhoto || b.beforePhoto || b.problemPhoto);
-  const hasAfter = !!(photoData?.afterPhoto || b.afterPhoto);
+  // Attach photos separately for problem, before, and after
+  const photoData = bookingPhotos[bookingCopy._id] || {};
+  bookingCopy.customerProblemPhoto = b.customerProblemPhoto || b.problemPhoto || photoData.customerProblemPhoto || photoData.problemPhoto || null;
+  bookingCopy.workerBeforePhoto = photoData.workerBeforePhoto || photoData.beforePhoto || b.workerBeforePhoto || b.beforePhoto || null;
+  bookingCopy.workerAfterPhoto = photoData.workerAfterPhoto || photoData.afterPhoto || b.workerAfterPhoto || b.afterPhoto || null;
 
-  bookingCopy.beforePhoto = photoData?.beforePhoto || b.beforePhoto || b.problemPhoto || null;
-  bookingCopy.afterPhoto = photoData?.afterPhoto || b.afterPhoto || null;
-  bookingCopy.problemPhoto = b.problemPhoto || bookingCopy.beforePhoto;
-  // Flags for the app to know whether photos exist (without sending the data)
-  bookingCopy.hasBeforePhoto = hasPhoto;
-  bookingCopy.hasAfterPhoto = hasAfter;
+  // Aliases for compatibility
+  bookingCopy.problemPhoto = bookingCopy.customerProblemPhoto;
+  bookingCopy.beforePhoto = bookingCopy.workerBeforePhoto;
+  bookingCopy.afterPhoto = bookingCopy.workerAfterPhoto;
+
+  // Flags for existence
+  bookingCopy.hasProblemPhoto = !!bookingCopy.customerProblemPhoto;
+  bookingCopy.hasBeforePhoto = !!bookingCopy.workerBeforePhoto;
+  bookingCopy.hasAfterPhoto = !!bookingCopy.workerAfterPhoto;
 
   if (photoData) {
     bookingCopy.beforePhotoUploadedAt = photoData.beforePhotoUploadedAt || null;
@@ -705,10 +710,14 @@ function enrichBooking(b) {
 function enrichBookingLight(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
+  bookingCopy.status = normalizeStatus(bookingCopy.status);
   // Remove photo data from list response
   delete bookingCopy.beforePhoto;
   delete bookingCopy.afterPhoto;
   delete bookingCopy.problemPhoto;
+  delete bookingCopy.customerProblemPhoto;
+  delete bookingCopy.workerBeforePhoto;
+  delete bookingCopy.workerAfterPhoto;
 
   if (bookingCopy.workerId && bookingCopy.workerId._id) {
     const worker = adminWorkers.find(w => w._id === bookingCopy.workerId._id);
@@ -720,10 +729,11 @@ function enrichBookingLight(b) {
     };
   }
 
-  // Only send photo existence flags, not the actual base64 data
-  const photoData = bookingPhotos[bookingCopy._id];
-  bookingCopy.hasBeforePhoto = !!(photoData?.beforePhoto || b.beforePhoto || b.problemPhoto);
-  bookingCopy.hasAfterPhoto = !!(photoData?.afterPhoto || b.afterPhoto);
+  // Only send photo existence flags
+  const photoData = bookingPhotos[bookingCopy._id] || {};
+  bookingCopy.hasProblemPhoto = !!(b.customerProblemPhoto || b.problemPhoto || photoData.customerProblemPhoto);
+  bookingCopy.hasBeforePhoto = !!(photoData.workerBeforePhoto || photoData.beforePhoto || b.workerBeforePhoto || b.beforePhoto);
+  bookingCopy.hasAfterPhoto = !!(photoData.workerAfterPhoto || photoData.afterPhoto || b.workerAfterPhoto || b.afterPhoto);
 
   return bookingCopy;
 }
@@ -731,20 +741,26 @@ function enrichBookingLight(b) {
 // ── Upload Before/After Photos for a Booking ─────────────────
 app.post('/api/bookings/:id/photos', async (req, res) => {
   const bookingId = req.params.id;
-  const { beforePhoto, afterPhoto, problemPhoto, workerNotes, completionNotes } = req.body;
+  const { beforePhoto, afterPhoto, workerBeforePhoto, workerAfterPhoto, problemPhoto, customerProblemPhoto, workerNotes, completionNotes } = req.body;
 
-  // Use problemPhoto as an alias for beforePhoto if beforePhoto is not provided
-  const resolvedBeforePhoto = beforePhoto || problemPhoto || null;
+  const resolvedBeforePhoto = workerBeforePhoto || beforePhoto || null;
+  const resolvedAfterPhoto = workerAfterPhoto || afterPhoto || null;
+  const resolvedProblemPhoto = customerProblemPhoto || problemPhoto || null;
 
   if (!bookingPhotos[bookingId]) bookingPhotos[bookingId] = {};
 
+  if (resolvedProblemPhoto) {
+    bookingPhotos[bookingId].customerProblemPhoto = resolvedProblemPhoto;
+    bookingPhotos[bookingId].problemPhoto = resolvedProblemPhoto;
+  }
   if (resolvedBeforePhoto) {
+    bookingPhotos[bookingId].workerBeforePhoto = resolvedBeforePhoto;
     bookingPhotos[bookingId].beforePhoto = resolvedBeforePhoto;
-    bookingPhotos[bookingId].problemPhoto = resolvedBeforePhoto;
     bookingPhotos[bookingId].beforePhotoUploadedAt = new Date().toISOString();
   }
-  if (afterPhoto) {
-    bookingPhotos[bookingId].afterPhoto = afterPhoto;
+  if (resolvedAfterPhoto) {
+    bookingPhotos[bookingId].workerAfterPhoto = resolvedAfterPhoto;
+    bookingPhotos[bookingId].afterPhoto = resolvedAfterPhoto;
     bookingPhotos[bookingId].afterPhotoUploadedAt = new Date().toISOString();
   }
   if (workerNotes)     bookingPhotos[bookingId].workerNotes = workerNotes;
@@ -753,11 +769,18 @@ app.post('/api/bookings/:id/photos', async (req, res) => {
   // Also store on the booking object itself for persistence
   const b = bookings.find(x => x._id === bookingId);
   if (b) {
-    if (resolvedBeforePhoto) {
-      b.beforePhoto = resolvedBeforePhoto;
-      b.problemPhoto = resolvedBeforePhoto;
+    if (resolvedProblemPhoto) {
+      b.customerProblemPhoto = resolvedProblemPhoto;
+      b.problemPhoto = resolvedProblemPhoto;
     }
-    if (afterPhoto)  b.afterPhoto  = afterPhoto;
+    if (resolvedBeforePhoto) {
+      b.workerBeforePhoto = resolvedBeforePhoto;
+      b.beforePhoto = resolvedBeforePhoto;
+    }
+    if (resolvedAfterPhoto) {
+      b.workerAfterPhoto = resolvedAfterPhoto;
+      b.afterPhoto = resolvedAfterPhoto;
+    }
     if (workerNotes)     b.workerNotes = workerNotes;
     if (completionNotes) b.completionNotes = completionNotes;
   }
@@ -972,38 +995,69 @@ app.post('/api/bookings/create', (req, res) => {
   app._router.handle(req, res, () => {});
 });
 
+// Helper to normalize any status variation into standard canonical lowercase status
+const normalizeStatus = (s) => {
+  if (!s) return 'pending';
+  const str = String(s).trim().toLowerCase().replace(/[\s-]/g, '_');
+  if (['confirmed', 'accepted', 'accept'].includes(str)) return 'accepted';
+  if (['on_the_way', 'ontheway', 'on_way', 'way', 'on-the-way'].includes(str)) return 'on_the_way';
+  if (['arrived', 'arrive'].includes(str)) return 'arrived';
+  if (['ongoing', 'in_progress', 'start_work', 'started', 'start', 'working'].includes(str)) return 'ongoing';
+  if (['completed', 'complete', 'finish', 'finished', 'done', 'invoice_generated', 'rated'].includes(str)) return 'completed';
+  if (['cancelled', 'cancel'].includes(str)) return 'cancelled';
+  return str;
+};
+
 // 17.5: PUT & PATCH /api/bookings/{id}/status - Unified Status Engine
-const handleBookingStatusUpdate = (req, res) => {
+const STATUS_RANKS = {
+  'pending': 0,
+  'assigned': 1,
+  'accepted': 2,
+  'confirmed': 2,
+  'on_the_way': 3,
+  'ontheway': 3,
+  'arrived': 4,
+  'ongoing': 5,
+  'in_progress': 5,
+  'started': 5,
+  'completed': 6,
+  'cancelled': 99
+};
+
+const handleBookingStatusUpdate = async (req, res) => {
   const { status, workerId, workerName } = req.body;
   const b = bookings.find(x => String(x._id) === String(req.params.id));
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
 
-  let newStatus = status;
-  if (status === 'Confirmed' || status === 'confirmed') newStatus = 'accepted';
-  if (status === 'Start Work' || status === 'start') newStatus = 'ongoing';
-  if (status === 'Finish' || status === 'finish' || status === 'Complete') newStatus = 'completed';
+  const normalizedNewStatus = normalizeStatus(status);
+  const currentNormalized = normalizeStatus(b.status);
 
-  b.status = newStatus;
+  const currentRank = STATUS_RANKS[currentNormalized] ?? 0;
+  const newRank = STATUS_RANKS[normalizedNewStatus] ?? 0;
+
+  // STRICT REGRESSION PREVENTION: Once advanced forward, status can NEVER move backward or repeat!
+  if (currentRank > newRank && normalizedNewStatus !== 'cancelled') {
+    return res.json({ success: true, booking: enrichBooking(b), message: 'Status already advanced' });
+  }
+
+  b.status = normalizedNewStatus;
   const nowStr = new Date().toISOString();
 
-  if (newStatus === 'accepted') {
+  if (normalizedNewStatus === 'accepted') {
     b.acceptedAt = b.acceptedAt || nowStr;
     if (workerId) {
       const w = adminWorkers.find(x => String(x._id) === String(workerId) || String(x.workerId) === String(workerId));
-      if (w) {
-        b.workerId = w;
-        b.workerName = w.name;
-      }
+      if (w) { b.workerId = w; b.workerName = w.name; }
     } else if (workerName) {
       b.workerName = workerName;
     }
-  } else if (newStatus === 'on_the_way') {
+  } else if (normalizedNewStatus === 'on_the_way') {
     b.onTheWayAt = b.onTheWayAt || nowStr;
-  } else if (newStatus === 'arrived') {
+  } else if (normalizedNewStatus === 'arrived') {
     b.arrivedAt = b.arrivedAt || nowStr;
-  } else if (newStatus === 'ongoing') {
+  } else if (normalizedNewStatus === 'ongoing') {
     b.startedAt = b.startedAt || nowStr;
-  } else if (newStatus === 'completed') {
+  } else if (normalizedNewStatus === 'completed') {
     b.completedAt = b.completedAt || nowStr;
     if (b.workerId) {
       const wId = b.workerId._id || b.workerId;
@@ -1016,17 +1070,38 @@ const handleBookingStatusUpdate = (req, res) => {
     }
   }
 
-  saveData();
+  // ── ATOMIC PERSIST: write to MongoDB IMMEDIATELY ──────────────────────────
+  const cleanBookings = bookings.map(bk => {
+    const copy = { ...bk };
+    delete copy.beforePhoto; delete copy.afterPhoto; delete copy.problemPhoto;
+    delete copy.beforePhotoUploadedAt; delete copy.afterPhotoUploadedAt;
+    return copy;
+  });
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      await AppData.findOneAndUpdate(
+        { key: 'main' },
+        { $set: { bookings: cleanBookings } },
+        { upsert: true }
+      );
+      console.log(`💾 Booking ${b._id} atomically saved to MongoDB → ${normalizedNewStatus}`);
+    } catch (err) {
+      console.error('⚠️ MongoDB atomic save failed:', err.message);
+      saveData(); // fall back to debounced save
+    }
+  } else {
+    saveData();
+  }
 
   const customerId = b.userId?._id || b.userId;
   const enriched = enrichBooking(b);
 
-  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: enriched });
+  io.emit('booking_update', { bookingId: b._id, status: normalizedNewStatus, booking: enriched });
   if (customerId) {
-    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: newStatus, booking: enriched });
+    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: normalizedNewStatus, booking: enriched });
   }
 
-  console.log(`✅ Booking ${b._id} status updated → ${newStatus}`);
+  console.log(`✅ Booking ${b._id} status updated → ${normalizedNewStatus}`);
   res.json({ success: true, booking: enriched });
 };
 
@@ -1402,8 +1477,8 @@ app.get('/api/worker/:id/bookings', (req, res) => {
   res.json({ success: true, bookings: myJobs.map(enrichBookingLight).reverse() });
 });
 
-// Worker Accept Booking
-app.post('/api/worker/:id/accept-booking/:bookingId', (req, res) => {
+// Worker Accept Booking — atomic MongoDB persist
+app.post('/api/worker/:id/accept-booking/:bookingId', async (req, res) => {
   const workerId = req.params.id;
   const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
   const b = bookings.find(x => x._id === req.params.bookingId);
@@ -1415,7 +1490,29 @@ app.post('/api/worker/:id/accept-booking/:bookingId', (req, res) => {
     b.workerId = { _id: worker._id, name: worker.name, phone: worker.phone, rating: worker.rating || 5.0 };
     b.assignedWorker = worker.name;
   }
-  saveData();
+
+  // ATOMIC PERSIST to MongoDB IMMEDIATELY
+  const cleanBookings = bookings.map(bk => {
+    const copy = { ...bk };
+    delete copy.beforePhoto; delete copy.afterPhoto; delete copy.problemPhoto;
+    delete copy.beforePhotoUploadedAt; delete copy.afterPhotoUploadedAt;
+    return copy;
+  });
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      await AppData.findOneAndUpdate(
+        { key: 'main' },
+        { $set: { bookings: cleanBookings } },
+        { upsert: true }
+      );
+      console.log(`💾 Booking ${b._id} ACCEPTED & saved to MongoDB`);
+    } catch (err) {
+      console.error('⚠️ MongoDB atomic save failed on accept-booking:', err.message);
+      saveData();
+    }
+  } else {
+    saveData();
+  }
 
   // Notify customer
   const customerId = b.userId?._id || b.userId;
@@ -1499,60 +1596,95 @@ app.get('/api/bookings/:id/invoice', (req, res) => {
   res.json({ success: true, invoice });
 });
 
-// Worker Update Job Status (on-the-way, arrived, start, complete, cancel)
-app.post('/api/worker/:id/booking/:bookingId/:action', (req, res) => {
+// Worker Update Job Status — strict one-way, atomic MongoDB-first persist
+app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
   const b = bookings.find(x => x._id === req.params.bookingId);
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
 
   const action = req.params.action;
-  let newStatus = action;
-  if (action === 'on-the-way')   newStatus = 'on_the_way';
-  if (action === 'arrived')      newStatus = 'arrived';
-  if (action === 'start')        newStatus = 'ongoing';
-  if (action === 'in_progress')  newStatus = 'ongoing';
-  if (action === 'complete')     newStatus = 'completed';
-  if (action === 'cancel')       newStatus = 'cancelled';
+  // Normalize action to canonical status using the shared normalizeStatus helper
+  const newStatus = normalizeStatus(action);
 
+  // Read current rank BEFORE any mutation
+  const currentNormalized = normalizeStatus(b.status);
+  const currentRank = STATUS_RANKS[currentNormalized] ?? 0;
+  const newRank = STATUS_RANKS[newStatus] ?? 0;
+
+  // STRICT REGRESSION PREVENTION — check rank BEFORE touching b.status
+  if (currentRank > newRank && newStatus !== 'cancelled') {
+    console.log(`⚠️ Regression blocked: ${currentNormalized}(${currentRank}) → ${newStatus}(${newRank})`);
+    return res.json({ success: true, booking: enrichBooking(b), message: 'Status already advanced' });
+  }
+
+  // Mutate in-memory booking AFTER rank check passes
   b.status = newStatus;
+  const nowStr = new Date().toISOString();
+  if (newStatus === 'on_the_way') b.onTheWayAt  = b.onTheWayAt || nowStr;
+  if (newStatus === 'arrived')    b.arrivedAt    = b.arrivedAt  || nowStr;
+  if (newStatus === 'ongoing')    b.startedAt    = b.startedAt  || nowStr;
   if (newStatus === 'completed') {
-    b.completedAt = new Date().toISOString();
+    b.completedAt = b.completedAt || nowStr;
+    // Credit worker earnings
+    const wId = b.workerId?._id || b.workerId;
+    const w = adminWorkers.find(x => String(x._id) === String(wId) || String(x.workerId) === String(wId));
+    if (w) {
+      w.isAvailable = true;
+      w.completedJobs = (w.completedJobs || 0) + 1;
+      w.totalEarnings = (w.totalEarnings || 0) + Math.round((b.price || 0) * 0.8);
+    }
   }
-  if (newStatus === 'ongoing') {
-    b.startedAt = new Date().toISOString();
-  }
-  saveData();
 
-  // ── Notify customer for each step ─────────────────────────
+  // ── ATOMIC PERSIST: write to MongoDB IMMEDIATELY (not debounced) ──────────
+  const cleanBookings = bookings.map(bk => {
+    const copy = { ...bk };
+    delete copy.beforePhoto; delete copy.afterPhoto; delete copy.problemPhoto;
+    delete copy.beforePhotoUploadedAt; delete copy.afterPhotoUploadedAt;
+    return copy;
+  });
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      await AppData.findOneAndUpdate(
+        { key: 'main' },
+        { $set: { bookings: cleanBookings } },
+        { upsert: true }
+      );
+      console.log(`💾 Booking ${b._id} status atomically saved to MongoDB → ${newStatus}`);
+    } catch (err) {
+      console.error('⚠️ MongoDB atomic save failed, using file fallback:', err.message);
+      try { fs.writeFileSync(DATA_FILE, JSON.stringify({ registeredUsers, bookings: cleanBookings, messages, notificationsList, adminWorkers, services, coupons }, null, 2), 'utf-8'); } catch (_) {}
+    }
+  } else {
+    // File fallback when MongoDB not connected
+    saveData();
+  }
+
+  // ── Notify customer for each step ──────────────────────────────────────────
   const customerId = b.userId?._id || b.userId;
   const notifMessages = {
-    on_the_way:  { title: '🏍️ Worker On The Way!',  msg: `Your ${b.service} worker is on the way to you.` },
-    arrived:     { title: '📍 Worker Arrived!',     msg: `Your ${b.service} worker has arrived at your location.` },
-    ongoing:     { title: '🔧 Work Started!',         msg: `Work has started for your ${b.service} booking.` },
-    completed:   { title: '🎉 Job Completed!',        msg: `Your ${b.service} booking has been completed!` },
-    cancelled:   { title: '❌ Booking Cancelled',     msg: `Your ${b.service} booking was cancelled.` },
+    on_the_way: { title: '🏍️ Worker On The Way!',  msg: `Your ${b.service} worker is on the way.` },
+    arrived:    { title: '📍 Worker Arrived!',       msg: `Your ${b.service} worker has arrived.` },
+    ongoing:    { title: '🔧 Work Started!',          msg: `Work has started for your ${b.service} booking.` },
+    completed:  { title: '🎉 Job Completed!',         msg: `Your ${b.service} booking has been completed!` },
+    cancelled:  { title: '❌ Booking Cancelled',      msg: `Your ${b.service} booking was cancelled.` },
   };
+
+  const enriched = enrichBooking(b);
 
   if (customerId && notifMessages[newStatus]) {
     const n = notifMessages[newStatus];
     const custNotif = {
-      _id: 'N' + Date.now(),
-      userId: customerId,
-      title: n.title,
-      message: n.msg,
-      type: 'booking',
-      bookingId: b._id,
-      status: newStatus,
-      createdAt: new Date().toISOString(),
-      read: false,
+      _id: 'N' + Date.now(), userId: customerId, title: n.title, message: n.msg,
+      type: 'booking', bookingId: b._id, status: newStatus,
+      createdAt: nowStr, read: false,
     };
     notificationsList.push(custNotif);
     io.emit('new_notification', custNotif);
-    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: newStatus, booking: enrichBooking(b) });
+    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: newStatus, booking: enriched });
   }
 
-  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: enrichBooking(b) });
+  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: enriched });
   console.log(`🛠️ Worker updated booking ${b._id} status → ${newStatus}`);
-  res.json({ success: true, booking: enrichBooking(b) });
+  res.json({ success: true, booking: enriched });
 });
 
 // Worker Toggle Online Status

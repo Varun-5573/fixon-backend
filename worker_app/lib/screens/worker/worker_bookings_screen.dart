@@ -365,75 +365,62 @@ class _BookingCardState extends State<_BookingCard> {
                 },
               ),
 
-            // ── STEP 2: ON THE WAY → Upload Before + Start ─
-            if (status == 'on_the_way') ...[
+            // ── STEP 2: ON THE WAY → Mark Arrived ─────────
+            if (status == 'on_the_way')
               _stepBanner(
                 context,
                 step: 'Step 2',
-                title: '📸 Upload Before Work Photo',
-                subtitle: 'Take a photo of the work area BEFORE starting.',
-                child: BeforeAfterPhotosWidget(
-                  bookingId: booking['_id'],
-                  initialBeforePhoto: hasBeforePhoto ? beforePhoto : null,
-                  initialAfterPhoto: null,
-                  canUploadBefore: true,
-                  canUploadAfter: false,
-                  onPhotoUploaded: () {
-                    if (mounted) {
-                      setState(() { _uploadedBeforePhoto = true; });
-                      onRefresh?.call();
-                    }
-                  },
-                ),
-                btnLabel: hasBeforePhoto ? '🔧 Start Work Now' : '📸 Upload Before Photo First',
-                btnColor: hasBeforePhoto ? AppColors.secondary : AppColors.textSub,
-                onTap: hasBeforePhoto ? () async {
-                  final ok = await wp.updateBookingStatus(booking['_id'], 'start');
+                title: '📍 Arrived at Customer Location',
+                subtitle: 'Tap below when you arrive at the customer\'s address.',
+                btnLabel: '📍 I Have Arrived',
+                btnColor: AppColors.secondary,
+                onTap: () async {
+                  final ok = await wp.updateBookingStatus(booking['_id'], 'arrived');
                   if (context.mounted) {
-                    _snack(context, ok ? '🔧 Work started! Customer notified.' : 'Failed — try again',
+                    _snack(context, ok ? '📍 Customer notified of your arrival!' : 'Failed — try again',
                         ok ? AppColors.success : AppColors.error);
                     if (ok) onRefresh?.call();
                   }
-                } : () {
-                  _snack(context, '⚠️ Please upload a BEFORE photo first!', AppColors.error);
                 },
               ),
-            ],
 
-            // ── STEP 3: ONGOING → Upload After + Complete ──
-            if (status == 'ongoing' || status == 'in_progress') ...[
+            // ── STEP 3: ARRIVED → Start Work ───────────────
+            if (status == 'arrived')
               _stepBanner(
                 context,
                 step: 'Step 3',
-                title: '📸 Upload After Work Photo & Complete',
-                subtitle: 'Take a photo showing the completed work, then mark as done.',
-                child: BeforeAfterPhotosWidget(
-                  bookingId: booking['_id'],
-                  initialBeforePhoto: hasBeforePhoto ? beforePhoto : null,
-                  initialAfterPhoto: hasAfterPhoto ? afterPhoto : null,
-                  canUploadBefore: false,
-                  canUploadAfter: true,
-                  onPhotoUploaded: () {
-                    if (mounted) {
-                      setState(() { _uploadedAfterPhoto = true; });
-                      onRefresh?.call();
-                    }
-                  },
-                ),
-                btnLabel: hasAfterPhoto ? '✅ Mark Job as Complete' : '📸 Upload After Photo First',
-                btnColor: hasAfterPhoto ? AppColors.success : AppColors.textSub,
-                onTap: hasAfterPhoto ? () async {
-                  final ok = await wp.updateBookingStatus(booking['_id'], 'complete');
+                title: '🛠️ Ready to Start Work',
+                subtitle: 'Tap below to begin work on this job.',
+                btnLabel: '🛠️ Start Work Now',
+                btnColor: AppColors.primary,
+                onTap: () async {
+                  final ok = await wp.updateBookingStatus(booking['_id'], 'start');
                   if (context.mounted) {
-                    _snack(context, ok ? '🎉 Job Complete! Customer notified.' : 'Failed — try again',
+                    _snack(context, ok ? '🛠️ Work started! Customer notified.' : 'Failed — try again',
                         ok ? AppColors.success : AppColors.error);
                     if (ok) onRefresh?.call();
                   }
-                } : () {
-                  _snack(context, '⚠️ Please upload an AFTER photo before completing!', AppColors.error);
                 },
               ),
-            ],
+
+            // ── STEP 4: ONGOING → Complete Job ────
+            if (status == 'ongoing' || status == 'in_progress' || status == 'started')
+              _stepBanner(
+                context,
+                step: 'Step 4',
+                title: '🛠️ Work in Progress',
+                subtitle: 'Tap below when you finish the job to generate invoice and complete.',
+                btnLabel: '✅ Mark Job as Complete',
+                btnColor: AppColors.success,
+                onTap: () async {
+                  final ok = await wp.updateBookingStatus(booking['_id'], 'complete');
+                  if (context.mounted) {
+                    _snack(context, ok ? '🎉 Job Complete! Invoice generated & customer notified.' : 'Failed — try again',
+                        ok ? AppColors.success : AppColors.error);
+                    if (ok) onRefresh?.call();
+                  }
+                },
+              ),
 
             // ── COMPLETED ──────────────────────────────────
             if (status == 'completed') ...[

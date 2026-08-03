@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
 import '../../utils/constants.dart';
-import '../../widgets/before_after_photos_widget.dart';
 
 class WorkerBookingsScreen extends StatefulWidget {
   final bool isNewBookings;
@@ -104,7 +103,8 @@ class _BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wp = context.read<WorkerProvider>();
-    final status = booking['status'] as String? ?? 'pending';
+    final rawStatus = booking['status'] as String? ?? 'pending';
+    final status = _normStatus(rawStatus);
     final userId = booking['userId'] is Map ? booking['userId']['name'] : 'Customer';
     final dt = booking['scheduledTime'] != null
         ? DateTime.tryParse(booking['scheduledTime'])
@@ -115,6 +115,7 @@ class _BookingCard extends StatelessWidget {
       'pending': AppColors.accent,
       'accepted': AppColors.primary,
       'on_the_way': AppColors.warning,
+      'arrived': AppColors.secondary,
       'ongoing': AppColors.secondary,
       'completed': AppColors.success,
     };
@@ -167,23 +168,7 @@ class _BookingCard extends StatelessWidget {
           const SizedBox(height: 6),
           _row(Icons.currency_rupee, '₹${booking['price'] ?? 0} (Your share: ₹${((booking['price'] ?? 0) * 0.8).round()})'),
 
-          // Customer Before Photo (if any)
-          if (booking['beforePhoto'] != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.error.withOpacity(0.2)),
-              ),
-              child: Row(children: [
-                const Text('📸', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text('Customer uploaded a before photo', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
-              ]),
-            ),
-          ],
+
 
           const SizedBox(height: 16),
 
@@ -236,24 +221,15 @@ class _BookingCard extends StatelessWidget {
               ),
             ]),
           ] else ...[
-            // Status progression buttons
+            // Status progression buttons (strict 1-way progression)
             if (status == 'accepted')
-              _actionBtn('🏍️ Mark On The Way', AppColors.warning, () => wp.updateBookingStatus(booking['_id'], 'on-the-way')),
+              _actionBtn('🏍️ Mark On The Way', AppColors.warning, () => wp.updateBookingStatus(booking['_id'], 'on_the_way')),
             if (status == 'on_the_way')
-              _actionBtn('🔧 Start Work', AppColors.secondary, () => wp.updateBookingStatus(booking['_id'], 'start')),
-            if (status == 'ongoing') ...[
-              // Before/After photo upload widget for worker (can upload After photo)
-              if (booking['_id'] != null)
-                BeforeAfterPhotosWidget(
-                  bookingId: booking['_id'],
-                  initialBeforePhoto: booking['beforePhoto'],
-                  initialAfterPhoto: booking['afterPhoto'],
-                  canUploadBefore: false,
-                  canUploadAfter: true,
-                ),
-              const SizedBox(height: 10),
-              _actionBtn('✅ Complete Job', AppColors.success, () => wp.updateBookingStatus(booking['_id'], 'complete')),
-            ],
+              _actionBtn('📍 Mark Arrived', AppColors.secondary, () => wp.updateBookingStatus(booking['_id'], 'arrived')),
+            if (status == 'arrived')
+              _actionBtn('🛠️ Start Work', AppColors.secondary, () => wp.updateBookingStatus(booking['_id'], 'ongoing')),
+            if (status == 'ongoing')
+              _actionBtn('✅ Complete Job', AppColors.success, () => wp.updateBookingStatus(booking['_id'], 'completed')),
             if (status == 'completed')
               Container(
                 padding: const EdgeInsets.all(12),
@@ -273,6 +249,18 @@ class _BookingCard extends StatelessWidget {
         ]),
       ),
     );
+  }
+
+  String _normStatus(String? s) {
+    if (s == null) return 'pending';
+    final str = s.toLowerCase().replaceAll(RegExp(r'[\s-]'), '_');
+    if (['confirmed', 'accepted', 'accept'].contains(str)) return 'accepted';
+    if (['on_the_way', 'ontheway', 'on_way', 'way', 'on-the-way'].contains(str)) return 'on_the_way';
+    if (['arrived', 'arrive'].contains(str)) return 'arrived';
+    if (['ongoing', 'in_progress', 'start_work', 'started', 'start', 'working'].contains(str)) return 'ongoing';
+    if (['completed', 'complete', 'finish', 'finished', 'done', 'invoice_generated', 'rated'].contains(str)) return 'completed';
+    if (['cancelled', 'cancel'].contains(str)) return 'cancelled';
+    return str;
   }
 
   Widget _actionBtn(String label, Color color, VoidCallback onTap) => SizedBox(

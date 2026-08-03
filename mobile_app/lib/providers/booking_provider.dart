@@ -291,7 +291,27 @@ class BookingProvider extends ChangeNotifier {
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _doFetch());
   }
 
-  /// Applies a single booking update in-place → instant UI refresh
+  // Status rank map — mirrors server STATUS_RANKS
+  static const Map<String, int> _statusRanks = {
+    'pending': 0, 'assigned': 1, 'accepted': 2, 'confirmed': 2,
+    'on_the_way': 3, 'arrived': 4,
+    'ongoing': 5, 'in_progress': 5, 'started': 5,
+    'completed': 6, 'cancelled': 99,
+  };
+
+  static String _norm(String? s) {
+    if (s == null || s.isEmpty) return 'pending';
+    final str = s.toLowerCase().replaceAll(RegExp(r'[\s-]'), '_');
+    if (['confirmed', 'accepted', 'accept'].contains(str)) return 'accepted';
+    if (['on_the_way', 'ontheway', 'on_way', 'on-the-way'].contains(str)) return 'on_the_way';
+    if (['arrived', 'arrive'].contains(str)) return 'arrived';
+    if (['ongoing', 'in_progress', 'start_work', 'started', 'start', 'working'].contains(str)) return 'ongoing';
+    if (['completed', 'complete', 'finish', 'finished', 'done'].contains(str)) return 'completed';
+    if (['cancelled', 'cancel'].contains(str)) return 'cancelled';
+    return str;
+  }
+
+  /// Applies a single booking update in-place, ignoring stale status regressions
   void applyBookingUpdate(Map<String, dynamic> updatedBooking) {
     final id = updatedBooking['_id']?.toString();
     if (id == null) return;
@@ -307,6 +327,16 @@ class BookingProvider extends ChangeNotifier {
 
     final idx = _bookings.indexWhere((b) => b['_id']?.toString() == id);
     if (idx != -1) {
+      // RANK GUARD: only apply if incoming status is SAME or HIGHER rank than current
+      final currentStatus = _norm(_bookings[idx]['status']?.toString());
+      final incomingStatus = _norm(updatedBooking['status']?.toString());
+      final currentRank = _statusRanks[currentStatus] ?? 0;
+      final incomingRank = _statusRanks[incomingStatus] ?? 0;
+
+      if (incomingRank < currentRank && incomingStatus != 'cancelled') {
+        debugPrint('⚠️ Ignoring stale socket event: $currentStatus($currentRank) > $incomingStatus($incomingRank)');
+        return;
+      }
       _bookings[idx] = Map<String, dynamic>.from(updatedBooking);
     }
     notifyListeners();

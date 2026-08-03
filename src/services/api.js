@@ -69,6 +69,27 @@ export const authApi = {
 // Cloud server (same as mobile apps — dynamically local or Render cloud)
 const localApi = axios.create({ baseURL: BASE, timeout: 45000 });
 
+// Helper for instant admin UI response with non-blocking dual-write
+const dualWrite = async (localReqFn, cloudReqFn) => {
+  let result = null;
+  try {
+    result = await localReqFn();
+  } catch (err) {
+    console.warn('Local API write fallback:', err.message);
+  }
+
+  if (result && result.success !== false) {
+    cloudReqFn().catch(() => {});
+    return result;
+  } else {
+    try {
+      return await cloudReqFn();
+    } catch (err) {
+      return result || { success: false, error: err.message };
+    }
+  }
+};
+
 export const adminApi = {
   getStats:      async () => {
     try {
@@ -156,7 +177,7 @@ export const adminApi = {
     return r || { success: true };
   },
 
-  // Bookings — merge local server + Render cloud so admin sees ALL bookings
+  // Bookings — merge local server + Render cloud so admin sees ALL bookings (rank-guarded)
   getBookings: async () => {
     let localBookings = [];
     let cloudBookings = [];
@@ -173,10 +194,38 @@ export const adminApi = {
       cloudBookings = cloudRes.data?.bookings || [];
     } catch {}
 
-    // 3. Merge by _id (cloud takes priority for latest status)
+    const ranks = {
+      pending: 0, assigned: 1, accepted: 2, confirmed: 2,
+      on_the_way: 3, arrived: 4, ongoing: 5, in_progress: 5, started: 5,
+      completed: 6, cancelled: 99
+    };
+    const norm = (s) => {
+      if (!s) return 'pending';
+      const str = String(s).trim().toLowerCase().replace(/[\s-]/g, '_');
+      if (['confirmed', 'accepted', 'accept'].includes(str)) return 'accepted';
+      if (['on_the_way', 'ontheway', 'on_way', 'on-the-way'].includes(str)) return 'on_the_way';
+      if (['arrived', 'arrive'].includes(str)) return 'arrived';
+      if (['ongoing', 'in_progress', 'start_work', 'started', 'start', 'working'].includes(str)) return 'ongoing';
+      if (['completed', 'complete', 'finish', 'finished', 'done'].includes(str)) return 'completed';
+      if (['cancelled', 'cancel'].includes(str)) return 'cancelled';
+      return str;
+    };
+
+    // 3. Merge by _id (higher status rank ALWAYS wins, never regress status)
     const map = new Map();
     [...localBookings, ...cloudBookings].forEach(b => {
-      if (b && b._id) map.set(b._id, b);
+      if (!b || !b._id) return;
+      if (!map.has(b._id)) {
+        map.set(b._id, b);
+      } else {
+        const existing = map.get(b._id);
+        const existingRank = ranks[norm(existing.status)] ?? 0;
+        const newRank = ranks[norm(b.status)] ?? 0;
+        // Keep whichever record has higher rank; on tie, local/cloud with photos takes precedence
+        if (newRank > existingRank || (newRank === existingRank && (b.workerBeforePhoto || b.workerAfterPhoto))) {
+          map.set(b._id, b);
+        }
+      }
     });
 
     const merged = Array.from(map.values());
@@ -189,27 +238,25 @@ export const adminApi = {
     return { success: true, bookings: DEMO_BOOKINGS };
   },
 
-  updateBooking: async (id, d) => {
-    let r;
-    try { r = await localApi.put(`/api/bookings/${id}/status`, d).then(x => x.data); } catch {}
-    try { const cloudRes = await axios.put(`${CLOUD}/api/bookings/${id}/status`, d, { timeout: 10000 }); if (!r) r = cloudRes.data; } catch {}
-    return r || { success: true };
-  },
+  updateBooking: (id, d) => dualWrite(
+    () => localApi.put(`/api/bookings/${id}/status`, d).then(x => x.data),
+    () => axios.put(`${CLOUD}/api/bookings/${id}/status`, d, { timeout: 8000 }).then(x => x.data)
+  ),
 
-  confirmBooking: async (id, workerId, workerName) => {
-    let r;
+  confirmBooking: (id, workerId, workerName) => {
     const body = { status: 'accepted', workerId, workerName };
-    try { r = await localApi.put(`/api/bookings/${id}/status`, body).then(x => x.data); } catch {}
-    try { const cloudRes = await axios.put(`${CLOUD}/api/bookings/${id}/status`, body, { timeout: 10000 }); if (!r) r = cloudRes.data; } catch {}
-    return r || { success: true };
+    return dualWrite(
+      () => localApi.put(`/api/bookings/${id}/status`, body).then(x => x.data),
+      () => axios.put(`${CLOUD}/api/bookings/${id}/status`, body, { timeout: 8000 }).then(x => x.data)
+    );
   },
 
-  assignWorker: async (bId, wId, wName) => {
-    let r;
+  assignWorker: (bId, wId, wName) => {
     const body = { status: 'accepted', workerId: wId, workerName: wName };
-    try { r = await localApi.put(`/api/bookings/${bId}/status`, body).then(x => x.data); } catch {}
-    try { const cloudRes = await axios.put(`${CLOUD}/api/bookings/${bId}/status`, body, { timeout: 10000 }); if (!r) r = cloudRes.data; } catch {}
-    return r || { success: true };
+    return dualWrite(
+      () => localApi.put(`/api/bookings/${bId}/status`, body).then(x => x.data),
+      () => axios.put(`${CLOUD}/api/bookings/${bId}/status`, body, { timeout: 8000 }).then(x => x.data)
+    );
   },
   getPayments:   () => safe(() => api.get('/api/payment/all'),    { success: true, payments: DEMO_PAYMENTS }),
   // Chat — try local first, fallback to Render cloud (so admin sees messages even when laptop was off)

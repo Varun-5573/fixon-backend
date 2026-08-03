@@ -1,12 +1,13 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
+const http = require('http');
 
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: 1360,
+    height: 860,
     title: 'FixoN Admin Control Panel',
     icon: path.join(__dirname, 'public', 'favicon.ico'),
     webPreferences: {
@@ -16,8 +17,19 @@ function createWindow() {
     }
   });
 
-  // Load the compiled React production build
-  mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
+  // Check if live dev server is active on localhost:3000, otherwise load build/index.html
+  const devUrl = 'http://localhost:3000';
+  http.get(devUrl, (res) => {
+    if (res.statusCode === 200 && mainWindow) {
+      mainWindow.loadURL(devUrl);
+    } else if (mainWindow) {
+      mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
+    }
+  }).on('error', () => {
+    if (mainWindow) {
+      mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
+    }
+  });
 
   // Open DevTools in development if needed (uncomment for debug)
   // mainWindow.webContents.openDevTools();

@@ -16,10 +16,14 @@ class BookingTrackingScreen extends StatefulWidget {
 }
 
 class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
+  late Map<String, dynamic> _booking;
+  Timer? _refreshTimer;
+
   final List<Map<String, dynamic>> _steps = [
     {'status': 'pending', 'label': 'Booking Placed', 'desc': 'Matching the best professional for you'},
     {'status': 'accepted', 'label': 'Confirmed', 'desc': 'Work has been assigned & confirmed'},
     {'status': 'on_the_way', 'label': 'On The Way', 'desc': 'Professional is heading to your location'},
+    {'status': 'arrived', 'label': 'Arrived', 'desc': 'Professional has arrived at your address'},
     {'status': 'started', 'label': 'Job Started', 'desc': 'Quality work is in progress'},
     {'status': 'completed', 'label': 'Completed', 'desc': 'Job finished! Hope you liked FixoN'},
   ];
@@ -32,21 +36,41 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
   @override
   void initState() {
     super.initState();
-    _isAlreadyRated = widget.booking['rated'] == true;
+    _booking = Map<String, dynamic>.from(widget.booking);
+    _isAlreadyRated = _booking['rated'] == true;
+
+    _refreshBooking();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) => _refreshBooking());
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _commentCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _refreshBooking() async {
+    try {
+      final bId = _booking['_id'];
+      final res = await http.get(Uri.parse('$kBaseUrl/api/bookings/$bId/photos'), headers: kHeaders).timeout(const Duration(seconds: 3));
+      final data = jsonDecode(res.body);
+      if (data['success'] == true && data['photos'] != null) {
+        if (mounted) {
+          setState(() {
+            _booking = { ..._booking, ...data['photos'] };
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   int _getCurrentStep() {
-    final status = widget.booking['status']?.toString().toLowerCase() ?? 'pending';
+    final status = _booking['status']?.toString().toLowerCase() ?? 'pending';
     if (status == 'cancelled') return -1;
     
     // Status normalization
-    final mappedStatus = status == 'ongoing' ? 'started' : status;
+    final mappedStatus = (status == 'ongoing' || status == 'in_progress') ? 'started' : status;
     
     for (int i = 0; i < _steps.length; i++) {
       if (_steps[i]['status'] == mappedStatus) return i;
@@ -225,8 +249,8 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     int currentIdx = _getCurrentStep();
-    final worker = widget.booking['workerId'];
-    final isCompleted = widget.booking['status']?.toString().toLowerCase() == 'completed';
+    final worker = _booking['workerId'];
+    final isCompleted = _booking['status']?.toString().toLowerCase() == 'completed';
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -322,7 +346,92 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
                   ),
                 );
               },
-            ),
+            // ── Photo Proof Section (Problem, Before, After) ─────
+            if (_booking['customerProblemPhoto'] != null ||
+                _booking['problemPhoto'] != null ||
+                _booking['workerBeforePhoto'] != null ||
+                _booking['beforePhoto'] != null ||
+                _booking['workerAfterPhoto'] != null ||
+                _booking['afterPhoto'] != null) ...[
+              const Divider(height: 30),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '📷 Service Photo Proofs',
+                      style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        if (_booking['customerProblemPhoto'] != null || _booking['problemPhoto'] != null)
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('Problem Photo', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSub)),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    _booking['customerProblemPhoto'] ?? _booking['problemPhoto'],
+                                    height: 90, width: double.infinity, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_booking['workerBeforePhoto'] != null || _booking['beforePhoto'] != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('Before Work', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSub)),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    _booking['workerBeforePhoto'] ?? _booking['beforePhoto'],
+                                    height: 90, width: double.infinity, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_booking['workerAfterPhoto'] != null || _booking['afterPhoto'] != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('After Work', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSub)),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    _booking['workerAfterPhoto'] ?? _booking['afterPhoto'],
+                                    height: 90, width: double.infinity, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             if (isCompleted) ...[
               const Divider(height: 40),

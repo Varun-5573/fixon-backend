@@ -212,16 +212,30 @@ export const adminApi = {
     return r || { success: true };
   },
   getPayments:   () => safe(() => api.get('/api/payment/all'),    { success: true, payments: DEMO_PAYMENTS }),
-  // Chat always uses local server — messages live here
-  getMessages:   async () => {
+  // Chat — try local first, fallback to Render cloud (so admin sees messages even when laptop was off)
+  getMessages: async () => {
     try {
       const r = await localApi.get('/api/chat/all');
+      if (r.data?.success && r.data.messages?.length > 0) return r.data;
+    } catch {}
+    try {
+      const r = await axios.get(`${CLOUD}/api/chat/all`, { timeout: 10000 });
       if (r.data?.success) return r.data;
     } catch {}
     return { success: true, messages: [] };
   },
-  sendMessage:   (d) => localApi.post('/api/chat/admin-reply', d).then(r => r.data).catch(() => safe(() => api.post('/api/chat/admin-reply', d), { success: true })),
-  sendNotification: (d) => safe(() => api.post('/api/notifications/send', d), { success: true }),
+  sendMessage: async (d) => {
+    let r;
+    try { r = await localApi.post('/api/chat/admin-reply', d).then(x => x.data); } catch {}
+    try { await axios.post(`${CLOUD}/api/chat/admin-reply`, d, { timeout: 8000 }); } catch {}
+    return r || { success: true };
+  },
+  sendNotification: async (d) => {
+    let r;
+    try { r = await localApi.post('/api/notifications/send', d).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/notifications/send`, d, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
   getServices:   () => localApi.get('/api/admin/services').then(r => r.data).catch(() => ({ success: true, services: [] })),
 
   addService: async (d) => {

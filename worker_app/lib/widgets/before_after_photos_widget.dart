@@ -63,50 +63,60 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
     final picker = ImagePicker();
     final picked = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 55,    // Compress to ~55% quality (good enough for proof photos)
-        maxWidth: 800,        // Limit resolution to reduce payload size
+        imageQuality: 55,
+        maxWidth: 800,
         maxHeight: 800);
     if (picked == null) return;
 
     setState(() => _uploading = true);
 
-    try {
-      final bytes = await File(picked.path).readAsBytes();
-      final base64Img = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+    // Encode image
+    final bytes = await File(picked.path).readAsBytes();
+    final base64Img = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
-      final res = await http.post(
-        Uri.parse('$kBaseUrl/api/bookings/${widget.bookingId}/photos'),
-        headers: kHeaders,
-        body: jsonEncode(isBefore
-            ? {'beforePhoto': base64Img}
-            : {'afterPhoto': base64Img}),
-      );
+    // Retry logic — up to 2 retries
+    bool success = false;
+    String? errorMsg;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final res = await http.post(
+          Uri.parse('$kBaseUrl/api/bookings/${widget.bookingId}/photos'),
+          headers: kHeaders,
+          body: jsonEncode(isBefore
+              ? {'beforePhoto': base64Img}
+              : {'afterPhoto': base64Img}),
+        ).timeout(const Duration(seconds: 30));
 
-      final data = jsonDecode(res.body);
-      if (data['success'] == true) {
-        setState(() {
-          if (isBefore) {
-            _beforePhoto = base64Img;
-          } else {
-            _afterPhoto = base64Img;
-          }
-          _uploading = false;
-        });
-        _slideAnim.forward(from: 0);
-        _showSnack(isBefore
-            ? '✅ Before photo uploaded!'
-            : '✅ After photo uploaded!');
-        widget.onPhotoUploaded?.call();
-        try {
-          context.read<WorkerProvider>().fetchMyBookings();
-        } catch (_) {}
-      } else {
-        setState(() => _uploading = false);
-        _showSnack('Upload failed. Try again.', isError: true);
+        final data = jsonDecode(res.body);
+        if (data['success'] == true) {
+          success = true;
+          setState(() {
+            if (isBefore) {
+              _beforePhoto = base64Img;
+            } else {
+              _afterPhoto = base64Img;
+            }
+            _uploading = false;
+          });
+          _slideAnim.forward(from: 0);
+          _showSnack(isBefore ? '✅ Before photo uploaded!' : '✅ After photo uploaded!');
+          widget.onPhotoUploaded?.call();
+          try {
+            context.read<WorkerProvider>().fetchMyBookings();
+          } catch (_) {}
+          break;
+        } else {
+          errorMsg = data['error'] ?? 'Upload failed';
+        }
+      } catch (e) {
+        errorMsg = 'Connection error (attempt $attempt/3)';
+        if (attempt < 3) await Future.delayed(const Duration(seconds: 2));
       }
-    } catch (e) {
+    }
+
+    if (!success) {
       setState(() => _uploading = false);
-      _showSnack('Connection error.', isError: true);
+      _showSnack(errorMsg ?? 'Upload failed after 3 attempts. Check connection.', isError: true);
     }
   }
 

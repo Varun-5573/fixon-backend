@@ -6,25 +6,36 @@ export default function ChatPage({ socket }) {
   const [users, setUsers] = useState([]);
   const [active, setActive] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [allMessages, setAllMessages] = useState([]);
   const [text, setText] = useState('');
   const [unread, setUnread] = useState({});  // { userId: count }
   const endRef = useRef(null);
 
-  useEffect(() => { loadUsers(); }, []);
-  useEffect(() => { if (active) { loadMessages(active._id); clearUnread(active._id); } }, [active]);
+  useEffect(() => { loadAllMessages(); }, []);
+  useEffect(() => { if (active) { filterMessages(active._id); clearUnread(active._id); } }, [active, allMessages]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   // Real-time incoming messages
   useEffect(() => {
     if (socket) {
       socket.on('receive_message', (msg) => {
+        setAllMessages(prev => {
+          const updated = [...prev, msg];
+          return updated;
+        });
         if (active && (msg.senderId === active._id || msg.receiverId === active._id)) {
           setMessages(p => [...p, msg]);
         } else {
           // Increment unread for that user
           if (msg.senderType === 'customer') {
-            setUnread(p => ({ ...p, [msg.senderId]: (p[msg.senderId] || 0) + 1 }));
-            toast(`💬 New message from ${msg.senderId}`, { duration: 3000 });
+            const senderId = msg.senderId;
+            setUnread(p => ({ ...p, [senderId]: (p[senderId] || 0) + 1 }));
+            // Auto-add sender to user list if not there
+            setUsers(prev => {
+              if (prev.find(u => u._id === senderId)) return prev;
+              return [...prev, { _id: senderId, name: 'Customer ' + senderId.slice(-4), online: true }];
+            });
+            toast(`💬 New message from Customer`, { duration: 3000 });
           }
         }
       });
@@ -41,29 +52,57 @@ export default function ChatPage({ socket }) {
 
   const clearUnread = (id) => setUnread(p => ({ ...p, [id]: 0 }));
 
-  const loadUsers = async () => {
-    try { const r = await adminApi.getUsers(); setUsers(r.users || r || []); }
-    catch {}
-  };
-
-  const loadMessages = async (userId) => {
+  // Load all messages and extract unique chat users from them
+  const loadAllMessages = async () => {
     try {
       const r = await adminApi.getMessages();
-      // Only show messages for this user — bot messages scoped to this user only
-      setMessages((r.messages || r || []).filter(m =>
-        m.senderId === userId ||
-        m.receiverId === userId ||
-        (m.senderType === 'bot' && m.receiverId === userId)
-      ));
-    }
-    catch { setMessages([]); }
+      const msgs = r.messages || r || [];
+      setAllMessages(msgs);
+
+      // Extract unique customer senders from messages
+      const userMap = new Map();
+      msgs.forEach(m => {
+        if (m.senderType === 'customer' && m.senderId && !userMap.has(m.senderId)) {
+          userMap.set(m.senderId, {
+            _id: m.senderId,
+            name: m.senderName || ('Customer ' + m.senderId.slice(-4)),
+            email: m.senderEmail || '',
+            phone: m.senderPhone || '',
+            online: false,
+          });
+        }
+      });
+
+      // Also load registered users to merge names/phones
+      try {
+        const ur = await adminApi.getUsers();
+        (ur.users || []).forEach(u => {
+          if (u._id && userMap.has(u._id)) {
+            // Merge with real user data
+            userMap.set(u._id, { ...userMap.get(u._id), ...u });
+          }
+        });
+      } catch {}
+
+      if (userMap.size > 0) setUsers(Array.from(userMap.values()));
+    } catch {}
+  };
+
+  const filterMessages = (userId) => {
+    setMessages(allMessages.filter(m =>
+      m.senderId === userId ||
+      m.receiverId === userId ||
+      (m.senderType === 'bot' && m.receiverId === userId)
+    ));
   };
 
   const send = async () => {
     if (!text.trim() || !active) return;
     try {
       await adminApi.sendMessage({ receiverId: active._id, message: text, senderType: 'admin' });
-      setMessages(p => [...p, { senderId: 'admin', message: text, senderType: 'admin', createdAt: new Date() }]);
+      const newMsg = { senderId: 'admin', message: text, senderType: 'admin', createdAt: new Date() };
+      setMessages(p => [...p, newMsg]);
+      setAllMessages(p => [...p, newMsg]);
       setText('');
     } catch { toast.error('Failed to send'); }
   };

@@ -972,16 +972,68 @@ app.post('/api/bookings/create', (req, res) => {
   app._router.handle(req, res, () => {});
 });
 
-// 17.5: PATCH /api/bookings/{id} 
-app.patch('/api/bookings/:id', (req, res) => {
-  const { status } = req.body;
-  const b = bookings.find(b => b._id === req.params.id);
-  if (!b) return res.status(404).json({ success: false });
-  // Map "Confirmed" to internal "accepted" flag for UI consistency, or directly use status
-  b.status = status === 'Confirmed' ? 'accepted' : status;
-  io.emit('booking_update', { bookingId: b._id, status, booking: b });
-  res.json({ success: true, booking: enrichBooking(b) });
-});
+// 17.5: PUT & PATCH /api/bookings/{id}/status - Unified Status Engine
+const handleBookingStatusUpdate = (req, res) => {
+  const { status, workerId, workerName } = req.body;
+  const b = bookings.find(x => String(x._id) === String(req.params.id));
+  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
+
+  let newStatus = status;
+  if (status === 'Confirmed' || status === 'confirmed') newStatus = 'accepted';
+  if (status === 'Start Work' || status === 'start') newStatus = 'ongoing';
+  if (status === 'Finish' || status === 'finish' || status === 'Complete') newStatus = 'completed';
+
+  b.status = newStatus;
+  const nowStr = new Date().toISOString();
+
+  if (newStatus === 'accepted') {
+    b.acceptedAt = b.acceptedAt || nowStr;
+    if (workerId) {
+      const w = adminWorkers.find(x => String(x._id) === String(workerId) || String(x.workerId) === String(workerId));
+      if (w) {
+        b.workerId = w;
+        b.workerName = w.name;
+      }
+    } else if (workerName) {
+      b.workerName = workerName;
+    }
+  } else if (newStatus === 'on_the_way') {
+    b.onTheWayAt = b.onTheWayAt || nowStr;
+  } else if (newStatus === 'arrived') {
+    b.arrivedAt = b.arrivedAt || nowStr;
+  } else if (newStatus === 'ongoing') {
+    b.startedAt = b.startedAt || nowStr;
+  } else if (newStatus === 'completed') {
+    b.completedAt = b.completedAt || nowStr;
+    if (b.workerId) {
+      const wId = b.workerId._id || b.workerId;
+      const w = adminWorkers.find(x => String(x._id) === String(wId) || String(x.workerId) === String(wId));
+      if (w) {
+        w.isAvailable = true;
+        w.completedJobs = (w.completedJobs || 0) + 1;
+        w.totalEarnings = (w.totalEarnings || 0) + Math.round((b.price || 0) * 0.8);
+      }
+    }
+  }
+
+  saveData();
+
+  const customerId = b.userId?._id || b.userId;
+  const enriched = enrichBooking(b);
+
+  io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: enriched });
+  if (customerId) {
+    io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: newStatus, booking: enriched });
+  }
+
+  console.log(`✅ Booking ${b._id} status updated → ${newStatus}`);
+  res.json({ success: true, booking: enriched });
+};
+
+app.put('/api/bookings/:id/status', handleBookingStatusUpdate);
+app.patch('/api/bookings/:id/status', handleBookingStatusUpdate);
+app.patch('/api/bookings/:id', handleBookingStatusUpdate);
+app.put('/api/bookings/:id', handleBookingStatusUpdate);
 
 
 // ══════════════════════════════════════════════════════════════
@@ -1781,14 +1833,20 @@ app.post('/api/chat/admin-reply', (req, res) => {
 });
 
 app.post('/api/chat/send', (req, res) => {
-  const { senderId, message } = req.body;
+  const { senderId, message, name, email, phone } = req.body;
   if (!users[senderId]) {
     users[senderId] = {
       _id: senderId,
-      name: req.body.name || ('Customer ' + senderId.slice(-4)),
-      email: req.body.email || (senderId + '@fixon.com')
+      name: name || ('Customer ' + senderId.slice(-4)),
+      email: email || '',
+      phone: phone || '',
     };
     io.emit('new_user', users[senderId]);
+  } else {
+    // Update user info if provided
+    if (name) users[senderId].name = name;
+    if (email) users[senderId].email = email;
+    if (phone) users[senderId].phone = phone;
   }
 
   const msgObj = {
@@ -1796,6 +1854,9 @@ app.post('/api/chat/send', (req, res) => {
     receiverId: 'admin',
     message,
     senderType: 'customer',
+    senderName: users[senderId].name,
+    senderEmail: users[senderId].email || '',
+    senderPhone: users[senderId].phone || '',
     createdAt: new Date().toISOString()
   };
   messages.push(msgObj);
@@ -2171,34 +2232,48 @@ app.post('/api/notifications/register', (req, res) => {
   res.json({ success: true });
 });
 
-// GET /api/notifications
+// GET /api/notifications — supports ?userId= filter for mobile apps
 app.get('/api/notifications', (req, res) => {
-  console.log(`🔍 GET /api/notifications requested. Count: ${notificationsList.length}`);
-  res.json({ success: true, notifications: notificationsList });
+  const { userId } = req.query;
+  let filtered = notificationsList;
+  if (userId) {
+    filtered = notificationsList.filter(n =>
+      !n.userId || n.userId === 'all' || n.userId === userId
+    );
+  }
+  console.log(`🔍 GET /api/notifications → userId=${userId || 'all'}, count=${filtered.length}`);
+  res.json({ success: true, notifications: filtered });
 });
 
-// POST /api/notifications/send
+// POST /api/notifications/send — supports targeting: userId, workerId, or broadcast to 'all'
 app.post('/api/notifications/send', (req, res) => {
-  const { userId, title, body, type } = req.body;
+  const { userId, workerId, title, body, message, type, targetType } = req.body;
+  const notifBody = body || message || '';
   const newNotif = {
     _id: 'NT' + Date.now(),
-    userId: userId || 'all',
+    userId: userId || workerId || 'all',
+    workerId: workerId || null,
     title: title || 'Alert',
-    body: body || '',
-    type: type || 'all',
-    icon: type === 'promo' ? '🎁' : type === 'booking' ? '📦' : type === 'worker' ? '👷' : '📢',
+    message: notifBody,
+    body: notifBody,
+    type: type || 'general',
+    read: false,
+    icon: type === 'promo' ? '🎁' : type === 'booking' ? '📦' : type === 'worker' ? '👷' : type === 'emergency' ? '🚨' : '📢',
     createdAt: new Date().toISOString(),
   };
 
   notificationsList.push(newNotif);
   saveData();
 
-  // 1. Emit via Socket.IO for real-time mobile sync
+  // Broadcast to all sockets (mobile apps listen to 'new_notification')
   io.emit('new_notification', newNotif);
 
-  // 2. Log in server console
-  console.log(`🔔 Notification broadcast [${newNotif.type}]: "${title}"`);
+  // Also emit targeted status update if userId provided
+  if (userId) {
+    io.emit('booking_status_update', { userId, notification: newNotif });
+  }
 
+  console.log(`🔔 Notification [${newNotif.type}] → ${userId || workerId || 'ALL'}: "${title}"`);
   res.json({ success: true, notification: newNotif });
 });
 
@@ -2206,35 +2281,7 @@ app.post('/api/notifications/send', (req, res) => {
 // ══════════════════════════════════════════════════════════════
 //  PREMIUM ADDITIONS: PHOTOS, VERIFICATION, CHAT & AI
 // ══════════════════════════════════════════════════════════════
-
-// 1. Update Booking Before/After Photos
-app.post('/api/bookings/:id/photos', (req, res) => {
-  const { beforePhoto, afterPhoto } = req.body;
-  const b = bookings.find(x => x._id === req.params.id);
-  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
-
-  if (!bookingPhotos[b._id]) {
-    bookingPhotos[b._id] = { bookingId: b._id };
-  }
-
-  const p = bookingPhotos[b._id];
-  if (beforePhoto !== undefined) {
-    p.beforePhoto = beforePhoto;
-    p.beforePhotoUploadedAt = new Date().toISOString();
-  }
-  if (afterPhoto !== undefined) {
-    p.afterPhoto = afterPhoto;
-    p.afterPhotoUploadedAt = new Date().toISOString();
-  }
-
-  savePhotos(b._id);
-  
-  // We emit the enriched booking (with photos) so listening apps get the photos immediately
-  const enriched = enrichBooking(b);
-  io.emit('booking_update', { bookingId: b._id, status: b.status, booking: enriched });
-  console.log(`📸 Photos updated for booking ${b._id}: before=${!!p.beforePhoto}, after=${!!p.afterPhoto}`);
-  res.json({ success: true, booking: enriched });
-});
+// (Primary photo upload route is defined earlier at line ~732)
 
 // 2. Submit Worker Document Verification — supports separate Aadhaar and PAN
 app.post('/api/workers/:id/verify-document', (req, res) => {

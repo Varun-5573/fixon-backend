@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -11,7 +13,6 @@ import '../../utils/strings.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'saved_payment_methods_screen.dart';
-import 'worker_verification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -118,15 +119,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _MenuItem(icon: Icons.payment_outlined, label: AppStrings.paymentMethods, color: AppColors.success, onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPaymentMethodsScreen()));
           }),
-          _MenuItem(
-            icon: Icons.verified_user_outlined,
-            label: '👷 Worker Verification (Aadhaar/PAN)',
-            color: const Color(0xFF7C3AED),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WorkerVerificationScreen()),
-            ),
-          ),
         ]),
 
         const SizedBox(height: 14),
@@ -180,8 +172,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         _section(AppStrings.support, [
           _MenuItem(icon: Icons.help_outline, label: AppStrings.helpFAQ, color: AppColors.secondary, onTap: () {}),
-          _MenuItem(icon: Icons.chat_bubble_outline, label: AppStrings.contactSupport, color: AppColors.primary, onTap: () {}),
-          _MenuItem(icon: Icons.star_outline, label: AppStrings.rateFixon, color: AppColors.accent, onTap: () {}),
+          _MenuItem(
+            icon: Icons.chat_bubble_outline,
+            label: AppStrings.contactSupport,
+            color: AppColors.primary,
+            onTap: () => _showContactSupport(context, user),
+          ),
+          _MenuItem(
+            icon: Icons.star_outline,
+            label: AppStrings.rateFixon,
+            color: AppColors.accent,
+            onTap: () => _rateApp(context),
+          ),
           _MenuItem(icon: Icons.share_outlined, label: AppStrings.referEarn, color: AppColors.success, onTap: () {
             showModalBottomSheet(
               context: context,
@@ -269,6 +271,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Center(child: Text('${AppStrings.appName} ${AppStrings.version} • ${AppStrings.madeWithLove}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textDim))),
         const SizedBox(height: 20),
       ]),
+    );
+  }
+
+  Future<void> _rateApp(BuildContext context) async {
+    const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.fixon.app';
+    final uri = Uri.parse(playStoreUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.card,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text('Rate FixoN ⭐', style: GoogleFonts.outfit(color: AppColors.text, fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('⭐⭐⭐⭐⭐', style: TextStyle(fontSize: 36)),
+                const SizedBox(height: 12),
+                Text('Enjoying FixoN? Your review means a lot to us!', textAlign: TextAlign.center, style: GoogleFonts.inter(color: AppColors.textSub)),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Maybe Later', style: TextStyle(color: AppColors.textSub))),
+              ElevatedButton(
+                onPressed: () { Navigator.pop(ctx); },
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                child: const Text('⭐ Rate Us', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  void _showContactSupport(BuildContext context, Map<String, dynamic> user) {
+    final bookingId = user['_id'] ?? '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 20),
+            Text('Contact Support', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.text)),
+            const SizedBox(height: 6),
+            Text('We are here to help you 24/7', style: GoogleFonts.inter(color: AppColors.textSub, fontSize: 13)),
+            const SizedBox(height: 20),
+            _supportOption(Icons.chat_bubble_outline, 'Chat on WhatsApp', 'Fastest response', AppColors.success, () async {
+              final msg = Uri.encodeComponent('Hello FixoN Support! My ID: $bookingId');
+              final uri = Uri.parse('https://wa.me/919876543210?text=$msg');
+              if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }),
+            const SizedBox(height: 10),
+            _supportOption(Icons.call_outlined, 'Call Support', 'Mon-Sat 9AM-8PM', AppColors.primary, () async {
+              final uri = Uri.parse('tel:+919876543210');
+              if (await canLaunchUrl(uri)) await launchUrl(uri);
+            }),
+            const SizedBox(height: 10),
+            _supportOption(Icons.email_outlined, 'Email Support', 'Reply within 24h', AppColors.accent, () async {
+              final subject = Uri.encodeComponent('FixoN Support Request - User: $bookingId');
+              final body = Uri.encodeComponent('Hello FixoN Support,\n\nMy User ID: $bookingId\n\nIssue: ');
+              final uri = Uri.parse('mailto:support@fixon.in?subject=$subject&body=$body');
+              if (await canLaunchUrl(uri)) await launchUrl(uri);
+            }),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _supportOption(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Row(children: [
+            Container(width: 42, height: 42, decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.text, fontSize: 14)),
+              Text(subtitle, style: GoogleFonts.inter(color: AppColors.textSub, fontSize: 12)),
+            ])),
+            Icon(Icons.chevron_right, color: AppColors.textSub, size: 20),
+          ]),
+        ),
+      ),
     );
   }
 

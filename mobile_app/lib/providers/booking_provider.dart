@@ -415,7 +415,7 @@ class BookingProvider extends ChangeNotifier {
       if (data['success'] == true) {
         final booking = data['booking'] as Map<String, dynamic>? ?? {
           '_id': 'BK${DateTime.now().millisecondsSinceEpoch}',
-          ...payloadWithoutPhoto,
+          ...payloadWithPhoto,
           'status': 'pending',
           'workerId': null,
         };
@@ -453,7 +453,7 @@ class BookingProvider extends ChangeNotifier {
     // Offline / Demo mode fallback
     _bookings.insert(0, {
       '_id': 'offline_${DateTime.now().millisecondsSinceEpoch}',
-      ...payloadWithoutPhoto,
+      ...payloadWithPhoto,
       'status': 'pending',
       'workerId': null,
     });

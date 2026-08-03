@@ -101,11 +101,27 @@ export const adminApi = {
   },
   getActivity:   () => safe(() => api.get('/api/admin/activity'), { success: true, recentBookings: DEMO_BOOKINGS }),
   getUsers:      async () => {
+    let localUsers = [];
+    let cloudUsers = [];
+
     try {
       const r = await localApi.get('/api/admin/users');
-      // Always use real server data when server is reachable
-      if (r.data?.success) return r.data;
+      if (r.data?.success && r.data.users) localUsers = r.data.users;
     } catch {}
+
+    try {
+      const r = await axios.get(`${CLOUD}/api/admin/users`, { timeout: 10000 });
+      if (r.data?.success && r.data.users) cloudUsers = r.data.users;
+    } catch {}
+
+    const userMap = new Map();
+    [...localUsers, ...cloudUsers].forEach(u => {
+      if (u && u._id) userMap.set(u._id, u);
+    });
+
+    const merged = Array.from(userMap.values());
+    if (merged.length > 0) return { success: true, users: merged };
+
     return { success: true, users: DEMO_USERS };
   },
   blockUser:     (id) => safe(() => api.patch(`/api/admin/users/${id}/block`), { success: true }),

@@ -116,6 +116,14 @@ export default function ChatPage({ socket }) {
       });
 
       const userList = Array.from(userMap.values());
+
+      // Sort: customers with actual chat messages come first
+      userList.sort((a, b) => {
+        const aCount = msgs.filter(m => String(m.senderId) === String(a._id) || String(m.receiverId) === String(a._id)).length;
+        const bCount = msgs.filter(m => String(m.senderId) === String(b._id) || String(m.receiverId) === String(b._id)).length;
+        return bCount - aCount;
+      });
+
       if (userList.length > 0) {
         setUsers(userList);
         if (!activeRef.current) {
@@ -178,7 +186,7 @@ export default function ChatPage({ socket }) {
             )}
           </div>
           {users.map((u, i) => (
-            <div key={u._id} className={`chat-item ${active?._id === u._id ? 'active' : ''}`}
+            <div key={u._id} className={`chat-item ${String(active?._id) === String(u._id) ? 'active' : ''}`}
               onClick={() => setActive(u)}
               style={{ animationDelay: `${i * 40}ms`, position: 'relative' }}>
               <div className="chat-avatar" style={{ position: 'relative' }}>

@@ -942,6 +942,20 @@ app.post('/api/bookings', (req, res) => {
     bookingPhotos[booking._id].customerProblemPhoto = photo;
   }
 
+  // Track coupon usage per customer for 1-time usage constraint
+  const cCode = couponCode || req.body.coupon;
+  if (cCode) {
+    const cObj = coupons.find(c => c.code?.toUpperCase() === String(cCode).toUpperCase());
+    if (cObj) {
+      cObj.used = (cObj.used || 0) + 1;
+      if (!cObj.usedByUsers) cObj.usedByUsers = [];
+      const uId = userId || 'guest';
+      if (!cObj.usedByUsers.includes(uId)) {
+        cObj.usedByUsers.push(uId);
+      }
+    }
+  }
+
   bookings.push(booking);
   saveData();
 
@@ -1997,6 +2011,186 @@ app.post('/api/admin/reload-data', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  COUPON ROUTES
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/coupons  (Supports ?userId=... for customer app filtering)
+app.get('/api/coupons', (req, res) => {
+  const { userId } = req.query;
+  const now = new Date();
+
+  let list = coupons;
+
+  // If customer app passes userId, show ONLY active, non-expired, and unused by this user
+  if (userId) {
+    list = coupons.filter(c => {
+      if (!c.active) return false;
+      if (c.expiry && new Date(c.expiry) < now) return false;
+      const usedBy = c.usedByUsers || [];
+      if (usedBy.includes(userId)) return false;
+      return true;
+    });
+  }
+
+  res.json({ success: true, coupons: list });
+});
+
+// GET /api/admin/coupons (Admin Control Panel alias)
+app.get('/api/admin/coupons', (req, res) => {
+  res.json({ success: true, coupons });
+});
+
+// POST /api/coupons (Admin creates new coupon)
+app.post('/api/coupons', (req, res) => {
+  const { code, discount, type, minOrder, expiry, active } = req.body;
+  if (!code || !discount || !expiry) {
+    return res.status(400).json({ success: false, error: 'Missing required coupon fields' });
+  }
+
+  const cleanCode = String(code).trim().toUpperCase();
+  const existing = coupons.find(c => c.code.toUpperCase() === cleanCode);
+  if (existing) {
+    return res.status(400).json({ success: false, error: 'Coupon code already exists' });
+  }
+
+  const newCoupon = {
+    _id: 'CP_' + Date.now(),
+    code: cleanCode,
+    discount: Number(discount) || 0,
+    type: type || 'percent',
+    minOrder: Number(minOrder) || 0,
+    expiry: expiry,
+    active: active !== false,
+    used: 0,
+    usedByUsers: []
+  };
+
+  coupons.push(newCoupon);
+  saveData();
+  console.log(`🎟️ New coupon created: ${cleanCode}`);
+  res.json({ success: true, coupon: newCoupon });
+});
+
+app.post('/api/admin/coupons', (req, res) => {
+  const { code, discount, type, minOrder, expiry, active } = req.body;
+  if (!code || !discount || !expiry) {
+    return res.status(400).json({ success: false, error: 'Missing required coupon fields' });
+  }
+
+  const cleanCode = String(code).trim().toUpperCase();
+  const existing = coupons.find(c => c.code.toUpperCase() === cleanCode);
+  if (existing) {
+    return res.status(400).json({ success: false, error: 'Coupon code already exists' });
+  }
+
+  const newCoupon = {
+    _id: 'CP_' + Date.now(),
+    code: cleanCode,
+    discount: Number(discount) || 0,
+    type: type || 'percent',
+    minOrder: Number(minOrder) || 0,
+    expiry: expiry,
+    active: active !== false,
+    used: 0,
+    usedByUsers: []
+  };
+
+  coupons.push(newCoupon);
+  saveData();
+  console.log(`🎟️ New coupon created: ${cleanCode}`);
+  res.json({ success: true, coupon: newCoupon });
+});
+
+// PUT & PATCH /api/coupons/:id/toggle (Admin enables/disables coupon)
+const handleCouponToggle = (req, res) => {
+  const cId = req.params.id;
+  const coupon = coupons.find(c => String(c._id) === String(cId) || c.code.toUpperCase() === String(cId).toUpperCase());
+
+  if (!coupon) {
+    return res.status(404).json({ success: false, error: 'Coupon not found' });
+  }
+
+  coupon.active = !coupon.active;
+  saveData();
+  console.log(`🎟️ Coupon ${coupon.code} active state toggled to: ${coupon.active}`);
+  res.json({ success: true, coupon });
+};
+
+app.put('/api/coupons/:id/toggle', handleCouponToggle);
+app.patch('/api/coupons/:id/toggle', handleCouponToggle);
+app.put('/api/admin/coupons/:id/toggle', handleCouponToggle);
+app.patch('/api/admin/coupons/:id/toggle', handleCouponToggle);
+
+// DELETE /api/coupons/:id (Admin deletes coupon)
+const handleCouponDelete = (req, res) => {
+  const cId = req.params.id;
+  coupons = coupons.filter(c => String(c._id) !== String(cId) && c.code.toUpperCase() !== String(cId).toUpperCase());
+  saveData();
+  console.log(`🎟️ Coupon ${cId} deleted`);
+  res.json({ success: true });
+};
+
+app.delete('/api/coupons/:id', handleCouponDelete);
+app.delete('/api/admin/coupons/:id', handleCouponDelete);
+
+// POST /api/coupons/apply (Customer validates & applies a coupon)
+app.post('/api/coupons/apply', (req, res) => {
+  const { code, userId, subtotal } = req.body;
+  if (!code) return res.status(400).json({ success: false, message: 'Please enter a coupon code' });
+
+  const cleanCode = String(code).trim().toUpperCase();
+  const coupon = coupons.find(c => c.code.toUpperCase() === cleanCode);
+
+  if (!coupon) {
+    return res.status(404).json({ success: false, message: 'Invalid coupon code' });
+  }
+
+  // 1. Active check
+  if (!coupon.active) {
+    return res.status(400).json({ success: false, message: 'This coupon is currently disabled' });
+  }
+
+  // 2. Expiry check
+  if (coupon.expiry && new Date(coupon.expiry) < new Date()) {
+    return res.status(400).json({ success: false, message: 'This coupon has expired' });
+  }
+
+  // 3. One-time usage per customer check
+  const usedBy = coupon.usedByUsers || [];
+  if (userId && usedBy.includes(userId)) {
+    return res.status(400).json({ success: false, message: 'You have already used this coupon code. It can only be used once per customer.' });
+  }
+
+  // 4. Min order check
+  const amount = Number(subtotal) || 0;
+  if (coupon.minOrder && amount < coupon.minOrder) {
+    return res.status(400).json({ success: false, message: `Minimum order amount of ₹${coupon.minOrder} required for this coupon` });
+  }
+
+  // Calculate discount
+  let discountAmount = 0;
+  if (coupon.type === 'percent') {
+    discountAmount = Math.round((amount * coupon.discount) / 100);
+  } else {
+    discountAmount = Number(coupon.discount) || 0;
+  }
+  if (discountAmount > amount) discountAmount = amount;
+
+  res.json({
+    success: true,
+    discountAmount,
+    couponCode: coupon.code,
+    coupon: {
+      _id: coupon._id,
+      code: coupon.code,
+      discount: coupon.discount,
+      type: coupon.type,
+      minOrder: coupon.minOrder
+    }
+  });
 });
 
 // ══════════════════════════════════════════════════════════════

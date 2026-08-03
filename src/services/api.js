@@ -342,10 +342,36 @@ export const adminApi = {
     try { axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 10000 }); } catch {}
     return r;
   },
-  getCoupons:    () => localApi.get('/api/admin/coupons').then(r => r.data).catch(() => ({ success: true, coupons: [] })),
-  addCoupon:     async (d) => { const r = await localApi.post('/api/admin/coupons', d).then(x => x.data); try { axios.post(`${CLOUD}/api/admin/coupons`, d, { timeout: 10000 }); } catch {} return r; },
-  toggleCoupon:  async (id) => { const r = await localApi.patch(`/api/admin/coupons/${id}/toggle`).then(x => x.data); try { axios.patch(`${CLOUD}/api/admin/coupons/${id}/toggle`, {}, { timeout: 10000 }); } catch {} return r; },
-  deleteCoupon:  async (id) => { const r = await localApi.delete(`/api/admin/coupons/${id}`).then(x => x.data); try { axios.delete(`${CLOUD}/api/admin/coupons/${id}`, { timeout: 10000 }); } catch {} return r; },
+  getCoupons: async () => {
+    let localC = [];
+    let cloudC = [];
+    try { const r = await localApi.get('/api/coupons'); if (r.data?.success) localC = r.data.coupons || []; } catch {}
+    try { const r = await axios.get(`${CLOUD}/api/coupons`, { timeout: 10000 }); if (r.data?.success) cloudC = r.data.coupons || []; } catch {}
+
+    const map = new Map();
+    [...localC, ...cloudC].forEach(c => { if (c && (c._id || c.code)) map.set(c._id || c.code, c); });
+    const merged = Array.from(map.values());
+    if (merged.length > 0) return { success: true, coupons: merged };
+    return { success: true, coupons: [] };
+  },
+  addCoupon: async (d) => {
+    let r;
+    try { r = await localApi.post('/api/coupons', d).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/coupons`, d, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  toggleCoupon: async (id) => {
+    let r;
+    try { r = await localApi.put(`/api/coupons/${id}/toggle`).then(x => x.data); } catch {}
+    try { const c = await axios.put(`${CLOUD}/api/coupons/${id}/toggle`, {}, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
+  deleteCoupon: async (id) => {
+    let r;
+    try { r = await localApi.delete(`/api/coupons/${id}`).then(x => x.data); } catch {}
+    try { const c = await axios.delete(`${CLOUD}/api/coupons/${id}`, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
+  },
   getAnalytics:  () => safe(() => api.get('/api/admin/analytics'), { success: true }),
   getSettings:   () => safe(() => api.get('/api/admin/settings'), { success: true }),
   saveSettings:  (d) => safe(() => api.post('/api/admin/settings', d), { success: true }),

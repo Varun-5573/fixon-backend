@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import '../../providers/auth_provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../providers/location_provider.dart';
@@ -32,25 +33,99 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
   int _discount = 0;
   String _paymentMethod = 'Online'; // 'Online', 'COD', 'AfterService'
 
-  final _coupons = {'FIRST50': 50, 'FIXON10': 10, 'SUMMER25': 25};
+  List<dynamic> _availableCoupons = [];
+  bool _loadingCoupons = false;
 
   int get _basePrice => int.tryParse(widget.subService['price'].toString()) ?? 0;
-  int get _total => _basePrice - _discount;
+  int get _total => (_basePrice - _discount) < 0 ? 0 : (_basePrice - _discount);
 
-  void _applyCoupon() {
-    final code = _couponCtrl.text.trim().toUpperCase();
-    if (_coupons.containsKey(code)) {
-      final pct = _coupons[code]!;
-      setState(() {
-        _coupon = code;
-        _discount = (_basePrice * pct / 100).round();
-      });
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchAvailableCoupons();
+    });
+  }
+
+  Future<void> _fetchAvailableCoupons() async {
+    if (!mounted) return;
+    setState(() => _loadingCoupons = true);
+    try {
+      final auth = context.read<AuthProvider>();
+      final uId = auth.user?['_id'] ?? 'guest';
+      final url = Uri.parse('$kBaseUrl/api/coupons?userId=$uId');
+      final res = await http.get(url).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['coupons'] is List) {
+          if (mounted) {
+            setState(() {
+              _availableCoupons = data['coupons'];
+            });
+          }
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingCoupons = false);
+  }
+
+  Future<void> _applyCoupon([String? targetCode]) async {
+    final code = (targetCode ?? _couponCtrl.text).trim().toUpperCase();
+    if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('🎉 Coupon applied! $pct% off'),
-        backgroundColor: AppColors.success,
+        content: const Text('Please enter or select a coupon code'),
+        backgroundColor: AppColors.error,
       ));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid coupon code'), backgroundColor: AppColors.error));
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    final auth = context.read<AuthProvider>();
+    final uId = auth.user?['_id'] ?? 'guest';
+
+    try {
+      final url = Uri.parse('$kBaseUrl/api/coupons/apply');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'code': code,
+          'userId': uId,
+          'subtotal': _basePrice,
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 && data['success'] == true) {
+        final dAmt = int.tryParse(data['discountAmount'].toString()) ?? 0;
+        setState(() {
+          _coupon = code;
+          _couponCtrl.text = code;
+          _discount = dAmt;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('🎉 Coupon "$code" applied! Saved ₹$dAmt'),
+            backgroundColor: AppColors.success,
+          ));
+        }
+      } else {
+        final msg = data['message'] ?? 'Failed to apply coupon';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('❌ $msg'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Network error validating coupon: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
     }
   }
 
@@ -377,21 +452,94 @@ class _BookingConfirmScreenState extends State<BookingConfirmScreen> {
 
                     const SizedBox(height: 18),
 
-                    // Coupon
+                    // Coupon Section
                     Text('🎟️ Apply Coupon', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
                     const SizedBox(height: 10),
+
+                    // Available coupons chips
+                    if (_loadingCoupons)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+                          const SizedBox(width: 8),
+                          Text('Loading available coupons...', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub)),
+                        ]),
+                      )
+                    else if (_availableCoupons.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _availableCoupons.map<Widget>((c) {
+                            final cCode = c['code']?.toString() ?? '';
+                            final cDisc = c['discount'];
+                            final cType = c['type'] ?? 'percent';
+                            final label = cType == 'percent' ? '$cDisc% off' : '₹$cDisc off';
+                            final isApplied = _coupon == cCode;
+                            return GestureDetector(
+                              onTap: () => _applyCoupon(cCode),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isApplied ? AppColors.success.withValues(alpha: 0.15) : AppColors.card,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isApplied ? AppColors.success : AppColors.primary.withValues(alpha: 0.4),
+                                    width: isApplied ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Icon(
+                                    isApplied ? Icons.check_circle : Icons.local_offer_outlined,
+                                    size: 13,
+                                    color: isApplied ? AppColors.success : AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(cCode, style: GoogleFonts.inter(
+                                    fontSize: 12, fontWeight: FontWeight.w700,
+                                    color: isApplied ? AppColors.success : AppColors.text,
+                                    letterSpacing: 0.5,
+                                  )),
+                                  const SizedBox(width: 4),
+                                  Text('· $label', style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: isApplied ? AppColors.success : AppColors.textSub,
+                                  )),
+                                ]),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
                     Row(children: [
                       Expanded(
                         child: TextField(
                           controller: _couponCtrl,
+                          textCapitalization: TextCapitalization.characters,
                           style: TextStyle(color: AppColors.text, fontFamily: 'monospace', letterSpacing: 2),
-                          decoration: InputDecoration(hintText: 'FIRST50, FIXON10...', prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.primary)),
+                          decoration: InputDecoration(
+                            hintText: 'Enter coupon code...',
+                            hintStyle: GoogleFonts.inter(fontSize: 13, color: AppColors.textSub),
+                            prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.primary),
+                            suffixIcon: _coupon.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.close, color: AppColors.error, size: 18),
+                                    onPressed: () => setState(() { _coupon = ''; _discount = 0; _couponCtrl.clear(); }),
+                                  )
+                                : null,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      ElevatedButton(onPressed: _applyCoupon,
+                      ElevatedButton(
+                        onPressed: () => _applyCoupon(),
                         style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
-                        child: Text('Apply', style: GoogleFonts.outfit(fontWeight: FontWeight.w700))),
+                        child: Text('Apply', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                      ),
                     ]),
 
                     const SizedBox(height: 18),

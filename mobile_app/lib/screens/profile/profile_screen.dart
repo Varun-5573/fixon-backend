@@ -12,6 +12,7 @@ import '../../utils/constants.dart';
 import '../../utils/strings.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
+import 'bank_details_screen.dart';
 import 'saved_payment_methods_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -118,6 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _MenuItem(icon: Icons.location_on_outlined, label: AppStrings.savedAddresses, color: AppColors.secondary, onTap: () {}),
           _MenuItem(icon: Icons.payment_outlined, label: AppStrings.paymentMethods, color: AppColors.success, onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPaymentMethodsScreen()));
+          }),
+          _MenuItem(icon: Icons.account_balance_outlined, label: 'Bank Details (Refunds)', color: AppColors.accent, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const BankDetailsScreen()));
           }),
         ]),
 

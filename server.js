@@ -479,6 +479,33 @@ app.post('/api/auth/user/login', (req, res) => {
   res.json({ success: true, token: 'local_' + user._id, user });
 });
 
+// ── Customer Bank Details (for refunds) ─────────────────────────
+// PUT /api/user/:userId/bank-details
+app.put('/api/user/:userId/bank-details', (req, res) => {
+  const { userId } = req.params;
+  const { accountName, accountNumber, ifscCode, bankName, upiId } = req.body;
+  const user = registeredUsers.find(u => u._id === userId);
+  if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+  user.bankDetails = {
+    accountName: accountName || '',
+    accountNumber: accountNumber || '',
+    ifscCode: (ifscCode || '').toUpperCase(),
+    bankName: bankName || '',
+    upiId: upiId || '',
+    updatedAt: new Date().toISOString(),
+  };
+  saveData();
+  console.log(`🏦 Bank details saved for: ${user.name} (${userId})`);
+  res.json({ success: true, message: 'Bank details saved', bankDetails: user.bankDetails });
+});
+
+// GET /api/user/:userId/bank-details
+app.get('/api/user/:userId/bank-details', (req, res) => {
+  const user = registeredUsers.find(u => u._id === req.params.userId);
+  if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+  res.json({ success: true, bankDetails: user.bankDetails || null });
+});
+
 // Admin: get all registered, active, and chatting users
 app.get('/api/admin/users', (req, res) => {
   const userMap = {};

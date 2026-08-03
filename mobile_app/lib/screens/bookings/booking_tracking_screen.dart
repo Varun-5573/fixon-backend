@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 import '../../widgets/live_map_widget.dart';
 import '../chat/worker_chat_screen.dart';
+import '../booking/invoice_screen.dart';
 
 class BookingTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -118,34 +119,13 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
     setState(() => _submittingRating = false);
   }
 
-  Future<void> _fetchAndShowInvoice() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+  void _fetchAndShowInvoice() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InvoiceScreen(booking: _booking),
+      ),
     );
-    try {
-      final res = await http.get(
-        Uri.parse('$kBaseUrl/api/bookings/${widget.booking['_id']}/invoice'),
-      ).timeout(const Duration(seconds: 45));
-      
-      Navigator.pop(context); // Dismiss loading dialog
-
-      final data = jsonDecode(res.body);
-      if (data['success'] == true) {
-        final inv = data['invoice'];
-        _showInvoiceDialog(inv);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ Invoice not generated yet.')),
-        );
-      }
-    } catch (e) {
-      Navigator.pop(context); // Dismiss loading dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Failed to load invoice. Server offline?')),
-      );
-    }
   }
 
   void _showInvoiceDialog(Map<String, dynamic> inv) {
@@ -436,20 +416,43 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
             ],
 
             if (isCompleted) ...[
-              const Divider(height: 40),
-              // Invoice Download Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.receipt_long),
-                  label: const Text('View & Download Tax Invoice', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: _fetchAndShowInvoice,
+              const Divider(height: 30),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Text('🎉', style: TextStyle(fontSize: 22)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Job Finished! Your Bill & Invoice is Ready',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.success),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.receipt_long_rounded, color: Colors.white),
+                        label: Text('🧾 View Tax Invoice & Bill', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: _fetchAndShowInvoice,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

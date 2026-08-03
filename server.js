@@ -833,6 +833,64 @@ app.get('/api/bookings/:id/photos', async (req, res) => {
   res.json({ success: true, photos });
 });
 
+// GET Invoice details for a booking
+app.get('/api/bookings/:id/invoice', async (req, res) => {
+  const bookingId = req.params.id;
+  let b = bookings.find(x => x._id === bookingId);
+
+  if (!b && MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc && doc.bookings) {
+        b = doc.bookings.find(x => x._id === bookingId);
+      }
+    } catch (_) {}
+  }
+
+  if (!b) {
+    return res.status(404).json({ success: false, error: 'Booking not found' });
+  }
+
+  const basePrice = parseInt(b.price || 0, 10) || 0;
+  const discount = parseInt(b.discount || 0, 10) || 0;
+  const platformFee = Math.round(basePrice * 0.05);
+  const gstTax = Math.round(((basePrice + platformFee - discount) * 0.18));
+  const totalAmount = basePrice + platformFee + gstTax - discount;
+
+  const customerName = b.userName || (b.userId && b.userId.name) || 'Valued Customer';
+  const workerName = b.workerName || (b.workerId && b.workerId.name) || 'FixoN Certified Professional';
+  const customerAddress = (b.location && b.location.address) || b.address || 'Hyderabad';
+
+  const invoice = {
+    invoiceNo: 'INV-' + b._id,
+    invoiceNumber: 'INV-' + b._id,
+    bookingId: b._id,
+    customerName,
+    customerPhone: b.userPhone || '',
+    customerAddress,
+    workerName,
+    workerPhone: (b.workerId && b.workerId.phone) || '',
+    serviceCategory: b.category || b.service || 'Home Service',
+    serviceName: b.service || 'FixoN Service',
+    bookingDate: b.createdAt || b.scheduledTime || new Date().toISOString(),
+    completionDate: b.completedAt || new Date().toISOString(),
+    labourCharge: basePrice,
+    subtotal: basePrice,
+    materialCharge: 0,
+    platformFee,
+    discount,
+    gstTax,
+    gst: gstTax,
+    totalAmount,
+    total: totalAmount,
+    grandTotal: totalAmount,
+    paymentStatus: b.paymentStatus || (b.status === 'completed' ? 'Paid' : 'Pending'),
+    paymentMethod: b.paymentMethod || 'Online (UPI)',
+  };
+
+  res.json({ success: true, invoice });
+});
+
 // Mobile app creates a booking  /  Admin seed import
 app.post('/api/bookings', (req, res) => {
   const {

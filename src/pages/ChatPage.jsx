@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '../services/api';
 
@@ -10,8 +10,19 @@ export default function ChatPage({ socket }) {
   const [text, setText] = useState('');
   const [unread, setUnread] = useState({});  // { userId: count }
   const endRef = useRef(null);
+  const activeRef = useRef(null); // keep latest active user without re-subscribing socket
+
+  // Keep activeRef in sync
+  useEffect(() => { activeRef.current = active; }, [active]);
 
   useEffect(() => { loadAllMessages(); }, []);
+
+  // Auto-refresh every 5s to catch messages even when socket drops
+  useEffect(() => {
+    const interval = setInterval(() => { loadAllMessages(true); }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => { if (active) { filterMessages(active._id); clearUnread(active._id); } }, [active, allMessages]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -53,7 +64,7 @@ export default function ChatPage({ socket }) {
   const clearUnread = (id) => setUnread(p => ({ ...p, [id]: 0 }));
 
   // Load all messages and extract unique chat users from them
-  const loadAllMessages = async () => {
+  const loadAllMessages = async (silent = false) => {
     try {
       const r = await adminApi.getMessages();
       const msgs = r.messages || r || [];
@@ -73,18 +84,29 @@ export default function ChatPage({ socket }) {
         }
       });
 
-      // Also load registered users to merge names/phones
-      try {
-        const ur = await adminApi.getUsers();
-        (ur.users || []).forEach(u => {
-          if (u._id && userMap.has(u._id)) {
-            // Merge with real user data
-            userMap.set(u._id, { ...userMap.get(u._id), ...u });
-          }
-        });
-      } catch {}
+      if (!silent) {
+        // Also load registered users to merge names/phones (only on initial load)
+        try {
+          const ur = await adminApi.getUsers();
+          (ur.users || []).forEach(u => {
+            if (u._id && userMap.has(u._id)) {
+              userMap.set(u._id, { ...userMap.get(u._id), ...u });
+            }
+          });
+        } catch {}
+      }
 
       if (userMap.size > 0) setUsers(Array.from(userMap.values()));
+
+      // Auto-refresh active conversation if one is open
+      const currentActive = activeRef.current;
+      if (currentActive) {
+        setMessages(msgs.filter(m =>
+          m.senderId === currentActive._id ||
+          m.receiverId === currentActive._id ||
+          (m.senderType === 'bot' && m.receiverId === currentActive._id)
+        ));
+      }
     } catch {}
   };
 

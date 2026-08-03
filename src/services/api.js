@@ -259,18 +259,38 @@ export const adminApi = {
     );
   },
   getPayments:   () => safe(() => api.get('/api/payment/all'),    { success: true, payments: DEMO_PAYMENTS }),
-  // Chat — try local first, fallback to Render cloud (so admin sees messages even when laptop was off)
+  // Chat — merge from local + Render cloud (admin always sees messages regardless of where they were sent from)
   getMessages: async () => {
+    let localMsgs = [];
+    let cloudMsgs = [];
+
     try {
       const r = await localApi.get('/api/chat/all');
-      if (r.data?.success && r.data.messages?.length > 0) return r.data;
+      if (r.data?.success && r.data.messages) localMsgs = r.data.messages;
     } catch {}
+
     try {
-      const r = await axios.get(`${CLOUD}/api/chat/all`, { timeout: 10000 });
-      if (r.data?.success) return r.data;
+      const r = await axios.get(`${CLOUD}/api/chat/all`, { timeout: 12000 });
+      if (r.data?.success && r.data.messages) cloudMsgs = r.data.messages;
     } catch {}
-    return { success: true, messages: [] };
+
+    // Merge: deduplicate by createdAt+senderId+message combo, prefer cloud version
+    const seen = new Set();
+    const merged = [];
+    [...localMsgs, ...cloudMsgs].forEach(m => {
+      const key = `${m.senderId}|${m.receiverId}|${m.createdAt}|${m.message?.slice(0, 30)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(m);
+      }
+    });
+
+    // Sort chronologically
+    merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+    return { success: true, messages: merged };
   },
+
   sendMessage: async (d) => {
     let r;
     try { r = await localApi.post('/api/chat/admin-reply', d).then(x => x.data); } catch {}

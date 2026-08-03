@@ -2029,6 +2029,7 @@ app.post('/api/chat/admin-reply', (req, res) => {
   };
   messages.push(msgObj);
   io.emit('receive_message', msgObj);
+  saveData(); // Persist admin reply to MongoDB
   console.log(`📤 Admin → ${receiverId}: ${message}`);
   res.json({ success: true, message: msgObj });
 });
@@ -2062,6 +2063,7 @@ app.post('/api/chat/send', (req, res) => {
   };
   messages.push(msgObj);
   io.emit('receive_message', msgObj);
+  saveData(); // Persist to MongoDB so Admin Panel always sees messages
   console.log(`📩 ${users[senderId].name}: ${message}`);
 
   // Bot auto-reply
@@ -2076,6 +2078,7 @@ app.post('/api/chat/send', (req, res) => {
     };
     messages.push(botMsg);
     io.emit('receive_message', botMsg);
+    saveData(); // Persist bot reply too
   }, 800);
 
   res.json({ success: true, message: msgObj });

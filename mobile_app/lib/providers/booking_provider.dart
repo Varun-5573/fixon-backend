@@ -176,7 +176,7 @@ class BookingProvider extends ChangeNotifier {
               'Authorization': 'Bearer $_currentToken',
             },
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 8));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -185,12 +185,27 @@ class BookingProvider extends ChangeNotifier {
             (data['bookings'] as List? ?? [])
                 .map((b) => Map<String, dynamic>.from(b as Map)),
           );
-          // Only rebuild UI if data actually changed
-          if (fresh.length != _bookings.length ||
-              jsonEncode(fresh.map((b) => b['_id']).toList()) !=
-                  jsonEncode(_bookings.map((b) => b['_id']).toList())) {
-            _bookings = fresh;
-          }
+
+          // ── ALWAYS merge fresh data using rank-guard so status NEVER regresses ──
+          // Build a map of current bookings for O(1) lookup
+          final currentMap = <String, Map<String, dynamic>>{
+            for (final b in _bookings)
+              if (b['_id'] != null) b['_id'].toString(): b
+          };
+
+          final merged = fresh.map((freshB) {
+            final id = freshB['_id']?.toString();
+            if (id == null) return freshB;
+            final current = currentMap[id];
+            if (current == null) return freshB; // new booking
+            final curRank = _statusRanks[_norm(current['status']?.toString())] ?? 0;
+            final freshRank = _statusRanks[_norm(freshB['status']?.toString())] ?? 0;
+            // Prefer whichever has a HIGHER rank (never go backward)
+            if (freshRank >= curRank) return freshB;
+            return current;
+          }).toList();
+
+          _bookings = merged;
           _loading = false;
           _saveCachedBookings();
           notifyListeners();
@@ -285,10 +300,10 @@ class BookingProvider extends ChangeNotifier {
     }
   }
 
-  /// Periodic polling every 30s as fallback when socket misses events
+  /// Periodic polling every 5s as fallback when socket misses events
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _doFetch());
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _doFetch());
   }
 
   // Status rank map — mirrors server STATUS_RANKS
@@ -316,14 +331,20 @@ class BookingProvider extends ChangeNotifier {
     final id = updatedBooking['_id']?.toString();
     if (id == null) return;
 
-    // Only apply if it belongs to current user
-    final bookingUserId = (updatedBooking['userId'] is Map)
-        ? updatedBooking['userId']['_id']?.toString()
-        : updatedBooking['userId']?.toString();
+    // Extract userId — handle both enriched {_id, name} object AND raw string
+    final rawUserId = updatedBooking['userId'];
+    final bookingUserId = (rawUserId is Map)
+        ? rawUserId['_id']?.toString()
+        : rawUserId?.toString();
 
+    // Only skip if BOTH are non-null AND they clearly don't match
     if (_currentUserId != null &&
         bookingUserId != null &&
-        bookingUserId != _currentUserId) return;
+        bookingUserId != _currentUserId &&
+        bookingUserId.isNotEmpty) {
+      debugPrint('⚠️ Socket event for different user ($bookingUserId vs $_currentUserId), skipping');
+      return;
+    }
 
     final idx = _bookings.indexWhere((b) => b['_id']?.toString() == id);
     if (idx != -1) {
@@ -338,6 +359,10 @@ class BookingProvider extends ChangeNotifier {
         return;
       }
       _bookings[idx] = Map<String, dynamic>.from(updatedBooking);
+    } else {
+      // Booking not in list yet — trigger a full refresh to get it
+      _doFetch();
+      return;
     }
     notifyListeners();
   }

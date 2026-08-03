@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -346,6 +347,7 @@ class _BookingTrackingScreenState extends State<BookingTrackingScreen> {
                   ),
                 );
               },
+            ),
             // ── Photo Proof Section (Problem, Before, After) ─────
             if (_booking['customerProblemPhoto'] != null ||
                 _booking['problemPhoto'] != null ||

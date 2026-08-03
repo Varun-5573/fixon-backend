@@ -2036,19 +2036,22 @@ app.post('/api/chat/admin-reply', (req, res) => {
 
 app.post('/api/chat/send', (req, res) => {
   const { senderId, message, name, email, phone } = req.body;
-  if (!users[senderId]) {
-    users[senderId] = {
-      _id: senderId,
-      name: name || ('Customer ' + senderId.slice(-4)),
-      email: email || '',
-      phone: phone || '',
+  const sId = senderId || 'guest';
+  const realUser = registeredUsers.find(u => u._id === sId);
+
+  if (!users[sId]) {
+    users[sId] = {
+      _id: sId,
+      name: name || realUser?.name || ('Customer ' + String(sId).slice(-4)),
+      email: email || realUser?.email || '',
+      phone: phone || realUser?.phone || '',
     };
-    io.emit('new_user', users[senderId]);
+    io.emit('new_user', users[sId]);
   } else {
     // Update user info if provided
-    if (name) users[senderId].name = name;
-    if (email) users[senderId].email = email;
-    if (phone) users[senderId].phone = phone;
+    if (name) users[sId].name = name;
+    if (email) users[sId].email = email;
+    if (phone) users[sId].phone = phone;
   }
 
   const msgObj = {
@@ -2127,6 +2130,35 @@ io.on('connection', (socket) => {
       .forEach(u => {
         socket.emit('user_location', { userId: u._id, name: u.name, lat: u.lat, lng: u.lng, address: u.address });
       });
+  });
+
+  // Customer app sends chat message via socket
+  socket.on('send_message', (data) => {
+    const sId = data?.senderId || 'guest';
+    const realUser = registeredUsers.find(u => u._id === sId);
+    if (!users[sId]) {
+      users[sId] = {
+        _id: sId,
+        name: data?.name || realUser?.name || ('Customer ' + String(sId).slice(-4)),
+        email: realUser?.email || '',
+        phone: realUser?.phone || '',
+      };
+      io.emit('new_user', users[sId]);
+    }
+    const msgObj = {
+      senderId: sId,
+      receiverId: 'admin',
+      message: data?.message || '',
+      senderType: 'customer',
+      senderName: users[sId].name,
+      senderEmail: users[sId].email || '',
+      senderPhone: users[sId].phone || '',
+      createdAt: data?.createdAt || new Date().toISOString()
+    };
+    messages.push(msgObj);
+    io.emit('receive_message', msgObj);
+    saveData();
+    console.log(`📩 [Socket] ${users[sId].name}: ${data?.message}`);
   });
 
   // Customer app opens → register this socket ↔ userId mapping

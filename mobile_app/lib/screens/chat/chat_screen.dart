@@ -165,6 +165,14 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
+      if (_socket.connected) {
+        _socket.emit('send_message', msgObj);
+      }
+    } catch (e) {
+      debugPrint('Socket emit error: $e');
+    }
+
+    try {
       await http.post(
         Uri.parse('$kBaseUrl/api/chat/send'),
         headers: kHeaders,

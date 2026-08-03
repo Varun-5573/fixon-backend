@@ -70,33 +70,47 @@ export default function ChatPage({ socket }) {
       const msgs = r.messages || r || [];
       setAllMessages(msgs);
 
-      // Extract unique customer senders from messages
       const userMap = new Map();
+
+      // 1. Add all registered users to userMap
+      try {
+        const ur = await adminApi.getUsers();
+        (ur.users || []).forEach(u => {
+          if (u._id) {
+            userMap.set(u._id, {
+              _id: u._id,
+              name: u.name || ('Customer ' + String(u._id).slice(-4)),
+              email: u.email || '',
+              phone: u.phone || '',
+              online: !!u.isOnline,
+            });
+          }
+        });
+      } catch {}
+
+      // 2. Also extract senders/receivers from messages
       msgs.forEach(m => {
-        if (m.senderType === 'customer' && m.senderId && !userMap.has(m.senderId)) {
-          userMap.set(m.senderId, {
-            _id: m.senderId,
-            name: m.senderName || ('Customer ' + m.senderId.slice(-4)),
-            email: m.senderEmail || '',
-            phone: m.senderPhone || '',
-            online: false,
-          });
+        const cId = m.senderType === 'customer' ? m.senderId : (m.receiverId !== 'admin' ? m.receiverId : m.senderId);
+        if (cId && cId !== 'admin' && cId !== 'bot') {
+          if (!userMap.has(cId)) {
+            userMap.set(cId, {
+              _id: cId,
+              name: m.senderName || ('Customer ' + String(cId).slice(-4)),
+              email: m.senderEmail || '',
+              phone: m.senderPhone || '',
+              online: false,
+            });
+          } else {
+            const existing = userMap.get(cId);
+            if (m.senderName && existing.name.startsWith('Customer')) existing.name = m.senderName;
+            if (m.senderEmail && !existing.email) existing.email = m.senderEmail;
+            if (m.senderPhone && !existing.phone) existing.phone = m.senderPhone;
+          }
         }
       });
 
-      if (!silent) {
-        // Also load registered users to merge names/phones (only on initial load)
-        try {
-          const ur = await adminApi.getUsers();
-          (ur.users || []).forEach(u => {
-            if (u._id && userMap.has(u._id)) {
-              userMap.set(u._id, { ...userMap.get(u._id), ...u });
-            }
-          });
-        } catch {}
-      }
-
-      if (userMap.size > 0) setUsers(Array.from(userMap.values()));
+      const userList = Array.from(userMap.values());
+      if (userList.length > 0) setUsers(userList);
 
       // Auto-refresh active conversation if one is open
       const currentActive = activeRef.current;

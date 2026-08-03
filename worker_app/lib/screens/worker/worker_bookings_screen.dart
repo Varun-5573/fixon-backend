@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import '../../providers/worker_provider.dart';
 import '../../utils/constants.dart';
 import '../../widgets/before_after_photos_widget.dart';
@@ -121,6 +124,80 @@ class _BookingCard extends StatefulWidget {
 class _BookingCardState extends State<_BookingCard> {
   bool _uploadedBeforePhoto = false;
   bool _uploadedAfterPhoto = false;
+  String? _afterPhoto;
+  bool _uploadingPhoto = false;
+
+  Future<void> _pickAndUploadAfterPhoto(String bookingId) async {
+    final ImagePicker picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Upload Work Completion Photo',
+                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.text)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(Icons.camera_alt, color: AppColors.primary),
+              title: Text('Take Photo with Camera', style: GoogleFonts.inter(color: AppColors.text)),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library, color: AppColors.secondary),
+              title: Text('Choose from Gallery', style: GoogleFonts.inter(color: AppColors.text)),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picked = await picker.pickImage(source: source, imageQuality: 55, maxWidth: 800, maxHeight: 800);
+    if (picked == null) return;
+
+    setState(() => _uploadingPhoto = true);
+
+    try {
+      final bytes = await File(picked.path).readAsBytes();
+      final base64Img = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+
+      final res = await http.post(
+        Uri.parse('$kBaseUrl/api/bookings/$bookingId/photos'),
+        headers: kHeaders,
+        body: jsonEncode({
+          'afterPhoto': base64Img,
+          'workerAfterPhoto': base64Img,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(res.body);
+      if (data['success'] == true) {
+        setState(() {
+          _afterPhoto = base64Img;
+          _uploadedAfterPhoto = true;
+          _uploadingPhoto = false;
+        });
+        if (mounted) {
+          _snack(context, '📸 Work completion photo attached!', AppColors.success);
+        }
+      } else {
+        throw Exception('Upload failed');
+      }
+    } catch (e) {
+      setState(() => _uploadingPhoto = false);
+      if (mounted) {
+        _snack(context, '⚠️ Photo upload failed. Please try again.', AppColors.error);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -404,24 +481,101 @@ class _BookingCardState extends State<_BookingCard> {
                 },
               ),
 
-            // ── STEP 4: ONGOING → Complete Job ────
-            if (status == 'ongoing' || status == 'in_progress' || status == 'started')
-              _stepBanner(
-                context,
-                step: 'Step 4',
-                title: '🛠️ Work in Progress',
-                subtitle: 'Tap below when you finish the job to generate invoice and complete.',
-                btnLabel: '✅ Mark Job as Complete',
-                btnColor: AppColors.success,
-                onTap: () async {
-                  final ok = await wp.updateBookingStatus(booking['_id'], 'complete');
-                  if (context.mounted) {
-                    _snack(context, ok ? '🎉 Job Complete! Invoice generated & customer notified.' : 'Failed — try again',
-                        ok ? AppColors.success : AppColors.error);
-                    if (ok) onRefresh?.call();
-                  }
-                },
-              ),
+            // ── STEP 4: ONGOING → Mandatory Completion Photo → Complete Job ────
+            if (status == 'ongoing' || status == 'in_progress' || status == 'started') ...[
+              Builder(builder: (context) {
+                final existingAfterPhoto = booking['afterPhoto']?.toString() ?? booking['workerAfterPhoto']?.toString() ?? '';
+                final hasAfterPhoto = _afterPhoto != null || existingAfterPhoto.isNotEmpty || _uploadedAfterPhoto;
+
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: hasAfterPhoto ? AppColors.success.withOpacity(0.4) : AppColors.primary.withOpacity(0.4)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(hasAfterPhoto ? '✅ Step 4' : '📸 Step 4', style: const TextStyle(fontSize: 15)),
+                          const SizedBox(width: 8),
+                          Text(
+                            hasAfterPhoto ? 'Work Completed Photo Uploaded' : 'Upload Work Completion Photo',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: hasAfterPhoto ? AppColors.success : AppColors.primary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        hasAfterPhoto
+                            ? 'Photo attached! Tap below to mark job as complete.'
+                            : 'Please take or upload a photo of the completed work to enable completion.',
+                        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Preview thumbnail if photo uploaded
+                      if (hasAfterPhoto) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            height: 140,
+                            width: double.infinity,
+                            child: _buildImageWidget(_afterPhoto ?? existingAfterPhoto),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      if (_uploadingPhoto)
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Center(
+                            child: CircularProgressIndicator(color: AppColors.primary),
+                          ),
+                        )
+                      else if (!hasAfterPhoto)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _pickAndUploadAfterPhoto(booking['_id']),
+                            icon: const Icon(Icons.camera_alt, size: 18),
+                            label: Text('📸 Take / Choose Work Photo', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final ok = await wp.updateBookingStatus(booking['_id'], 'complete');
+                              if (context.mounted) {
+                                _snack(context, ok ? '🎉 Job Complete! Invoice generated & customer notified.' : 'Failed — try again',
+                                    ok ? AppColors.success : AppColors.error);
+                                if (ok) onRefresh?.call();
+                              }
+                            },
+                            icon: const Icon(Icons.check_circle, size: 18),
+                            label: Text('✅ Mark Job as Complete', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
 
             // ── COMPLETED ──────────────────────────────────
             if (status == 'completed') ...[

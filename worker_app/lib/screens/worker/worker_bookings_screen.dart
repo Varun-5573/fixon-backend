@@ -235,6 +235,7 @@ class _BookingCardState extends State<_BookingCard> {
           if ((booking['description'] != null && booking['description'].toString().isNotEmpty) ||
               (booking['problemDescription'] != null && booking['problemDescription'].toString().isNotEmpty) ||
               (booking['beforePhoto'] != null && booking['beforePhoto'].toString().isNotEmpty) ||
+              (booking['customerProblemPhoto'] != null && booking['customerProblemPhoto'].toString().isNotEmpty) ||
               (booking['problemPhoto'] != null && booking['problemPhoto'].toString().isNotEmpty)) ...[
             const SizedBox(height: 10),
             _buildProblemBox(booking),
@@ -606,7 +607,7 @@ class _BookingCardState extends State<_BookingCard> {
 
   Widget _buildProblemBox(Map<String, dynamic> booking) {
     final description = booking['description']?.toString() ?? booking['problemDescription']?.toString() ?? '';
-    final problemPhoto = booking['problemPhoto']?.toString() ?? booking['beforePhoto']?.toString() ?? '';
+    final problemPhoto = booking['problemPhoto']?.toString() ?? booking['customerProblemPhoto']?.toString() ?? booking['beforePhoto']?.toString() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(12),

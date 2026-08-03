@@ -253,12 +253,11 @@ function saveData() {
 }
 
 async function _doSave() {
-  // Strip photos from bookings before saving to prevent memory bloat
+  // Strip heavy worker photos from bookings before saving to prevent memory bloat, but KEEP customer problem photos!
   const cleanBookings = bookings.map(b => {
     const copy = { ...b };
-    delete copy.beforePhoto;
     delete copy.afterPhoto;
-    delete copy.problemPhoto;
+    delete copy.workerAfterPhoto;
     delete copy.beforePhotoUploadedAt;
     delete copy.afterPhotoUploadedAt;
     return copy;
@@ -706,16 +705,15 @@ function enrichBooking(b) {
   return bookingCopy;
 }
 
-// Light enrich — NO photos, only flags (used for list APIs to keep payloads small)
+// Light enrich — retains problemPhoto for worker/admin preview while removing heavy worker photos
 function enrichBookingLight(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
   bookingCopy.status = normalizeStatus(bookingCopy.status);
-  // Remove photo data from list response
+  
+  // Remove heavy worker completion photos from list response, but KEEP customer problem photo!
   delete bookingCopy.beforePhoto;
   delete bookingCopy.afterPhoto;
-  delete bookingCopy.problemPhoto;
-  delete bookingCopy.customerProblemPhoto;
   delete bookingCopy.workerBeforePhoto;
   delete bookingCopy.workerAfterPhoto;
 
@@ -729,9 +727,13 @@ function enrichBookingLight(b) {
     };
   }
 
-  // Only send photo existence flags
+  // Preserve customer problem photo from booking object or photo store
   const photoData = bookingPhotos[bookingCopy._id] || {};
-  bookingCopy.hasProblemPhoto = !!(b.customerProblemPhoto || b.problemPhoto || photoData.customerProblemPhoto);
+  bookingCopy.customerProblemPhoto = b.customerProblemPhoto || b.problemPhoto || photoData.customerProblemPhoto || photoData.problemPhoto || null;
+  bookingCopy.problemPhoto = bookingCopy.customerProblemPhoto;
+
+  // Photo existence flags
+  bookingCopy.hasProblemPhoto = !!bookingCopy.customerProblemPhoto;
   bookingCopy.hasBeforePhoto = !!(photoData.workerBeforePhoto || photoData.beforePhoto || b.workerBeforePhoto || b.beforePhoto);
   bookingCopy.hasAfterPhoto = !!(photoData.workerAfterPhoto || photoData.afterPhoto || b.workerAfterPhoto || b.afterPhoto);
 
@@ -871,7 +873,16 @@ app.post('/api/bookings', (req, res) => {
     paymentStatus: paymentStatus || 'Pending',
     createdAt: req.body.createdAt || new Date().toISOString(),
     completedAt: completedAt || (status === 'completed' ? new Date().toISOString() : null),
+    problemPhoto: photo,
+    customerProblemPhoto: photo,
+    beforePhoto: photo,
   };
+
+  if (photo) {
+    if (!bookingPhotos[booking._id]) bookingPhotos[booking._id] = {};
+    bookingPhotos[booking._id].problemPhoto = photo;
+    bookingPhotos[booking._id].customerProblemPhoto = photo;
+  }
 
   bookings.push(booking);
   saveData();

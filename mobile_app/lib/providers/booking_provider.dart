@@ -389,10 +389,13 @@ class BookingProvider extends ChangeNotifier {
     final beforePhoto  = bookingData['beforePhoto']?.toString() ?? '';
     final photoToUpload = problemPhoto.isNotEmpty ? problemPhoto : (beforePhoto.isNotEmpty ? beforePhoto : '');
 
-    // Create booking payload WITHOUT the large base64 photo (to avoid payload size issues)
-    final payloadWithoutPhoto = Map<String, dynamic>.from(bookingData);
-    payloadWithoutPhoto.remove('problemPhoto');
-    payloadWithoutPhoto.remove('beforePhoto');
+    // Prepare booking payload including problemPhoto
+    final payloadWithPhoto = Map<String, dynamic>.from(bookingData);
+    if (photoToUpload.isNotEmpty) {
+      payloadWithPhoto['problemPhoto'] = photoToUpload;
+      payloadWithPhoto['customerProblemPhoto'] = photoToUpload;
+      payloadWithPhoto['beforePhoto'] = photoToUpload;
+    }
 
     String? createdBookingId;
 
@@ -404,7 +407,7 @@ class BookingProvider extends ChangeNotifier {
               ...kHeaders,
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode(payloadWithoutPhoto),
+            body: jsonEncode(payloadWithPhoto),
           )
           .timeout(const Duration(seconds: 15));
       final data = jsonDecode(res.body) as Map<String, dynamic>;

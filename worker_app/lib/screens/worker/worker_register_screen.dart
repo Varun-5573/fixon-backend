@@ -49,7 +49,13 @@ class _WorkerRegisterScreenState extends State<WorkerRegisterScreen> with Single
   String? _statusError;
 
   final List<String> _cities = ['Hyderabad', 'Secunderabad', 'Cyberabad', 'Godavarikhani', 'Warangal', 'Nizamabad'];
-  final List<String> _categories = ['Plumbing', 'Electrical', 'AC Repair', 'Cleaning', 'Carpentry', 'Painting', 'Appliance Repair'];
+  final List<String> _categories = [
+    // 🏠 Home Services
+    'Plumbing', 'Electrical', 'AC Repair', 'Cleaning', 'Carpentry', 'Painting', 'Appliance Repair', 'CCTV Setup',
+    // 🎉 Wedding & Event Services
+    'Photo Studio', 'Wedding Tent House', 'Catering Services', 'Decoration Services',
+    'DJ & Music', 'Videography', 'Vehicle Rental', 'Makeup Artist',
+  ];
 
   @override
   void initState() {

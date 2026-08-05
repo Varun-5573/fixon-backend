@@ -65,12 +65,20 @@ const Map<String, String> kHeaders = {
 };
 
 const List<Map<String, dynamic>> kServices = [
-  {'name': 'Plumbing',      'icon': '🔧', 'color': 0xFF7C3AED, 'price': 499},
-  {'name': 'Electrical',    'icon': '⚡', 'color': 0xFFF59E0B, 'price': 599},
-  {'name': 'Cleaning',      'icon': '🧹', 'color': 0xFF10B981, 'price': 1299},
-  {'name': 'AC Repair',     'icon': '❄️', 'color': 0xFF06B6D4, 'price': 799},
-  {'name': 'Carpentry',     'icon': '🪚', 'color': 0xFFEC4899, 'price': 699},
-  {'name': 'Painting',      'icon': '🎨', 'color': 0xFFEF4444, 'price': 2499},
-  {'name': 'Pest Control',  'icon': '🐛', 'color': 0xFF8B5CF6, 'price': 999},
-  {'name': 'CCTV Setup',    'icon': '📹', 'color': 0xFF059669, 'price': 3499},
+  {'name': 'Plumbing',            'icon': '🔧', 'color': 0xFF7C3AED, 'price': 499},
+  {'name': 'Electrical',          'icon': '⚡', 'color': 0xFFF59E0B, 'price': 599},
+  {'name': 'Cleaning',            'icon': '🧹', 'color': 0xFF10B981, 'price': 1299},
+  {'name': 'AC Repair',           'icon': '❄️', 'color': 0xFF06B6D4, 'price': 799},
+  {'name': 'Carpentry',           'icon': '🪚', 'color': 0xFFEC4899, 'price': 699},
+  {'name': 'Painting',            'icon': '🎨', 'color': 0xFFEF4444, 'price': 2499},
+  {'name': 'Pest Control',        'icon': '🐛', 'color': 0xFF8B5CF6, 'price': 999},
+  {'name': 'CCTV Setup',          'icon': '📹', 'color': 0xFF059669, 'price': 3499},
+  {'name': 'Photo Studio',        'icon': '📸', 'color': 0xFFE11D48, 'price': 4999},
+  {'name': 'Wedding Tent House',  'icon': '🎪', 'color': 0xFFD97706, 'price': 9999},
+  {'name': 'Catering Services',   'icon': '🍽', 'color': 0xFF059669, 'price': 299},
+  {'name': 'Decoration Services', 'icon': '🎀', 'color': 0xFF9333EA, 'price': 2999},
+  {'name': 'DJ & Music',           'icon': '🎵', 'color': 0xFF2563EB, 'price': 4999},
+  {'name': 'Videography',         'icon': '🎥', 'color': 0xFFDC2626, 'price': 5999},
+  {'name': 'Vehicle Rental',      'icon': '🚗', 'color': 0xFF4F46E5, 'price': 3499},
+  {'name': 'Makeup Artist',       'icon': '💄', 'color': 0xFFDB2777, 'price': 1999},
 ];

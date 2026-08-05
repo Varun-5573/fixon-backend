@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '../services/api';
 
-const SERVICES = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Pest Control'];
+const SERVICES = [
+  'Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'AC Repair', 'Pest Control', 'CCTV Setup',
+  // 🎉 Wedding & Event Services
+  'Photo Studio', 'Wedding Tent House', 'Catering Services', 'Decoration Services',
+  'DJ & Music', 'Videography', 'Vehicle Rental', 'Makeup Artist',
+];
 const CITIES = ['Hyderabad', 'Warangal', 'Karimnagar', 'Nizamabad', 'Khammam', 'Nalgonda', 'Suryapet'];
 
 const emptyWorker = { name: '', phone: '', email: '', address: '', city: 'Hyderabad', category: '', skills: [], aadhaar: '', pan: '', isAvailable: true, isActive: true };
@@ -377,7 +382,17 @@ export default function WorkersPage() {
                 <label>Category *</label>
                 <select className="input select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                   <option value="">Select category</option>
-                  <option>Plumbing</option><option>Electrical</option><option>Cleaning</option><option>AC Repair</option><option>Carpentry</option><option>Painting</option><option>Pest Control</option>
+                  <optgroup label="🏠 Home Services">
+                    <option>Plumbing</option><option>Electrical</option><option>Cleaning</option>
+                    <option>AC Repair</option><option>Carpentry</option><option>Painting</option>
+                    <option>Pest Control</option><option>CCTV Setup</option>
+                  </optgroup>
+                  <optgroup label="🎉 Wedding & Event Services">
+                    <option>Photo Studio</option><option>Wedding Tent House</option>
+                    <option>Catering Services</option><option>Decoration Services</option>
+                    <option>DJ & Music</option><option>Videography</option>
+                    <option>Vehicle Rental</option><option>Makeup Artist</option>
+                  </optgroup>
                 </select>
               </div>
               <div className="form-group">

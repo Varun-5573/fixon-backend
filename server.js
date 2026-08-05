@@ -78,14 +78,23 @@ let adminWorkers = [
   { _id: 'W1781852119714', name: 'Bunny',          phone: '9550400036', email: 'pittalasuvarna@gmail.com', category: 'Electrical', skills: ['Electrical'],                                           rating: 5,   active: true, isAvailable: true,  isActive: true, isOnline: false, experience: '2 years',  workerId: 'FIXON_ELC_1002', workerPassword: 'FXNG333', createdAt: new Date().toISOString() },
 ];
 let services = [
-  { _id: 'SV1', name: 'Plumbing',     icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
-  { _id: 'SV2', name: 'Electrical',   icon: '⚡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
-  { _id: 'SV3', name: 'Cleaning',     icon: '🧹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
-  { _id: 'SV4', name: 'AC Repair',    icon: '❄️', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
-  { _id: 'SV5', name: 'Carpentry',    icon: '🪚', color: '#EC4899', price: 699,  active: true, packages: [] },
-  { _id: 'SV6', name: 'Painting',     icon: '🎨', color: '#EF4444', price: 2499, active: true, packages: [] },
-  { _id: 'SV7', name: 'Pest Control', icon: '🐛', color: '#8B5CF6', price: 999,  active: true, packages: [] },
-  { _id: 'SV8', name: 'CCTV Setup',   icon: '📹', color: '#059669', price: 3499, active: true, packages: [] },
+  { _id: 'SV1',  name: 'Plumbing',            icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: 'SV2',  name: 'Electrical',           icon: '⚡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
+  { _id: 'SV3',  name: 'Cleaning',             icon: '🧹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
+  { _id: 'SV4',  name: 'AC Repair',            icon: '❄️', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: 'SV5',  name: 'Carpentry',            icon: '🪚', color: '#EC4899', price: 699,  active: true, packages: [] },
+  { _id: 'SV6',  name: 'Painting',             icon: '🎨', color: '#EF4444', price: 2499, active: true, packages: [] },
+  { _id: 'SV7',  name: 'Pest Control',         icon: '🐛', color: '#8B5CF6', price: 999,  active: true, packages: [] },
+  { _id: 'SV8',  name: 'CCTV Setup',           icon: '📹', color: '#059669', price: 3499, active: true, packages: [] },
+  // 🎉 Wedding & Event Services
+  { _id: 'SV9',  name: 'Photo Studio',         icon: '📸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
+  { _id: 'SV10', name: 'Wedding Tent House',   icon: '🎪', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
+  { _id: 'SV11', name: 'Catering Services',    icon: '🍽', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
+  { _id: 'SV12', name: 'Decoration Services',  icon: '🎀', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
+  { _id: 'SV13', name: 'DJ & Music',           icon: '🎵', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
+  { _id: 'SV14', name: 'Videography',          icon: '🎥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
+  { _id: 'SV15', name: 'Vehicle Rental',       icon: '🚗', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
+  { _id: 'SV16', name: 'Makeup Artist',        icon: '💄', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
 ];
 let coupons = [
   { _id: 'CP1', code: 'FIXON10',  discount: 10, type: 'percent', minOrder: 300, expiry: '2026-12-31', active: true, used: 0 },
@@ -162,6 +171,10 @@ function generateWorkerCredentials(category, existingCount) {
     'Plumbing': 'PLM', 'Electrical': 'ELC', 'Cleaning': 'CLN',
     'AC Repair': 'ACR', 'Carpentry': 'CRP', 'Painting': 'PNT',
     'Pest Control': 'PCT', 'CCTV Setup': 'CCT', 'Appliance Repair': 'APL',
+    // Event Services
+    'Photo Studio': 'PHT', 'Wedding Tent House': 'WTH', 'Catering Services': 'CAT',
+    'Decoration Services': 'DEC', 'DJ & Music': 'DJM', 'Videography': 'VDG',
+    'Vehicle Rental': 'VHR', 'Makeup Artist': 'MKP',
   };
   const code = categoryMap[category] || 'WRK';
   const num = String(1001 + existingCount).padStart(4, '0');

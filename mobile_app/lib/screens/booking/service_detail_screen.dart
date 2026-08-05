@@ -57,20 +57,28 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
       final data = jsonDecode(res.body);
       if (data['success'] == true) {
         final allWorkers = List<Map<String, dynamic>>.from(data['workers']);
-        final serviceName = widget.service['name']?.toString().toLowerCase() ?? '';
+        final serviceName = widget.service['name']?.toString().toLowerCase().trim() ?? '';
 
-        // First try to match by skills/category
-        var matched = allWorkers.where((w) {
+        // Match workers STRICTLY by category or skills
+        final matched = allWorkers.where((w) {
           if (w['active'] == false || w['isActive'] == false) return false;
-          final List skills = (w['skills'] ?? []).map((s) => s.toString().toLowerCase()).toList();
-          final category = (w['category']?.toString() ?? '').toLowerCase();
-          return skills.contains(serviceName) || category == serviceName;
-        }).toList();
+          
+          final category = (w['category']?.toString() ?? '').toLowerCase().trim();
+          final List skills = (w['skills'] ?? []).map((s) => s.toString().toLowerCase().trim()).toList();
 
-        // If no match found, show ALL active workers so user is never left with empty list
-        if (matched.isEmpty) {
-          matched = allWorkers.where((w) => w['active'] != false && w['isActive'] != false).toList();
-        }
+          // Check category match (e.g., 'Plumbing', 'AC Repair', 'Photo Studio')
+          if (category.isNotEmpty && (category == serviceName || category.contains(serviceName) || serviceName.contains(category))) {
+            return true;
+          }
+
+          // Check skills match
+          for (final s in skills) {
+            if (s.isNotEmpty && (s == serviceName || s.contains(serviceName) || serviceName.contains(s))) {
+              return true;
+            }
+          }
+          return false;
+        }).toList();
 
         setState(() {
           _workers = matched;

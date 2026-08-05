@@ -319,28 +319,48 @@ export const adminApi = {
     try { const c = await axios.post(`${CLOUD}/api/notifications/send`, d, { timeout: 10000 }); if (!r) r = c.data; } catch {}
     return r || { success: true };
   },
-  getServices:   () => localApi.get('/api/admin/services').then(r => r.data).catch(() => ({ success: true, services: [] })),
+  getServices: async () => {
+    let localS = [];
+    let cloudS = [];
+    try {
+      const r = await localApi.get('/api/admin/services');
+      if (r.data?.success && r.data.services) localS = r.data.services;
+    } catch {}
+
+    try {
+      const r = await axios.get(`${CLOUD}/api/services`, { timeout: 15000 });
+      if (r.data?.success && r.data.services) cloudS = r.data.services;
+    } catch {}
+
+    const map = new Map();
+    [...localS, ...cloudS].forEach(s => {
+      if (s && (s._id || s.name)) map.set(s._id || s.name, s);
+    });
+
+    const merged = Array.from(map.values());
+    if (merged.length > 0) return { success: true, services: merged };
+    return { success: true, services: [] };
+  },
 
   addService: async (d) => {
-    // Write to local server (saves to MongoDB)
-    const r = await localApi.post('/api/admin/services', d).then(x => x.data);
-    // Immediately also write same data directly to Render cloud (no timing gap)
-    try { axios.post(`${CLOUD}/api/admin/services`, d, { timeout: 10000 }); } catch {}
-    return r;
+    let r;
+    try { r = await localApi.post('/api/admin/services', d).then(x => x.data); } catch {}
+    try { const c = await axios.post(`${CLOUD}/api/admin/services`, d, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
   },
 
   updateService: async (id, d) => {
-    // Write to local server first (saves to MongoDB)
-    const r = await localApi.put(`/api/admin/services/${id}`, d).then(x => x.data);
-    // Immediately push SAME data directly to Render — no MongoDB read delay
-    try { axios.put(`${CLOUD}/api/admin/services/${id}`, d, { timeout: 10000 }); } catch {}
-    return r;
+    let r;
+    try { r = await localApi.put(`/api/admin/services/${id}`, d).then(x => x.data); } catch {}
+    try { const c = await axios.put(`${CLOUD}/api/admin/services/${id}`, d, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
   },
 
   deleteService: async (id) => {
-    const r = await localApi.delete(`/api/admin/services/${id}`).then(x => x.data);
-    try { axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 10000 }); } catch {}
-    return r;
+    let r;
+    try { r = await localApi.delete(`/api/admin/services/${id}`).then(x => x.data); } catch {}
+    try { const c = await axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 10000 }); if (!r) r = c.data; } catch {}
+    return r || { success: true };
   },
   getCoupons: async () => {
     let localC = [];

@@ -3,17 +3,32 @@ import toast from 'react-hot-toast';
 import { adminApi } from '../services/api';
 
 const DEFAULT_SERVICES = [
-  { _id: '1', name: 'Plumbing', icon: '🔧', category: 'Maintenance', price: 499, description: 'Pipe repairs, leak fixing, installation', active: true, bookings: 47, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
-  { _id: '2', name: 'Electrical', icon: '⚡', category: 'Maintenance', price: 599, description: 'Wiring, switch repair, fan installation', active: true, bookings: 38, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
-  { _id: '3', name: 'Deep Cleaning', icon: '🧹', category: 'Cleaning', price: 1299, description: 'Full home deep cleaning service', active: true, bookings: 55, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
-  { _id: '4', name: 'AC Repair', icon: '❄️', category: 'Appliances', price: 799, description: 'AC servicing, gas refill, repair', active: true, bookings: 61, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
-  { _id: '5', name: 'Carpentry', icon: '🪚', category: 'Maintenance', price: 699, description: 'Furniture repair & wood work', active: true, bookings: 28, packages: [] },
-  { _id: '6', name: 'Painting', icon: '🎨', category: 'Home Improvement', price: 2499, description: 'Interior & exterior painting', active: false, bookings: 23, packages: [] },
-  { _id: '7', name: 'Pest Control', icon: '🐛', category: 'Cleaning', price: 999, description: 'Cockroach, rat & insect removal', active: true, bookings: 19, packages: [] },
-  { _id: '8', name: 'CCTV Installation', icon: '📹', category: 'Security', price: 3499, description: 'Security camera setup & wiring', active: true, bookings: 14, packages: [] },
+  { _id: 'SV1',  name: 'Plumbing',            icon: '🔧', category: 'Maintenance',           price: 499,  description: 'Pipe repairs, leak fixing, installation',             active: true, bookings: 47, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: 'SV2',  name: 'Electrical',           icon: '⚡', category: 'Maintenance',           price: 599,  description: 'Wiring, switch repair, fan installation',             active: true, bookings: 38, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
+  { _id: 'SV3',  name: 'Cleaning',             icon: '🧹', category: 'Cleaning',             price: 1299, description: 'Full home deep cleaning service',                   active: true, bookings: 55, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
+  { _id: 'SV4',  name: 'AC Repair',            icon: '❄️', category: 'Appliances',           price: 799,  description: 'AC servicing, gas refill, repair',                  active: true, bookings: 61, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: 'SV5',  name: 'Carpentry',            icon: '🪚', category: 'Maintenance',           price: 699,  description: 'Furniture repair & wood work',                       active: true, bookings: 28, packages: [] },
+  { _id: 'SV6',  name: 'Painting',             icon: '🎨', category: 'Home Improvement',     price: 2499, description: 'Interior & exterior painting',                       active: true, bookings: 23, packages: [] },
+  { _id: 'SV7',  name: 'Pest Control',         icon: '🐛', category: 'Cleaning',             price: 999,  description: 'Cockroach, rat & insect removal',                    active: true, bookings: 19, packages: [] },
+  { _id: 'SV8',  name: 'CCTV Setup',           icon: '📹', category: 'Security',             price: 3499, description: 'Security camera setup & wiring',                    active: true, bookings: 14, packages: [] },
+  // 🎉 Wedding & Event Services
+  { _id: 'SV9',  name: 'Photo Studio',         icon: '📸', category: 'Wedding & Events',     price: 4999, description: 'Wedding photography, drone, cinematic, albums',       active: true, bookings: 0,  packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
+  { _id: 'SV10', name: 'Wedding Tent House',   icon: '🎪', category: 'Wedding & Events',     price: 9999, description: 'Tent, stage, chairs, lighting, generator, LED wall',   active: true, bookings: 0,  packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
+  { _id: 'SV11', name: 'Catering Services',    icon: '🍽', category: 'Wedding & Events',     price: 299,  description: 'Veg, non-veg catering, sweets, snacks, live counters', active: true, bookings: 0,  packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
+  { _id: 'SV12', name: 'Decoration Services',  icon: '🎀', category: 'Wedding & Events',     price: 2999, description: 'Wedding, birthday, balloon, flower decoration',        active: true, bookings: 0,  packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
+  { _id: 'SV13', name: 'DJ & Music',           icon: '🎵', category: 'Wedding & Events',     price: 4999, description: 'DJ sound, orchestra, live band, traditional music',     active: true, bookings: 0,  packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
+  { _id: 'SV14', name: 'Videography',          icon: '🎥', category: 'Wedding & Events',     price: 5999, description: 'Wedding, birthday, drone video & cinematic editing',    active: true, bookings: 0,  packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
+  { _id: 'SV15', name: 'Vehicle Rental',       icon: '🚗', category: 'Wedding & Events',     price: 3499, description: 'Wedding car, luxury car, bus, traveller rental',       active: true, bookings: 0,  packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
+  { _id: 'SV16', name: 'Makeup Artist',        icon: '💄', category: 'Wedding & Events',     price: 1999, description: 'Bridal makeup, groom makeup, hair styling, mehendi',     active: true, bookings: 0,  packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
 ];
 
 const ALL_CATEGORIES = [
+  // 🎉 Wedding & Event Services (top for visibility)
+  'Wedding & Events', 'Photo Studio', 'Wedding Tent House', 'Catering Services',
+  'Decoration Services', 'DJ & Music', 'Videography', 'Vehicle Rental', 'Makeup Artist',
+  'Event Decor & Management', 'Catering & Private Chef', 'Photography & Videography',
+  'Makeup & Hair Styling', 'Sound System & DJ', 'Venue & Banquet', 'Wedding Planning',
+  // 🏠 Home Services
   'Maintenance', 'Cleaning', 'Appliances', 'Home Improvement', 'Security',
   'Plumbing Services', 'Electrical Repairs', 'AC & Refrigeration (HVAC)', 'Carpentry & Woodwork', 'Interior & Exterior Painting',
   'Pest Control & Disinfection', 'CCTV & Smart Home Automation', 'Roofing & Waterproofing', 'Gardening & Lawn Care', 'Solar Panel Installation',
@@ -23,8 +38,7 @@ const ALL_CATEGORIES = [
   'TV & Home Theatre Setup', 'Water Purifier (RO) Service', 'Geyser & Water Heater Repair', 'Washing Machine Repair', 'Refrigerator Service',
   'Microwave & Oven Repair', 'Chimney & Stove Repair', 'Inverter & Battery Service', 'Flooring & Tiling', 'Ceiling & False Ceiling',
   'Welding & Metal Fabrication', 'Aluminium & UPVC Windows', 'Wall Papering & Decor', 'Packers & Movers', 'Goods Transport & Hauling',
-  'Event Decor & Management', 'Catering & Private Chef', 'Photography & Videography', 'Makeup & Hair Styling', 'Salon at Home (Women)',
-  'Men\'s Grooming at Home', 'Spa & Massage Therapy', 'Fitness Trainer at Home', 'Yoga Instructor', 'Pet Care & Dog Grooming',
+  'Salon at Home (Women)', 'Men\'s Grooming at Home', 'Spa & Massage Therapy', 'Fitness Trainer at Home', 'Yoga Instructor', 'Pet Care & Dog Grooming',
   'Veterinary at Home', 'Elderly Care & Nursing', 'Baby Sitting & Child Care', 'Driver on Demand', 'Tailoring & Alterations',
   'Fumigation & Sanitization', 'Commercial Office Cleaning', 'Lift & Elevator Servicing', 'Generator Maintenance', 'Fire Safety Equipment',
   'Borewell & Motor Pump Service', 'Swimming Pool Maintenance', 'Septic Tank & Sewer Cleaning', 'Car Mechanic & Breakdown', 'Battery Jumpstart & Towing',

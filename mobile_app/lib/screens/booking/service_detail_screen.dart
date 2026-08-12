@@ -33,26 +33,38 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     _subServices.clear();
     int basePrice = int.tryParse(serviceData['price']?.toString() ?? '0') ?? 0;
     
-    // Check for dynamic packages from Admin Panel
+    // Always include the main service base price set in Admin Panel as the first option
+    _subServices.add({
+      'name': '${serviceData['name']} Service',
+      'price': basePrice,
+      'time': 'Estimated 1-2 hrs',
+      'popular': true,
+    });
+
+    // Add any dynamic packages configured in Admin Panel
     final dynamicPkgs = serviceData['packages'];
     if (dynamicPkgs is List && dynamicPkgs.isNotEmpty) {
       for (var p in dynamicPkgs) {
-        _subServices.add({
-          'name': p['name']?.toString() ?? 'Package',
-          'price': int.tryParse(p['price']?.toString() ?? '0') ?? basePrice,
-          'time': 'Estimated 1-2 hrs',
-          'popular': false,
-        });
+        final pName = p['name']?.toString() ?? 'Package';
+        final pPrice = int.tryParse(p['price']?.toString() ?? '0') ?? basePrice;
+        // Avoid duplicate name if package matches main service name
+        if (pName.toLowerCase().trim() != '${serviceData['name']} service'.toLowerCase().trim()) {
+          _subServices.add({
+            'name': pName,
+            'price': pPrice,
+            'time': 'Estimated 1-2 hrs',
+            'popular': false,
+          });
+        }
       }
     } else {
       _subServices.addAll([
-        {'name': 'Basic ${serviceData['name']}', 'price': basePrice, 'time': '1-2 hrs', 'popular': false},
-        {'name': 'Standard ${serviceData['name']}', 'price': basePrice + 300, 'time': '2-3 hrs', 'popular': true},
-        {'name': 'Premium ${serviceData['name']}', 'price': basePrice + 700, 'time': '3-4 hrs', 'popular': false},
+        {'name': 'Standard ${serviceData['name']}', 'price': (basePrice * 1.3).round(), 'time': '2-3 hrs', 'popular': false},
+        {'name': 'Premium ${serviceData['name']}', 'price': (basePrice * 1.8).round(), 'time': '3-4 hrs', 'popular': false},
       ]);
     }
     
-    if (_subServices.isNotEmpty && (_selected == null || !_subServices.any((s) => s['name'] == _selected))) {
+    if (_subServices.isNotEmpty) {
       _selected = _subServices[0]['name'] as String;
     }
   }

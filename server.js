@@ -12,7 +12,7 @@ let compression;
 try { compression = require('compression'); } catch (_) { compression = null; }
 
 // ── MongoDB Atlas Connection ─────────────────────────────────
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://pittalaadithyavarun555:Varun%406302@cluster0.jjmqmqm.mongodb.net/fixon?retryWrites=true&w=majority';
 
 // MongoDB schema — stores ALL app data as one document
 const AppDataSchema = new mongoose.Schema({

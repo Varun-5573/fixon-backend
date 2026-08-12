@@ -15,7 +15,7 @@ echo  == Admin Control Panel Launcher ==
 echo.
 
 echo [1/2] Starting Backend Server...
-start "FixoN Backend" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && echo Starting FixoN Backend... && npm start"
+start "FixoN Backend" cmd /k "cd /d "C:\Users\pitta\Desktop\FixoN" && set MONGODB_URI=mongodb+srv://pittalaadithyavarun555:Varun%%406302@cluster0.jjmqmqm.mongodb.net/fixon?retryWrites=true^&w=majority && echo Starting FixoN Backend... && npm start"
 
 timeout /t 4 /nobreak > nul
 

@@ -343,55 +343,52 @@ export const adminApi = {
     return r || { success: true };
   },
   getServices: async () => {
-    let localS = [];
     let cloudS = [];
+    let localS = [];
+    try {
+      const r = await axios.get(`${CLOUD}/api/services`, { timeout: 8000 });
+      if (r.data?.success && r.data.services) cloudS = r.data.services;
+    } catch {}
+
+    if (cloudS.length > 0) return { success: true, services: cloudS };
+
     try {
       const r = await localApi.get('/api/admin/services');
       if (r.data?.success && r.data.services) localS = r.data.services;
     } catch {}
 
-    // Prioritize local server if available (laptop desktop control panel source of truth)
-    if (localS.length > 0) {
-      return { success: true, services: localS };
-    }
-
-    try {
-      const r = await axios.get(`${CLOUD}/api/services`, { timeout: 5000 });
-      if (r.data?.success && r.data.services) cloudS = r.data.services;
-    } catch {}
-
-    return { success: true, services: cloudS };
+    return { success: true, services: localS };
   },
 
   addService: async (d) => {
     let r;
     try { 
-      const res = await localApi.post('/api/admin/services', d);
+      const res = await axios.post(`${CLOUD}/api/admin/services`, d, { timeout: 10000 });
       r = res.data;
     } catch {}
-    axios.post(`${CLOUD}/api/admin/services`, d, { timeout: 5000 }).catch(() => {});
+    try { await localApi.post('/api/admin/services', d); } catch {}
     return r || { success: true };
   },
 
   updateService: async (id, d) => {
     let r;
     try { 
-      const res = await localApi.put(`/api/admin/services/${id}`, d);
+      const res = await axios.put(`${CLOUD}/api/admin/services/${id}`, d, { timeout: 10000 });
       r = res.data;
     } catch (e) {
-      console.warn('Local updateService error:', e.message);
+      console.warn('Cloud updateService error:', e.message);
     }
-    axios.put(`${CLOUD}/api/admin/services/${id}`, d, { timeout: 5000 }).catch(() => {});
+    try { await localApi.put(`/api/admin/services/${id}`, d); } catch {}
     return r || { success: true };
   },
 
   deleteService: async (id) => {
     let r;
     try { 
-      const res = await localApi.delete(`/api/admin/services/${id}`);
+      const res = await axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 10000 });
       r = res.data;
     } catch {}
-    axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 5000 }).catch(() => {});
+    try { await localApi.delete(`/api/admin/services/${id}`); } catch {}
     return r || { success: true };
   },
   getCoupons: async () => {

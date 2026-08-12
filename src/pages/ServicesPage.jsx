@@ -210,6 +210,7 @@ export default function ServicesPage() {
         } else {
           setServices(p => p.map(s => s._id === form._id ? { ...s, ...form } : s));
         }
+        await load(); // Refresh list directly from backend
         toast.success('Service updated! ✅ Price synced to all apps');
       }
       setModal(null);

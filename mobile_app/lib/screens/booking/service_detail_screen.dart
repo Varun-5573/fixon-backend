@@ -25,10 +25,16 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   @override
   void initState() {
     super.initState();
-    int basePrice = int.tryParse(widget.service['price']?.toString() ?? '0') ?? 0;
+    _initSubServices(widget.service);
+    _fetchFreshServiceDetails();
+  }
+
+  void _initSubServices(Map<String, dynamic> serviceData) {
+    _subServices.clear();
+    int basePrice = int.tryParse(serviceData['price']?.toString() ?? '0') ?? 0;
     
-    // Syllabus 17.4: Check for dynamic packages from Admin Panel
-    final dynamicPkgs = widget.service['packages'];
+    // Check for dynamic packages from Admin Panel
+    final dynamicPkgs = serviceData['packages'];
     if (dynamicPkgs is List && dynamicPkgs.isNotEmpty) {
       for (var p in dynamicPkgs) {
         _subServices.add({
@@ -39,15 +45,49 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         });
       }
     } else {
-      // Fallback to defaults
       _subServices.addAll([
-        {'name': 'Basic ${widget.service['name']}', 'price': basePrice, 'time': '1-2 hrs', 'popular': false},
-        {'name': 'Standard ${widget.service['name']}', 'price': basePrice + 300, 'time': '2-3 hrs', 'popular': true},
-        {'name': 'Premium ${widget.service['name']}', 'price': basePrice + 700, 'time': '3-4 hrs', 'popular': false},
+        {'name': 'Basic ${serviceData['name']}', 'price': basePrice, 'time': '1-2 hrs', 'popular': false},
+        {'name': 'Standard ${serviceData['name']}', 'price': basePrice + 300, 'time': '2-3 hrs', 'popular': true},
+        {'name': 'Premium ${serviceData['name']}', 'price': basePrice + 700, 'time': '3-4 hrs', 'popular': false},
       ]);
     }
     
-    _selected = _subServices.isNotEmpty ? _subServices[0]['name'] as String : null;
+    if (_subServices.isNotEmpty && (_selected == null || !_subServices.any((s) => s['name'] == _selected))) {
+      _selected = _subServices[0]['name'] as String;
+    }
+  }
+
+  Future<void> _fetchFreshServiceDetails() async {
+    final baseUrl = await resolveBaseUrl();
+    
+    // 1. Fetch fresh service price directly from MongoDB Atlas server
+    try {
+      final sRes = await http.get(
+        Uri.parse('$baseUrl/api/services'), 
+        headers: {'Cache-Control': 'no-cache, no-store', ...kHeaders}
+      ).timeout(const Duration(seconds: 5));
+      
+      if (sRes.statusCode == 200) {
+        final data = jsonDecode(sRes.body);
+        if (data['success'] == true && data['services'] is List) {
+          final sList = List<Map<String, dynamic>>.from(data['services']);
+          final matched = sList.firstWhere(
+            (s) => (s['_id'] != null && s['_id'] == widget.service['_id']) || 
+                   s['name'].toString().toLowerCase().trim() == widget.service['name'].toString().toLowerCase().trim(),
+            orElse: () => <String, dynamic>{},
+          );
+          if (matched.isNotEmpty && mounted) {
+            setState(() {
+              _initSubServices(matched);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Fresh service fetch error: $e');
+    }
+
+    // 2. Fetch workers for this service
     _fetchWorkers();
   }
 

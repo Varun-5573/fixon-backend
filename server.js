@@ -2075,7 +2075,10 @@ app.get('/api/bookings/:id/invoice', (req, res) => {
 
 // ── Customer-facing: always read fresh from MongoDB so Admin Panel price changes reflect immediately
 app.get('/api/services', async (req, res) => {
-  // If MongoDB is connected, reload services fresh from DB every request
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
     try {
       const doc = await AppData.findOne({ key: 'main' }).lean();
@@ -2090,28 +2093,64 @@ app.get('/api/services', async (req, res) => {
 });
 
 app.get('/api/admin/services', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json({ success: true, services });
 });
 
 app.post('/api/admin/services', async (req, res) => {
-  const s = { _id: 'SV' + Date.now(), ...req.body, active: true };
+  const s = { 
+    _id: 'SV' + Date.now(), 
+    ...req.body, 
+    price: Number(req.body.price || 0),
+    active: true 
+  };
+  if (Array.isArray(req.body.packages)) {
+    s.packages = req.body.packages.map(p => ({ ...p, price: Number(p.price || 0) }));
+  }
   services.push(s);
   await saveData();
+  io.emit('services_updated', { services });
   res.json({ success: true, service: s });
 });
 
 app.put('/api/admin/services/:id', async (req, res) => {
-  const idx = services.findIndex(s => s._id === req.params.id);
-  if (idx === -1) return res.status(404).json({ success: false });
-  services[idx] = { ...services[idx], ...req.body };
+  const targetId = req.params.id;
+  let idx = services.findIndex(s => s._id === targetId || String(s._id) === String(targetId));
+  
+  if (idx === -1) {
+    idx = services.findIndex(s => s.name && s.name.toLowerCase().trim() === String(targetId).toLowerCase().trim());
+  }
+
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Service not found' });
+  }
+
+  const updated = { ...services[idx], ...req.body };
+  if (req.body.price !== undefined) {
+    updated.price = Number(req.body.price);
+  }
+  if (Array.isArray(req.body.packages)) {
+    updated.packages = req.body.packages.map(p => ({
+      ...p,
+      price: Number(p.price || 0)
+    }));
+  }
+
+  services[idx] = updated;
   await saveData();
-  console.log(`✅ Service "${services[idx].name}" updated → price ₹${services[idx].price} saved to MongoDB`);
+  
+  // Real-time broadcast to all connected apps
+  io.emit('services_updated', { services });
+  console.log(`✅ Service "${services[idx].name}" updated → price ₹${services[idx].price} saved to MongoDB Atlas`);
+  
   res.json({ success: true, service: services[idx] });
 });
 
 app.delete('/api/admin/services/:id', async (req, res) => {
-  services = services.filter(s => s._id !== req.params.id);
+  const targetId = req.params.id;
+  services = services.filter(s => s._id !== targetId && String(s._id) !== String(targetId) && s.name?.toLowerCase() !== String(targetId).toLowerCase());
   await saveData();
+  io.emit('services_updated', { services });
   res.json({ success: true });
 });
 

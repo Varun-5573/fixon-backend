@@ -187,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final baseUrl = await resolveBaseUrl();
       final res = await http.get(
         Uri.parse('$baseUrl/api/services'),
-        headers: kHeaders,
+        headers: {'Cache-Control': 'no-cache, no-store', ...kHeaders},
       ).timeout(const Duration(seconds: 10));
       final data = jsonDecode(res.body);
       if (data['success'] == true && data['services'] != null) {
@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _services = list;
           });
         }
-        // Save to cache
+        // Save fresh list to cache
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_services', jsonEncode(list));
       }
@@ -293,7 +293,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHome(Map<String, dynamic>? user) {
-    return CustomScrollView(
+    return RefreshIndicator(
+      onRefresh: _loadServices,
+      color: AppColors.primary,
+      backgroundColor: AppColors.card,
+      child: CustomScrollView(
       slivers: [
         // ── App Bar ───────────────────────────────────────────
         SliverToBoxAdapter(child: Padding(
@@ -550,7 +554,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
-    );
+    ),
+  );
   }
 
   String _greeting() {

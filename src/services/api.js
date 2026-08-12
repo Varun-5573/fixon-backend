@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 // ══════════════════════════════════════════════════════════════
-//  PRODUCTION BACKEND — Railway (no bandwidth limits, always-on)
+//  PRODUCTION BACKEND — Back4app (free, always-on, no laptop needed)
 //  Local dev: Electron / localhost admin panel uses localhost:5000
 // ══════════════════════════════════════════════════════════════
-const PRODUCTION_URL = 'https://fixon-backend.up.railway.app';
+const PRODUCTION_URL = 'https://fixonbackend-8hzo530p.b4a.run';
 
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 
@@ -13,10 +13,10 @@ const isDev = typeof window !== 'undefined' && (
   (navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron'))
 );
 
-// In Electron/local dev → localhost:5000, in production cloud → Railway
+// In Electron/local dev → localhost:5000, in production cloud → Back4app
 const BASE = isDev ? 'http://localhost:5000' : PRODUCTION_URL;
 
-// Always use Railway for production cloud calls (used by mobile apps too)
+// Always use Back4app for production cloud calls
 const CLOUD = PRODUCTION_URL;
 
 const api = axios.create({ baseURL: BASE, timeout: 45000 });

@@ -59,8 +59,8 @@ class AppColors {
 //  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
-const String kServerIp = 'fixon-backend.up.railway.app';
-const String kBaseUrl = 'https://fixon-backend.up.railway.app';
+const String kServerIp = '10.21.55.161:5000';
+const String kBaseUrl = 'http://10.21.55.161:5000';
 
 // Default headers
 const Map<String, String> kHeaders = {

@@ -56,16 +56,12 @@ class AppColors {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
-//  Deployed on Railway.app (no bandwidth limits, always-on)
+//  PRODUCTION & SELF-HOSTED BACKEND
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://fixon-backend.up.railway.app';
+const String kProductionUrl = 'http://10.21.55.161:5000';
 
-// kBaseUrl always points to production — no local fallback in production
 String get kBaseUrl => kProductionUrl;
 
-/// Returns the production backend URL.
-/// Update kProductionUrl above after deploying to Railway.
 Future<String> resolveBaseUrl() async {
   return kProductionUrl;
 }

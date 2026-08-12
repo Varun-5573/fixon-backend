@@ -59,12 +59,13 @@ class AppColors {
 //  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
-const String kServerIp = '10.21.55.161:5000';
-const String kBaseUrl = 'http://10.21.55.161:5000';
+const String kServerIp = 'fixon-backend-varun.loca.lt';
+const String kBaseUrl = 'https://fixon-backend-varun.loca.lt';
 
-// Default headers
+// Default headers (bypass-tunnel-reminder required for localtunnel public URL)
 const Map<String, String> kHeaders = {
   'Content-Type': 'application/json',
+  'bypass-tunnel-reminder': 'true',
 };
 
 const List<Map<String, dynamic>> kServices = [

@@ -58,7 +58,7 @@ class AppColors {
 // ══════════════════════════════════════════════════════════════
 //  PRODUCTION & SELF-HOSTED BACKEND
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://fixon-backend-varun.loca.lt';
+const String kProductionUrl = 'https://fixonbackend-8hzo530p.b4a.run';
 
 String get kBaseUrl => kProductionUrl;
 
@@ -66,10 +66,9 @@ Future<String> resolveBaseUrl() async {
   return kProductionUrl;
 }
 
-// Default headers (bypass-tunnel-reminder required for localtunnel public URL)
+// Default headers
 const Map<String, String> kHeaders = {
   'Content-Type': 'application/json',
-  'bypass-tunnel-reminder': 'true',
 };
 
 const List<Map<String, dynamic>> kServices = [

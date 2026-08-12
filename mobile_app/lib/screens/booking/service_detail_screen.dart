@@ -52,44 +52,56 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   Future<void> _fetchWorkers() async {
+    List<Map<String, dynamic>> allWorkers = [];
+    bool apiSuccess = false;
+    final baseUrl = await resolveBaseUrl();
+
     try {
-      final res = await http.get(Uri.parse('$kBaseUrl/api/workers'), headers: kHeaders).timeout(const Duration(seconds: 45));
-      final data = jsonDecode(res.body);
-      if (data['success'] == true) {
-        final allWorkers = List<Map<String, dynamic>>.from(data['workers']);
-        final serviceName = widget.service['name']?.toString().toLowerCase().trim() ?? '';
-
-        // Match workers STRICTLY by category or skills
-        final matched = allWorkers.where((w) {
-          if (w['active'] == false || w['isActive'] == false) return false;
-          
-          final category = (w['category']?.toString() ?? '').toLowerCase().trim();
-          final List skills = (w['skills'] ?? []).map((s) => s.toString().toLowerCase().trim()).toList();
-
-          // Check category match (e.g., 'Plumbing', 'AC Repair', 'Photo Studio')
-          if (category.isNotEmpty && (category == serviceName || category.contains(serviceName) || serviceName.contains(category))) {
-            return true;
-          }
-
-          // Check skills match
-          for (final s in skills) {
-            if (s.isNotEmpty && (s == serviceName || s.contains(serviceName) || serviceName.contains(s))) {
-              return true;
-            }
-          }
-          return false;
-        }).toList();
-
-        setState(() {
-          _workers = matched;
-          _loadingWorkers = false;
-        });
-      } else {
-        setState(() => _loadingWorkers = false);
+      final res = await http.get(Uri.parse('$baseUrl/api/workers'), headers: kHeaders).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['workers'] is List) {
+          allWorkers = List<Map<String, dynamic>>.from(data['workers']);
+          apiSuccess = true;
+        }
       }
     } catch (e) {
-      debugPrint('⚠️ fetchWorkers error: $e');
-      setState(() => _loadingWorkers = false);
+      debugPrint('⚠️ fetchWorkers API error: $e');
+    }
+
+    // Only if API call failed to connect, fallback to kDefaultWorkers
+    if (!apiSuccess) {
+      allWorkers = List<Map<String, dynamic>>.from(kDefaultWorkers);
+    }
+
+    final serviceName = widget.service['name']?.toString().toLowerCase().trim() ?? '';
+
+    // Match workers STRICTLY by category or skills
+    List<Map<String, dynamic>> matched = allWorkers.where((w) {
+      if (w['active'] == false || w['isActive'] == false) return false;
+      
+      final category = (w['category']?.toString() ?? '').toLowerCase().trim();
+      final List skills = (w['skills'] ?? []).map((s) => s.toString().toLowerCase().trim()).toList();
+
+      // Check category match
+      if (category.isNotEmpty && (category == serviceName || category.contains(serviceName) || serviceName.contains(category))) {
+        return true;
+      }
+
+      // Check skills match
+      for (final s in skills) {
+        if (s.isNotEmpty && (s == serviceName || s.contains(serviceName) || serviceName.contains(s))) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _workers = matched;
+        _loadingWorkers = false;
+      });
     }
   }
 

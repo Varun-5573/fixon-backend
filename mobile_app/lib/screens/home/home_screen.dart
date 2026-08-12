@@ -184,24 +184,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadServices() async {
     try {
+      final baseUrl = await resolveBaseUrl();
       final res = await http.get(
-        Uri.parse('$kBaseUrl/api/services'),
+        Uri.parse('$baseUrl/api/services'),
         headers: kHeaders,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 10));
       final data = jsonDecode(res.body);
       if (data['success'] == true && data['services'] != null) {
         final list = List<Map<String, dynamic>>.from(
           (data['services'] as List).map((s) => Map<String, dynamic>.from(s))
         );
-        setState(() {
-          _services = list;
-        });
+        if (mounted) {
+          setState(() {
+            _services = list;
+          });
+        }
         // Save to cache
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_services', jsonEncode(list));
       }
     } catch (e) {
-      // Keep using previously loaded cached/fallback services
+      debugPrint('⚠️ Error loading services from server: $e');
     }
   }
 

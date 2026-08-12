@@ -70,12 +70,22 @@ let bookings = [];
 let registeredUsers = [];   // real sign-ups
 let notificationsList = []; // admin sent notifications
 let adminWorkers = [
-  { _id: 'W_DEFAULT_1', name: 'VARUN',            phone: '9000853346', email: 'ADITHYAVARUN@GMAIL.COM',  category: 'Plumbing',   skills: ['Plumbing','Pipe Repair','Bathroom','Leak Fix'],         rating: 5,   active: true, isAvailable: false, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_PLM_1001', workerPassword: 'FXN1001', createdAt: new Date().toISOString() },
-  { _id: 'W_DEFAULT_2', name: 'ADITHYA',          phone: '8179712126', email: 'varunpittala@gmail.com',  category: 'Electrical', skills: ['Electrical','Wiring','Fan Installation','Switch Repair'],  rating: 4.5, active: true, isAvailable: true,  isActive: true, isOnline: false, experience: '7 years',  workerId: 'FIXON_ELC_1001', workerPassword: 'FXN1002', createdAt: new Date().toISOString() },
-  { _id: 'W_DEFAULT_3', name: 'Prasad Cleaning',  phone: '9876543212', email: 'prasad@fixon.com',        category: 'Cleaning',   skills: ['Cleaning','Deep Cleaning','Pest Control','Home Services'], rating: 4.3, active: true, isAvailable: true,  isActive: true, isOnline: false, experience: '3 years',  workerId: 'FIXON_CLN_1001', workerPassword: 'FXN1003', createdAt: new Date().toISOString() },
-  { _id: 'W_DEFAULT_4', name: 'Vijay Tech',       phone: '9876543213', email: 'vijay@fixon.com',         category: 'AC Repair',  skills: ['AC Repair','AC Service','CCTV Installation','Appliances'],  rating: 5,   active: true, isAvailable: true,  isActive: true, isOnline: false, experience: '8 years',  workerId: 'FIXON_ACR_1001', workerPassword: 'FXN1004', createdAt: new Date().toISOString() },
-  { _id: 'W_DEFAULT_5', name: 'Mahesh Carpenter', phone: '9876543214', email: 'mahesh@fixon.com',        category: 'Carpentry',  skills: ['Carpentry','Painting','Furniture','Wood Work'],            rating: 4,   active: true, isAvailable: true,  isActive: true, isOnline: false, experience: '6 years',  workerId: 'FIXON_CRP_1001', workerPassword: 'FXN1005', createdAt: new Date().toISOString() },
-  { _id: 'W1781852119714', name: 'Bunny',          phone: '9550400036', email: 'pittalasuvarna@gmail.com', category: 'Electrical', skills: ['Electrical'],                                           rating: 5,   active: true, isAvailable: true,  isActive: true, isOnline: false, experience: '2 years',  workerId: 'FIXON_ELC_1002', workerPassword: 'FXNG333', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_1', name: 'VARUN',            phone: '9000853346', email: 'ADITHYAVARUN@GMAIL.COM',  category: 'Plumbing',   skills: ['Plumbing','Pipe Repair','Bathroom','Leak Fix'],         rating: 5.0, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_PLM_1001', workerPassword: 'FXN1001', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_2', name: 'ADITHYA',          phone: '8179712126', email: 'varunpittala@gmail.com',  category: 'Electrical', skills: ['Electrical','Wiring','Fan Installation','Switch Repair'],  rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '7 years',  workerId: 'FIXON_ELC_1001', workerPassword: 'FXN1002', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_3', name: 'Prasad',           phone: '9876543212', email: 'prasad@fixon.com',        category: 'Cleaning',   skills: ['Cleaning','Deep Cleaning','Home Services'],                rating: 4.7, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '3 years',  workerId: 'FIXON_CLN_1001', workerPassword: 'FXN1003', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_4', name: 'Vijay Tech',       phone: '9876543213', email: 'vijay@fixon.com',         category: 'AC Repair',  skills: ['AC Repair','AC Service','Cooling'],                        rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '8 years',  workerId: 'FIXON_ACR_1001', workerPassword: 'FXN1004', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_5', name: 'Mahesh Carpenter', phone: '9876543214', email: 'mahesh@fixon.com',        category: 'Carpentry',  skills: ['Carpentry','Furniture','Wood Work'],                      rating: 4.6, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '6 years',  workerId: 'FIXON_CRP_1001', workerPassword: 'FXN1005', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_6', name: 'Srinivas Painter', phone: '9876543215', email: 'srinivas@fixon.com',      category: 'Painting',   skills: ['Painting','Wall Polish','Coloring'],                       rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '10 years', workerId: 'FIXON_PNT_1001', workerPassword: 'FXN1006', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_7', name: 'Ramesh Pest Control', phone: '9876543216', email: 'ramesh@fixon.com',     category: 'Pest Control', skills: ['Pest Control','Spray','Termite'],                         rating: 4.7, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '4 years',  workerId: 'FIXON_PCT_1001', workerPassword: 'FXN1007', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_8', name: 'Kiran CCTV',       phone: '9876543217', email: 'kiran@fixon.com',         category: 'CCTV Setup', skills: ['CCTV Setup','Camera Installation','Security'],              rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_CCT_1001', workerPassword: 'FXN1008', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_9', name: 'Rajesh Studio',    phone: '9876543218', email: 'rajesh@fixon.com',        category: 'Photo Studio', skills: ['Photo Studio','Photography','Videography','Drone'],       rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '6 years',  workerId: 'FIXON_PHT_1001', workerPassword: 'FXN1009', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_10', name: 'Venkat Tents',    phone: '9876543219', email: 'venkat@fixon.com',        category: 'Wedding Tent House', skills: ['Wedding Tent House','Stage','Lighting'],            rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '9 years',  workerId: 'FIXON_WTH_1001', workerPassword: 'FXN1010', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_11', name: 'Satyam Catering', phone: '9876543220', email: 'satyam@fixon.com',        category: 'Catering Services', skills: ['Catering Services','Veg/Non-Veg','Sweets'],          rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '12 years', workerId: 'FIXON_CAT_1001', workerPassword: 'FXN1011', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_12', name: 'Anil Decors',     phone: '9876543221', email: 'anil@fixon.com',          category: 'Decoration Services', skills: ['Decoration Services','Flower','Stage Decor'],     rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '7 years',  workerId: 'FIXON_DEC_1001', workerPassword: 'FXN1012', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_13', name: 'DJ Rahul',        phone: '9876543222', email: 'rahul@fixon.com',         category: 'DJ & Music', skills: ['DJ & Music','Sound System','Orchestra'],                    rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_DJM_1001', workerPassword: 'FXN1013', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_14', name: 'Suresh Media',    phone: '9876543223', email: 'suresh@fixon.com',        category: 'Videography', skills: ['Videography','Cinematic Video','Editing'],               rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '8 years',  workerId: 'FIXON_VDG_1001', workerPassword: 'FXN1014', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_15', name: 'Royal Travels',   phone: '9876543224', email: 'royal@fixon.com',         category: 'Vehicle Rental', skills: ['Vehicle Rental','Luxury Car','Wedding Car'],           rating: 4.7, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '6 years',  workerId: 'FIXON_VHR_1001', workerPassword: 'FXN1015', createdAt: new Date().toISOString() },
+  { _id: 'W_DEFAULT_16', name: 'Priya Studio',    phone: '9876543225', email: 'priya@fixon.com',         category: 'Makeup Artist', skills: ['Makeup Artist','Bridal Makeup','Styling'],              rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_MKP_1001', workerPassword: 'FXN1016', createdAt: new Date().toISOString() },
 ];
 let services = [
   { _id: 'SV1',  name: 'Plumbing',            icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
@@ -108,6 +118,17 @@ const DEFAULT_CREDS = {
   'W_DEFAULT_3': { workerId:'FIXON_CLN_1001', workerPassword:'FXN1003' },
   'W_DEFAULT_4': { workerId:'FIXON_ACR_1001', workerPassword:'FXN1004' },
   'W_DEFAULT_5': { workerId:'FIXON_CRP_1001', workerPassword:'FXN1005' },
+  'W_DEFAULT_6': { workerId:'FIXON_PNT_1001', workerPassword:'FXN1006' },
+  'W_DEFAULT_7': { workerId:'FIXON_PCT_1001', workerPassword:'FXN1007' },
+  'W_DEFAULT_8': { workerId:'FIXON_CCT_1001', workerPassword:'FXN1008' },
+  'W_DEFAULT_9': { workerId:'FIXON_PHT_1001', workerPassword:'FXN1009' },
+  'W_DEFAULT_10': { workerId:'FIXON_WTH_1001', workerPassword:'FXN1010' },
+  'W_DEFAULT_11': { workerId:'FIXON_CAT_1001', workerPassword:'FXN1011' },
+  'W_DEFAULT_12': { workerId:'FIXON_DEC_1001', workerPassword:'FXN1012' },
+  'W_DEFAULT_13': { workerId:'FIXON_DJM_1001', workerPassword:'FXN1013' },
+  'W_DEFAULT_14': { workerId:'FIXON_VDG_1001', workerPassword:'FXN1014' },
+  'W_DEFAULT_15': { workerId:'FIXON_VHR_1001', workerPassword:'FXN1015' },
+  'W_DEFAULT_16': { workerId:'FIXON_MKP_1001', workerPassword:'FXN1016' },
 };
 
 function applyDefaultCreds(workers) {
@@ -373,6 +394,24 @@ async function startServer() {
 
   // 4. Auto-save every 30 seconds
   setInterval(saveData, 30000);
+
+  // 5. Keep-Alive: Self-ping every 14 minutes to prevent cloud host from sleeping
+  // Works on Railway, Render, and any other host (uses RAILWAY_PUBLIC_DOMAIN or RENDER_EXTERNAL_URL)
+  const SELF_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : (process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`);
+  setInterval(async () => {
+    try {
+      const https = require('https');
+      const http2 = require('http');
+      const urlMod = require('url');
+      const parsed = urlMod.parse(`${SELF_URL}/api/health`);
+      const requester = parsed.protocol === 'https:' ? https : http2;
+      requester.get(`${SELF_URL}/api/health`, (res) => {
+        console.log(`🏓 Keep-alive ping → ${res.statusCode}`);
+      }).on('error', () => {});
+    } catch (_) {}
+  }, 14 * 60 * 1000); // every 14 minutes
 }
 
 startServer().catch(err => {

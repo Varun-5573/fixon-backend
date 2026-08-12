@@ -1,7 +1,9 @@
 import { io } from 'socket.io-client';
 
-const CLOUD = 'https://fixon-backend.onrender.com';
-const LOCAL = 'http://localhost:5000';
+// ══════════════════════════════════════════════════════════════
+//  PRODUCTION SOCKET — Railway backend (always-on, no laptop required)
+// ══════════════════════════════════════════════════════════════
+const PRODUCTION_URL = 'https://fixon-backend.up.railway.app';
 
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 
@@ -9,6 +11,11 @@ const isDev = typeof window !== 'undefined' && (
   window.location.protocol === 'file:' ||
   (navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron'))
 );
+
+// In local Electron dev → connect to localhost:5000 AND Railway
+// In production (non-Electron) → connect ONLY to Railway
+const CLOUD_URL = PRODUCTION_URL;
+const LOCAL_URL = 'http://localhost:5000';
 
 let cloudSocket = null;
 let localSocket = null;
@@ -60,27 +67,30 @@ function setupSocket(s, name) {
 }
 
 export const connectSocket = () => {
+  // Always connect to Railway production backend
   if (!cloudSocket) {
-    cloudSocket = io(CLOUD, {
+    cloudSocket = io(CLOUD_URL, {
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 99
     });
-    setupSocket(cloudSocket, 'Cloud');
+    setupSocket(cloudSocket, 'Railway');
   }
 
+  // In local Electron dev ONLY: also connect to localhost for instant local updates
   if (isDev && !localSocket) {
     try {
-      localSocket = io(LOCAL, {
+      localSocket = io(LOCAL_URL, {
         transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 99
+        reconnectionAttempts: 10, // fewer retries for local — it may not be running
+        timeout: 3000,
       });
       setupSocket(localSocket, 'Local');
     } catch (e) {
-      console.error('Failed to init local socket:', e);
+      console.log('ℹ️ Local socket not available (laptop server not running)');
     }
   }
 
@@ -95,7 +105,9 @@ export const connectSocket = () => {
       }
     },
     emit: (evt, data) => {
+      // Always emit to Railway (production)
       if (cloudSocket && cloudSocket.connected) cloudSocket.emit(evt, data);
+      // Also emit to local in dev if available
       if (localSocket && localSocket.connected) localSocket.emit(evt, data);
     }
   };

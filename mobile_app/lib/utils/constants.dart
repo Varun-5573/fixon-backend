@@ -55,9 +55,20 @@ class AppColors {
   }
 }
 
-// Permanent Cloud Backend (works even when laptop is off)
-const String kServerIp = 'fixon-backend.onrender.com';
-const String kBaseUrl = 'https://fixon-backend.onrender.com';
+// ══════════════════════════════════════════════════════════════
+//  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
+//  Deployed on Railway.app (no bandwidth limits, always-on)
+// ══════════════════════════════════════════════════════════════
+const String kProductionUrl = 'https://fixon-backend.up.railway.app';
+
+// kBaseUrl always points to production — no local fallback in production
+String get kBaseUrl => kProductionUrl;
+
+/// Returns the production backend URL.
+/// Update kProductionUrl above after deploying to Railway.
+Future<String> resolveBaseUrl() async {
+  return kProductionUrl;
+}
 
 // Default headers
 const Map<String, String> kHeaders = {
@@ -82,3 +93,23 @@ const List<Map<String, dynamic>> kServices = [
   {'name': 'Vehicle Rental',      'icon': '🚗', 'color': 0xFF4F46E5, 'price': 3499},
   {'name': 'Makeup Artist',       'icon': '💄', 'color': 0xFFDB2777, 'price': 1999},
 ];
+
+const List<Map<String, dynamic>> kDefaultWorkers = [
+  {'_id': 'W_DEFAULT_1', 'name': 'VARUN', 'phone': '9000853346', 'category': 'Plumbing', 'skills': ['Plumbing', 'Pipe Repair', 'Bathroom', 'Leak Fix'], 'rating': 5.0, 'experience': '5 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_2', 'name': 'ADITHYA', 'phone': '8179712126', 'category': 'Electrical', 'skills': ['Electrical', 'Wiring', 'Fan Installation', 'Switch Repair'], 'rating': 4.8, 'experience': '7 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_3', 'name': 'Prasad', 'phone': '9876543212', 'category': 'Cleaning', 'skills': ['Cleaning', 'Deep Cleaning', 'Home Services'], 'rating': 4.7, 'experience': '3 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_4', 'name': 'Vijay Tech', 'phone': '9876543213', 'category': 'AC Repair', 'skills': ['AC Repair', 'AC Service', 'Cooling'], 'rating': 4.9, 'experience': '8 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_5', 'name': 'Mahesh Carpenter', 'phone': '9876543214', 'category': 'Carpentry', 'skills': ['Carpentry', 'Furniture', 'Wood Work'], 'rating': 4.6, 'experience': '6 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_6', 'name': 'Srinivas Painter', 'phone': '9876543215', 'category': 'Painting', 'skills': ['Painting', 'Wall Polish', 'Coloring'], 'rating': 4.8, 'experience': '10 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_7', 'name': 'Ramesh Pest Control', 'phone': '9876543216', 'category': 'Pest Control', 'skills': ['Pest Control', 'Spray', 'Termite'], 'rating': 4.7, 'experience': '4 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_8', 'name': 'Kiran CCTV', 'phone': '9876543217', 'category': 'CCTV Setup', 'skills': ['CCTV Setup', 'Camera Installation', 'Security'], 'rating': 4.9, 'experience': '5 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_9', 'name': 'Rajesh Studio', 'phone': '9876543218', 'category': 'Photo Studio', 'skills': ['Photo Studio', 'Photography', 'Videography', 'Drone'], 'rating': 4.9, 'experience': '6 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_10', 'name': 'Venkat Tents', 'phone': '9876543219', 'category': 'Wedding Tent House', 'skills': ['Wedding Tent House', 'Stage', 'Lighting'], 'rating': 4.8, 'experience': '9 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_11', 'name': 'Satyam Catering', 'phone': '9876543220', 'category': 'Catering Services', 'skills': ['Catering Services', 'Veg/Non-Veg', 'Sweets'], 'rating': 4.9, 'experience': '12 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_12', 'name': 'Anil Decors', 'phone': '9876543221', 'category': 'Decoration Services', 'skills': ['Decoration Services', 'Flower', 'Stage Decor'], 'rating': 4.8, 'experience': '7 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_13', 'name': 'DJ Rahul', 'phone': '9876543222', 'category': 'DJ & Music', 'skills': ['DJ & Music', 'Sound System', 'Orchestra'], 'rating': 4.9, 'experience': '5 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_14', 'name': 'Suresh Media', 'phone': '9876543223', 'category': 'Videography', 'skills': ['Videography', 'Cinematic Video', 'Editing'], 'rating': 4.8, 'experience': '8 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_15', 'name': 'Royal Travels', 'phone': '9876543224', 'category': 'Vehicle Rental', 'skills': ['Vehicle Rental', 'Luxury Car', 'Wedding Car'], 'rating': 4.7, 'experience': '6 years', 'active': true, 'isActive': true, 'isAvailable': true},
+  {'_id': 'W_DEFAULT_16', 'name': 'Priya Studio', 'phone': '9876543225', 'category': 'Makeup Artist', 'skills': ['Makeup Artist', 'Bridal Makeup', 'Styling'], 'rating': 4.9, 'experience': '5 years', 'active': true, 'isActive': true, 'isAvailable': true},
+];
+

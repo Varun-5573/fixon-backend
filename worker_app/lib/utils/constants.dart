@@ -55,9 +55,12 @@ class AppColors {
   }
 }
 
-// Permanent Cloud Backend (works even when laptop is off)
-const String kServerIp = 'fixon-backend.onrender.com';
-const String kBaseUrl = 'https://fixon-backend.onrender.com';
+// ══════════════════════════════════════════════════════════════
+//  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
+//  Deployed on Railway.app (no bandwidth limits, always-on)
+// ══════════════════════════════════════════════════════════════
+const String kServerIp = 'fixon-backend.up.railway.app';
+const String kBaseUrl = 'https://fixon-backend.up.railway.app';
 
 // Default headers
 const Map<String, String> kHeaders = {

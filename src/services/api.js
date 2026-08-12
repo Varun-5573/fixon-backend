@@ -1,13 +1,23 @@
 import axios from 'axios';
 
+// ══════════════════════════════════════════════════════════════
+//  PRODUCTION BACKEND — Railway (no bandwidth limits, always-on)
+//  Local dev: Electron / localhost admin panel uses localhost:5000
+// ══════════════════════════════════════════════════════════════
+const PRODUCTION_URL = 'https://fixon-backend.up.railway.app';
+
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 
   window.location.hostname === '127.0.0.1' ||
   window.location.protocol === 'file:' ||
   (navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron'))
 );
-const BASE   = isDev ? 'http://localhost:5000' : 'https://fixon-backend.onrender.com';
-const CLOUD  = 'https://fixon-backend.onrender.com'; // always Render, for dual-write
+
+// In Electron/local dev → localhost:5000, in production cloud → Railway
+const BASE = isDev ? 'http://localhost:5000' : PRODUCTION_URL;
+
+// Always use Railway for production cloud calls (used by mobile apps too)
+const CLOUD = PRODUCTION_URL;
 
 const api = axios.create({ baseURL: BASE, timeout: 45000 });
 
@@ -30,10 +40,22 @@ const DEMO_USERS = [
   { _id: 'u4', name: 'Priya Reddy', email: 'priya@gmail.com', phone: '7777777777', isBlocked: true, totalBookings: 1, createdAt: new Date().toISOString(), location: {} },
 ];
 const DEMO_WORKERS = [
-  { _id: 'w1', name: 'Varun (Plumber)', email: 'varun@fixon.com', phone: '9999999999', category: 'Maintenance', skills: ['Plumbing'], isAvailable: true, isActive: true, rating: 4.9, currentLocation: { lat: 17.385, lng: 78.487 } },
-  { _id: 'w2', name: 'Siri (Electrician)', email: 'siri@fixon.com', phone: '8888888888', category: 'Maintenance', skills: ['Electrical'], isAvailable: false, isActive: true, rating: 4.8, currentLocation: { lat: 17.405, lng: 78.497 } },
-  { _id: 'w3', name: 'Bunny (Cleaning)', email: 'bunny@fixon.com', phone: '7777777777', category: 'Home Services', skills: ['Cleaning'], isAvailable: true, isActive: true, rating: 4.7, currentLocation: { lat: 17.375, lng: 78.477 } },
-  { _id: 'w4', name: 'Ravi (Carpenter)', email: 'ravi@fixon.com', phone: '6666666666', category: 'Maintenance', skills: ['Carpentry'], isAvailable: true, isActive: false, rating: 4.6, currentLocation: {} },
+  { _id: 'W_DEFAULT_1', name: 'VARUN',            email: 'ADITHYAVARUN@GMAIL.COM', phone: '9000853346', category: 'Plumbing',   skills: ['Plumbing','Pipe Repair','Bathroom','Leak Fix'],         rating: 5.0, isAvailable: true, isActive: true, active: true, experience: '5 years',  workerId: 'FIXON_PLM_1001', workerPassword: 'FXN1001' },
+  { _id: 'W_DEFAULT_2', name: 'ADITHYA',          email: 'varunpittala@gmail.com',  phone: '8179712126', category: 'Electrical', skills: ['Electrical','Wiring','Fan Installation','Switch Repair'],  rating: 4.8, isAvailable: true, isActive: true, active: true, experience: '7 years',  workerId: 'FIXON_ELC_1001', workerPassword: 'FXN1002' },
+  { _id: 'W_DEFAULT_3', name: 'Prasad',           email: 'prasad@fixon.com',        phone: '9876543212', category: 'Cleaning',   skills: ['Cleaning','Deep Cleaning','Home Services'],                rating: 4.7, isAvailable: true, isActive: true, active: true, experience: '3 years',  workerId: 'FIXON_CLN_1001', workerPassword: 'FXN1003' },
+  { _id: 'W_DEFAULT_4', name: 'Vijay Tech',       email: 'vijay@fixon.com',         phone: '9876543213', category: 'AC Repair',  skills: ['AC Repair','AC Service','Cooling'],                        rating: 4.9, isAvailable: true, isActive: true, active: true, experience: '8 years',  workerId: 'FIXON_ACR_1001', workerPassword: 'FXN1004' },
+  { _id: 'W_DEFAULT_5', name: 'Mahesh Carpenter', email: 'mahesh@fixon.com',        phone: '9876543214', category: 'Carpentry',  skills: ['Carpentry','Furniture','Wood Work'],                      rating: 4.6, isAvailable: true, isActive: true, active: true, experience: '6 years',  workerId: 'FIXON_CRP_1001', workerPassword: 'FXN1005' },
+  { _id: 'W_DEFAULT_6', name: 'Srinivas Painter', email: 'srinivas@fixon.com',      phone: '9876543215', category: 'Painting',   skills: ['Painting','Wall Polish','Coloring'],                       rating: 4.8, isAvailable: true, isActive: true, active: true, experience: '10 years', workerId: 'FIXON_PNT_1001', workerPassword: 'FXN1006' },
+  { _id: 'W_DEFAULT_7', name: 'Ramesh Pest Control', email: 'ramesh@fixon.com',     phone: '9876543216', category: 'Pest Control', skills: ['Pest Control','Spray','Termite'],                         rating: 4.7, isAvailable: true, isActive: true, active: true, experience: '4 years',  workerId: 'FIXON_PCT_1001', workerPassword: 'FXN1007' },
+  { _id: 'W_DEFAULT_8', name: 'Kiran CCTV',       email: 'kiran@fixon.com',         phone: '9876543217', category: 'CCTV Setup', skills: ['CCTV Setup','Camera Installation','Security'],              rating: 4.9, isAvailable: true, isActive: true, active: true, experience: '5 years',  workerId: 'FIXON_CCT_1001', workerPassword: 'FXN1008' },
+  { _id: 'W_DEFAULT_9', name: 'Rajesh Studio',    email: 'rajesh@fixon.com',        phone: '9876543218', category: 'Photo Studio', skills: ['Photo Studio','Photography','Videography','Drone'],       rating: 4.9, isAvailable: true, isActive: true, active: true, experience: '6 years',  workerId: 'FIXON_PHT_1001', workerPassword: 'FXN1009' },
+  { _id: 'W_DEFAULT_10', name: 'Venkat Tents',    email: 'venkat@fixon.com',        phone: '9876543219', category: 'Wedding Tent House', skills: ['Wedding Tent House','Stage','Lighting'],            rating: 4.8, isAvailable: true, isActive: true, active: true, experience: '9 years',  workerId: 'FIXON_WTH_1001', workerPassword: 'FXN1010' },
+  { _id: 'W_DEFAULT_11', name: 'Satyam Catering', email: 'satyam@fixon.com',        phone: '9876543220', category: 'Catering Services', skills: ['Catering Services','Veg/Non-Veg','Sweets'],          rating: 4.9, isAvailable: true, isActive: true, active: true, experience: '12 years', workerId: 'FIXON_CAT_1001', workerPassword: 'FXN1011' },
+  { _id: 'W_DEFAULT_12', name: 'Anil Decors',     email: 'anil@fixon.com',          phone: '9876543221', category: 'Decoration Services', skills: ['Decoration Services','Flower','Stage Decor'],     rating: 4.8, isAvailable: true, isActive: true, active: true, experience: '7 years',  workerId: 'FIXON_DEC_1001', workerPassword: 'FXN1012' },
+  { _id: 'W_DEFAULT_13', name: 'DJ Rahul',        email: 'rahul@fixon.com',         phone: '9876543222', category: 'DJ & Music', skills: ['DJ & Music','Sound System','Orchestra'],                    rating: 4.9, isAvailable: true, isActive: true, active: true, experience: '5 years',  workerId: 'FIXON_DJM_1001', workerPassword: 'FXN1013' },
+  { _id: 'W_DEFAULT_14', name: 'Suresh Media',    email: 'suresh@fixon.com',        phone: '9876543223', category: 'Videography', skills: ['Videography','Cinematic Video','Editing'],               rating: 4.8, isAvailable: true, isActive: true, active: true, experience: '8 years',  workerId: 'FIXON_VDG_1001', workerPassword: 'FXN1014' },
+  { _id: 'W_DEFAULT_15', name: 'Royal Travels',   email: 'royal@fixon.com',         phone: '9876543224', category: 'Vehicle Rental', skills: ['Vehicle Rental','Luxury Car','Wedding Car'],           rating: 4.7, isAvailable: true, isActive: true, active: true, experience: '6 years',  workerId: 'FIXON_VHR_1001', workerPassword: 'FXN1015' },
+  { _id: 'W_DEFAULT_16', name: 'Priya Studio',    email: 'priya@fixon.com',         phone: '9876543225', category: 'Makeup Artist', skills: ['Makeup Artist','Bridal Makeup','Styling'],              rating: 4.9, isAvailable: true, isActive: true, active: true, experience: '5 years',  workerId: 'FIXON_MKP_1001', workerPassword: 'FXN1016' },
 ];
 const DEMO_BOOKINGS = [
   { _id: 'b1', userId: DEMO_USERS[0], service: 'Plumbing Repair', category: 'Maintenance', price: 499, status: 'ongoing', scheduledTime: new Date().toISOString(), location: { address: '12 MG Road, Hyderabad', lat: 17.412, lng: 78.455 }, createdAt: new Date().toISOString() },
@@ -66,19 +88,20 @@ export const authApi = {
   login: (data) => api.post('/api/auth/admin/login', data),
 };
 
-// Cloud server (same as mobile apps — dynamically local or Render cloud)
+// Cloud server — points to localhost in dev, Railway in production
 const localApi = axios.create({ baseURL: BASE, timeout: 45000 });
 
-// Helper for instant admin UI response with non-blocking dual-write
+// Helper for instant admin UI response — in production both calls go to Railway
 const dualWrite = async (localReqFn, cloudReqFn) => {
   let result = null;
   try {
     result = await localReqFn();
   } catch (err) {
-    console.warn('Local API write fallback:', err.message);
+    console.warn('Primary API write fallback:', err.message);
   }
 
   if (result && result.success !== false) {
+    // In dev: also sync to cloud. In production: localReqFn already hit Railway so cloudReqFn is same host — still fire it for consistency
     cloudReqFn().catch(() => {});
     return result;
   } else {

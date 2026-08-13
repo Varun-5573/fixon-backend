@@ -61,7 +61,7 @@ class AppColors {
 //  PRODUCTION BACKEND — URL fetched dynamically from GitHub Pages
 //  config.json: https://varun-5573.github.io/fixon-backend/config.json
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://fixonbackend-wtac069e.b4a.run';
+const String kProductionUrl = 'https://ninety-steaks-trade.loca.lt';
 
 // In-memory cached URL so we only fetch once per app session
 String _cachedBackendUrl = kProductionUrl;
@@ -79,17 +79,41 @@ Future<String> resolveBaseUrl() async {
       final data = jsonDecode(res.body);
       final url = data['backendUrl'] as String?;
       if (url != null && url.isNotEmpty) {
-        _cachedBackendUrl = url;
-        return url;
+        // Test if URL is responsive
+        try {
+          final testRes = await http.get(
+            Uri.parse('$url/api/services'),
+            headers: {'bypass-tunnel-reminder': 'true'},
+          ).timeout(const Duration(seconds: 4));
+          if (testRes.statusCode == 200) {
+            _cachedBackendUrl = url;
+            return url;
+          }
+        } catch (_) {}
       }
     }
   } catch (_) {}
+
+  // Fallback to local Wi-Fi IP if on same network
+  try {
+    const localIp = 'http://10.78.7.161:5000';
+    final testRes = await http.get(
+      Uri.parse('$localIp/api/services'),
+    ).timeout(const Duration(seconds: 2));
+    if (testRes.statusCode == 200) {
+      _cachedBackendUrl = localIp;
+      return localIp;
+    }
+  } catch (_) {}
+
+  _cachedBackendUrl = kProductionUrl;
   return kProductionUrl;
 }
 
 // Default headers
 const Map<String, String> kHeaders = {
   'Content-Type': 'application/json',
+  'bypass-tunnel-reminder': 'true',
 };
 
 const List<Map<String, dynamic>> kServices = [

@@ -4,7 +4,7 @@ import axios from 'axios';
 //  PRODUCTION BACKEND — Back4app (free, always-on, no laptop needed)
 //  Local dev: Electron / localhost admin panel uses localhost:5000
 // ══════════════════════════════════════════════════════════════
-const PRODUCTION_URL = 'https://fixonbackend-wtac069e.b4a.run';
+const PRODUCTION_URL = 'https://ninety-steaks-trade.loca.lt';
 
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 
@@ -343,52 +343,75 @@ export const adminApi = {
     return r || { success: true };
   },
   getServices: async () => {
-    let cloudS = [];
     let localS = [];
-    try {
-      const r = await axios.get(`${CLOUD}/api/services`, { timeout: 8000 });
-      if (r.data?.success && r.data.services) cloudS = r.data.services;
-    } catch {}
-
-    if (cloudS.length > 0) return { success: true, services: cloudS };
-
+    let cloudS = [];
     try {
       const r = await localApi.get('/api/admin/services');
       if (r.data?.success && r.data.services) localS = r.data.services;
     } catch {}
 
-    return { success: true, services: localS };
+    if (localS.length > 0) return { success: true, services: localS };
+
+    try {
+      const r = await axios.get(`${CLOUD}/api/services`, { 
+        timeout: 8000, 
+        headers: { 'bypass-tunnel-reminder': 'true' } 
+      });
+      if (r.data?.success && r.data.services) cloudS = r.data.services;
+    } catch {}
+
+    return { success: true, services: cloudS };
   },
 
   addService: async (d) => {
     let r;
     try { 
-      const res = await axios.post(`${CLOUD}/api/admin/services`, d, { timeout: 10000 });
+      const res = await localApi.post('/api/admin/services', d);
       r = res.data;
     } catch {}
-    try { await localApi.post('/api/admin/services', d); } catch {}
+    try { 
+      const res = await axios.post(`${CLOUD}/api/admin/services`, d, { 
+        timeout: 10000, 
+        headers: { 'bypass-tunnel-reminder': 'true' } 
+      });
+      if (!r) r = res.data;
+    } catch {}
     return r || { success: true };
   },
 
   updateService: async (id, d) => {
     let r;
     try { 
-      const res = await axios.put(`${CLOUD}/api/admin/services/${id}`, d, { timeout: 10000 });
+      const res = await localApi.put(`/api/admin/services/${id}`, d);
       r = res.data;
+    } catch (e) {
+      console.warn('Local updateService error:', e.message);
+    }
+    try { 
+      const res = await axios.put(`${CLOUD}/api/admin/services/${id}`, d, { 
+        timeout: 10000, 
+        headers: { 'bypass-tunnel-reminder': 'true' } 
+      });
+      if (!r) r = res.data;
     } catch (e) {
       console.warn('Cloud updateService error:', e.message);
     }
-    try { await localApi.put(`/api/admin/services/${id}`, d); } catch {}
     return r || { success: true };
   },
 
   deleteService: async (id) => {
     let r;
     try { 
-      const res = await axios.delete(`${CLOUD}/api/admin/services/${id}`, { timeout: 10000 });
+      const res = await localApi.delete(`/api/admin/services/${id}`);
       r = res.data;
     } catch {}
-    try { await localApi.delete(`/api/admin/services/${id}`); } catch {}
+    try { 
+      const res = await axios.delete(`${CLOUD}/api/admin/services/${id}`, { 
+        timeout: 10000, 
+        headers: { 'bypass-tunnel-reminder': 'true' } 
+      });
+      if (!r) r = res.data;
+    } catch {}
     return r || { success: true };
   },
   getCoupons: async () => {

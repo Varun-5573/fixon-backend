@@ -59,12 +59,13 @@ class AppColors {
 //  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
-const String kServerIp = 'fixonbackend-wtac069e.b4a.run';
-const String kBaseUrl = 'https://fixonbackend-wtac069e.b4a.run';
+const String kServerIp = 'ninety-steaks-trade.loca.lt';
+const String kBaseUrl = 'https://ninety-steaks-trade.loca.lt';
 
 // Default headers
 const Map<String, String> kHeaders = {
   'Content-Type': 'application/json',
+  'bypass-tunnel-reminder': 'true',
 };
 
 const List<Map<String, dynamic>> kServices = [

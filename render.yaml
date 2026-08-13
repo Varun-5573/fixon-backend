@@ -3,10 +3,12 @@ services:
     name: fixon-backend
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --production
     startCommand: node server.js
     envVars:
       - key: MONGODB_URI
         value: mongodb+srv://pittalaadithyavarun555:Varun%406302@cluster0.jjmqmqm.mongodb.net/fixon?retryWrites=true&w=majority
       - key: PORT
         value: 10000
+      - key: NODE_ENV
+        value: production

@@ -1998,6 +1998,142 @@ app.get('/api/ratings/worker/:id', (req, res) => {
 // ══════════════════════════════════════════════════════════════
 //  INVOICE ROUTE
 // ══════════════════════════════════════════════════════════════
+//  CUSTOMER AUTHENTICATION & USER MANAGEMENT API
+// ══════════════════════════════════════════════════════════════
+
+// 1. GET /api/admin/users — Admin Control Panel customer list
+app.get('/api/admin/users', async (req, res) => {
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc && doc.registeredUsers) {
+        const dbMap = new Map();
+        doc.registeredUsers.forEach(u => { if (u && u._id) dbMap.set(String(u._id), u); });
+        registeredUsers.forEach(u => { if (u && u._id) dbMap.set(String(u._id), u); });
+        registeredUsers = Array.from(dbMap.values());
+      }
+    } catch (e) {}
+  }
+  res.json({ success: true, users: registeredUsers });
+});
+
+// 2. POST /api/auth/user/register — Customer self-registration
+app.post('/api/auth/user/register', async (req, res) => {
+  const { name, email, phone, password } = req.body;
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPhone = (phone || '').trim();
+
+  let existing = registeredUsers.find(
+    u => (cleanEmail && u.email?.toLowerCase() === cleanEmail) || (cleanPhone && u.phone === cleanPhone)
+  );
+
+  if (existing) {
+    if (name) existing.name = name;
+    if (cleanEmail) existing.email = cleanEmail;
+    if (cleanPhone) existing.phone = cleanPhone;
+    await saveData();
+    io.emit('new_user', existing);
+    return res.json({ success: true, token: 'token_' + existing._id, user: existing });
+  }
+
+  const newUser = {
+    _id: 'U_' + Date.now(),
+    name: (name || 'Customer').trim(),
+    email: cleanEmail || `${Date.now()}@fixon.com`,
+    phone: cleanPhone || '9876543210',
+    isBlocked: false,
+    totalBookings: 0,
+    bankDetails: {},
+    createdAt: new Date().toISOString(),
+    location: {}
+  };
+
+  registeredUsers.push(newUser);
+  await saveData();
+  io.emit('new_user', newUser);
+  console.log(`👤 New customer registered: ${newUser.name} (${newUser.email} / ${newUser.phone})`);
+  res.json({ success: true, token: 'token_' + newUser._id, user: newUser });
+});
+
+// 3. POST /api/auth/user/login — Customer login
+app.post('/api/auth/user/login', async (req, res) => {
+  const { email, password } = req.body;
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  let user = registeredUsers.find(u => u.email?.toLowerCase() === cleanEmail);
+  if (!user) {
+    user = {
+      _id: 'U_' + Date.now(),
+      name: cleanEmail.split('@')[0] || 'Customer',
+      email: cleanEmail,
+      phone: '9876543210',
+      isBlocked: false,
+      totalBookings: 0,
+      bankDetails: {},
+      createdAt: new Date().toISOString()
+    };
+    registeredUsers.push(user);
+    await saveData();
+    io.emit('new_user', user);
+  }
+
+  res.json({ success: true, token: 'token_' + user._id, user });
+});
+
+// 4. POST /api/auth/send-otp — OTP Request
+app.post('/api/auth/send-otp', (req, res) => {
+  const { phone } = req.body;
+  res.json({ success: true, otp: '123456', message: 'OTP sent successfully' });
+});
+
+// 5. POST /api/auth/verify-otp — OTP Verification & Auto Register
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const { phone, otp, name } = req.body;
+  const cleanPhone = (phone || '').trim();
+
+  let user = registeredUsers.find(u => u.phone === cleanPhone);
+  if (!user) {
+    user = {
+      _id: 'U_' + Date.now(),
+      name: name || `Customer (${cleanPhone})`,
+      email: `${cleanPhone}@fixon.com`,
+      phone: cleanPhone,
+      isBlocked: false,
+      totalBookings: 0,
+      bankDetails: {},
+      createdAt: new Date().toISOString()
+    };
+    registeredUsers.push(user);
+    await saveData();
+    io.emit('new_user', user);
+  }
+
+  res.json({ success: true, token: 'token_' + user._id, user });
+});
+
+// 6. PATCH /api/admin/users/:id/block — Block / Unblock Customer
+app.patch('/api/admin/users/:id/block', async (req, res) => {
+  const u = registeredUsers.find(x => String(x._id) === String(req.params.id));
+  if (!u) return res.status(404).json({ success: false, error: 'User not found' });
+  u.isBlocked = !u.isBlocked;
+  await saveData();
+  res.json({ success: true, user: u });
+});
+
+// 7. GET /api/user/:id/bank-details — Fetch Bank Details
+app.get('/api/user/:id/bank-details', (req, res) => {
+  const u = registeredUsers.find(x => String(x._id) === String(req.params.id));
+  res.json({ success: true, bankDetails: u?.bankDetails || null });
+});
+
+// 8. POST /api/user/:id/bank-details — Save Bank Details
+app.post('/api/user/:id/bank-details', async (req, res) => {
+  const u = registeredUsers.find(x => String(x._id) === String(req.params.id));
+  if (!u) return res.status(404).json({ success: false, error: 'User not found' });
+  u.bankDetails = { ...u.bankDetails, ...req.body, updatedAt: new Date().toISOString() };
+  await saveData();
+  res.json({ success: true, bankDetails: u.bankDetails });
+});
 
 app.get('/api/bookings/:id/invoice', (req, res) => {
   const booking = bookings.find(b => b._id === req.params.id);

@@ -17,6 +17,8 @@ void main() async {
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
+  // Fetch the live backend URL from GitHub Pages (updates when URL changes)
+  await resolveBaseUrl();
   runApp(
     MultiProvider(
       providers: [

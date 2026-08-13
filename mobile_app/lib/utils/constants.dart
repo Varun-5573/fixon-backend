@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class AppColors {
   static Color primary     = const Color(0xFF7C3AED);
@@ -56,13 +58,32 @@ class AppColors {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  PRODUCTION & SELF-HOSTED BACKEND
+//  PRODUCTION BACKEND — URL fetched dynamically from GitHub Pages
+//  config.json: https://varun-5573.github.io/fixon-backend/config.json
 // ══════════════════════════════════════════════════════════════
 const String kProductionUrl = 'https://fixonbackend-wtac069e.b4a.run';
 
-String get kBaseUrl => kProductionUrl;
+// In-memory cached URL so we only fetch once per app session
+String _cachedBackendUrl = kProductionUrl;
 
+String get kBaseUrl => _cachedBackendUrl;
+
+// Call this ONCE at app startup — fetches the live URL from GitHub Pages
 Future<String> resolveBaseUrl() async {
+  try {
+    final configUrl = Uri.parse(
+      'https://varun-5573.github.io/fixon-backend/config.json?t=${DateTime.now().millisecondsSinceEpoch}',
+    );
+    final res = await http.get(configUrl).timeout(const Duration(seconds: 5));
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      final url = data['backendUrl'] as String?;
+      if (url != null && url.isNotEmpty) {
+        _cachedBackendUrl = url;
+        return url;
+      }
+    }
+  } catch (_) {}
   return kProductionUrl;
 }
 

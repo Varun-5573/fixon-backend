@@ -4,7 +4,7 @@ import axios from 'axios';
 //  PRODUCTION BACKEND — Back4app (free, always-on, no laptop needed)
 //  Local dev: Electron / localhost admin panel uses localhost:5000
 // ══════════════════════════════════════════════════════════════
-const PRODUCTION_URL = 'https://fixonbackend-8hzo530p.b4a.run';
+const PRODUCTION_URL = 'https://fixonbackend-wtac069e.b4a.run';
 
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 

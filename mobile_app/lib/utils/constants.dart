@@ -58,7 +58,7 @@ class AppColors {
 // ══════════════════════════════════════════════════════════════
 //  PRODUCTION & SELF-HOSTED BACKEND
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://fixonbackend-8hzo530p.b4a.run';
+const String kProductionUrl = 'https://fixonbackend-wtac069e.b4a.run';
 
 String get kBaseUrl => kProductionUrl;
 

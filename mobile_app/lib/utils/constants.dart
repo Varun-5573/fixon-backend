@@ -61,7 +61,7 @@ class AppColors {
 //  PRODUCTION BACKEND — URL fetched dynamically from GitHub Pages
 //  config.json: https://varun-5573.github.io/fixon-backend/config.json
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://ninety-steaks-trade.loca.lt';
+const String kProductionUrl = 'https://witty-moose-march.loca.lt';
 
 // In-memory cached URL so we only fetch once per app session
 String _cachedBackendUrl = kProductionUrl;
@@ -96,7 +96,7 @@ Future<String> resolveBaseUrl() async {
 
   // Fallback to local Wi-Fi IP if on same network
   try {
-    const localIp = 'http://10.78.7.161:5000';
+    const localIp = 'http://10.78.7.161:5000'; // same Wi-Fi = instant local speed
     final testRes = await http.get(
       Uri.parse('$localIp/api/services'),
     ).timeout(const Duration(seconds: 2));

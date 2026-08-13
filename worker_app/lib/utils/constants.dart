@@ -59,8 +59,8 @@ class AppColors {
 //  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
-const String kServerIp = 'ninety-steaks-trade.loca.lt';
-const String kBaseUrl = 'https://ninety-steaks-trade.loca.lt';
+const String kServerIp = 'witty-moose-march.loca.lt';
+const String kBaseUrl = 'https://witty-moose-march.loca.lt';
 
 // Default headers
 const Map<String, String> kHeaders = {

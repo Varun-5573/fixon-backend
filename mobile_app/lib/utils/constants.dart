@@ -61,16 +61,27 @@ class AppColors {
 //  PRODUCTION BACKEND — Render Cloud (always online, no laptop needed)
 // ══════════════════════════════════════════════════════════════
 const String kProductionUrl = 'https://fixon-backend.onrender.com';
+const String kLocalLaptopIp = 'http://10.251.123.161:5000';
+const String kEmulatorIp = 'http://10.0.2.2:5000';
 
-String _cachedBackendUrl = kProductionUrl;
+String _cachedBackendUrl = kLocalLaptopIp;
 
 String get kBaseUrl => _cachedBackendUrl;
 
-// Always returns Render cloud URL — works from any network, anytime
+// Dynamic URL resolution with health probing
 Future<String> resolveBaseUrl() async {
-  // Always use Render cloud — it's always online
-  _cachedBackendUrl = kProductionUrl;
-  return kProductionUrl;
+  for (final url in [kLocalLaptopIp, kEmulatorIp, kProductionUrl]) {
+    try {
+      final res = await http.get(Uri.parse('$url/api/health')).timeout(const Duration(seconds: 2));
+      if (res.statusCode == 200) {
+        _cachedBackendUrl = url;
+        debugPrint('✅ Resolved active backend: $url');
+        return url;
+      }
+    } catch (_) {}
+  }
+  _cachedBackendUrl = kLocalLaptopIp;
+  return _cachedBackendUrl;
 }
 
 // Default headers

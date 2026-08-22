@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class AppColors {
   static Color primary     = const Color(0xFF7C3AED);
@@ -59,8 +60,27 @@ class AppColors {
 //  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
-const String kServerIp = 'fixon-backend.onrender.com';
-const String kBaseUrl = 'https://fixon-backend.onrender.com';
+const String kProductionUrl = 'https://fixon-backend.onrender.com';
+const String kLocalLaptopIp = 'http://10.251.123.161:5000';
+const String kEmulatorIp = 'http://10.0.2.2:5000';
+
+String _cachedBackendUrl = kLocalLaptopIp;
+String get kServerIp => _cachedBackendUrl;
+String get kBaseUrl => _cachedBackendUrl;
+
+Future<String> resolveBaseUrl() async {
+  for (final url in [kLocalLaptopIp, kEmulatorIp, kProductionUrl]) {
+    try {
+      final res = await http.get(Uri.parse('$url/api/health')).timeout(const Duration(seconds: 2));
+      if (res.statusCode == 200) {
+        _cachedBackendUrl = url;
+        return url;
+      }
+    } catch (_) {}
+  }
+  _cachedBackendUrl = kLocalLaptopIp;
+  return _cachedBackendUrl;
+}
 
 // Default headers
 const Map<String, String> kHeaders = {

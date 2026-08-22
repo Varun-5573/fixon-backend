@@ -140,18 +140,29 @@ export const adminApi = {
       if (r.data?.success && r.data.users) localUsers = r.data.users;
     } catch {}
 
-    const cloudData = await fetchCloud('/api/admin/users');
-    if (cloudData?.success && cloudData.users) cloudUsers = cloudData.users;
+    try {
+      const cloudData = await fetchCloud('/api/admin/users');
+      if (cloudData?.success && cloudData.users) cloudUsers = cloudData.users;
+    } catch {}
 
     const userMap = new Map();
-    [...localUsers, ...cloudUsers].forEach(u => {
-      if (u && u._id) userMap.set(u._id, u);
+    // Cloud users first so local can override with fresher online state
+    [...cloudUsers, ...localUsers].forEach(u => {
+      if (u && u._id) {
+        const existing = userMap.get(u._id);
+        if (existing) {
+          // Merge: prefer isOnline=true from either source
+          userMap.set(u._id, { ...existing, ...u, isOnline: !!(u.isOnline || existing.isOnline) });
+        } else {
+          userMap.set(u._id, u);
+        }
+      }
     });
 
     const merged = Array.from(userMap.values());
+    // Only use demo if BOTH local AND cloud returned nothing
     if (merged.length > 0) return { success: true, users: merged };
-
-    return { success: true, users: DEMO_USERS };
+    return { success: true, users: [] };
   },
   blockUser:     (id) => safe(() => api.patch(`/api/admin/users/${id}/block`), { success: true }),
   getWorkers:    async () => {
@@ -460,14 +471,25 @@ export const adminApi = {
   // Syllabus 18.3: Customer list
   getAdminUsers: () => localApi.get('/api/admin/users').then(r => r.data).catch(() => ({ success: false })),
 
-  // Customer count fallback compatibility
+  // Customer count — direct API calls (no circular reference)
   getCustomerStats: async () => {
     try {
-      const res = await adminApi.getUsers();
-      if (res && res.users) {
-        const total = res.users.length;
-        const active = res.users.filter(u => u.isOnline).length;
-        return { success: true, totalUsers: total, activeUsers: active, newUsersToday: 0 };
+      let localUsers = [];
+      let cloudUsers = [];
+      try {
+        const r = await localApi.get('/api/admin/users');
+        if (r.data?.success && r.data.users) localUsers = r.data.users;
+      } catch {}
+      try {
+        const cd = await fetchCloud('/api/admin/users');
+        if (cd?.success && cd.users) cloudUsers = cd.users;
+      } catch {}
+      const userMap = new Map();
+      [...cloudUsers, ...localUsers].forEach(u => { if (u && u._id) userMap.set(u._id, u); });
+      const allUsers = Array.from(userMap.values());
+      if (allUsers.length > 0) {
+        const active = allUsers.filter(u => u.isOnline).length;
+        return { success: true, totalUsers: allUsers.length, activeUsers: active, newUsersToday: 0 };
       }
     } catch {}
     return localApi.get('/api/admin/users/count').then(r => r.data).catch(() => ({ success: true, totalUsers: 0, activeUsers: 0 }));

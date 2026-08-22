@@ -303,7 +303,7 @@ class BookingProvider extends ChangeNotifier {
   /// Periodic polling every 5s as fallback when socket misses events
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _doFetch());
+    _pollTimer = Timer.periodic(const Duration(seconds: 12), (_) => _doFetch());
   }
 
   // Status rank map — mirrors server STATUS_RANKS

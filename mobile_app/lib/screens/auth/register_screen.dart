@@ -22,16 +22,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _error;
 
   Future<void> _register() async {
-    if (_firstNameCtrl.text.isEmpty || _lastNameCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _phoneCtrl.text.isEmpty || _passwordCtrl.text.isEmpty) {
-      setState(() => _error = 'Please fill all fields'); return;
-    }
+    final firstName = _firstNameCtrl.text.trim();
+    final lastName  = _lastNameCtrl.text.trim();
+    final email     = _emailCtrl.text.trim();
+    final phone     = _phoneCtrl.text.trim();
+    final password  = _passwordCtrl.text;
+
+    if (firstName.isEmpty) { setState(() => _error = 'Please enter your First Name'); return; }
+    if (lastName.isEmpty)  { setState(() => _error = 'Please enter your Last Name');  return; }
+    if (email.isEmpty)     { setState(() => _error = 'Please enter your Email');       return; }
+    if (phone.length < 10) { setState(() => _error = 'Please enter a valid 10-digit phone number'); return; }
+    if (password.length < 6) { setState(() => _error = 'Password must be at least 6 characters'); return; }
+
     final auth = context.read<AuthProvider>();
-    final fullName = '${_firstNameCtrl.text.trim()} ${_lastNameCtrl.text.trim()}';
-    final ok = await auth.register(fullName, _emailCtrl.text.trim(), _phoneCtrl.text.trim(), _passwordCtrl.text);
+    final fullName = '$firstName $lastName';
+    final ok = await auth.register(
+      fullName, email, phone, password,
+      firstName: firstName,
+      lastName: lastName,
+    );
     if (ok && mounted) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     } else {
-      setState(() => _error = 'Registration failed. Please try again.');
+      setState(() => _error = 'Registration failed. Please check your details and try again.');
     }
   }
 

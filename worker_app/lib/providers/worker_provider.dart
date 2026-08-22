@@ -282,10 +282,17 @@ class WorkerProvider extends ChangeNotifier {
         // Optimistically update status in local list
         final actionToStatus = {
           'on-the-way':  'on_the_way',
+          'on_the_way':  'on_the_way',
+          'arrived':     'arrived',
+          'arrive':      'arrived',
           'start':       'ongoing',
+          'start_work':  'ongoing',
           'in_progress': 'ongoing',
+          'ongoing':     'ongoing',
           'complete':    'completed',
+          'completed':   'completed',
           'cancel':      'cancelled',
+          'cancelled':   'cancelled',
         };
         final newStatus = actionToStatus[action] ?? action;
         final updatedBooking = data['booking'];
@@ -341,7 +348,7 @@ class WorkerProvider extends ChangeNotifier {
     _locationBroadcastTimer?.cancel();
     _pushLocation(); // push immediately on going online
     _locationBroadcastTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(seconds: 20),
       (_) => _pushLocation(),
     );
   }

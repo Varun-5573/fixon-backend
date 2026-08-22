@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -7,14 +7,14 @@ const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const mongoose = require('mongoose');
 
-// ── Try to load optional compression (installed separately) ───
+// â”€â”€ Try to load optional compression (installed separately) â”€â”€â”€
 let compression;
 try { compression = require('compression'); } catch (_) { compression = null; }
 
-// ── MongoDB Atlas Connection ─────────────────────────────────
+// â”€â”€ MongoDB Atlas Connection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://pittalaadithyavarun555:Varun%406302@cluster0.jjmqmqm.mongodb.net/fixon?retryWrites=true&w=majority';
 
-// MongoDB schema — stores ALL app data as one document
+// MongoDB schema â€” stores ALL app data as one document
 const AppDataSchema = new mongoose.Schema({
   key: { type: String, default: 'main', unique: true },
   registeredUsers: { type: Array, default: [] },
@@ -40,7 +40,7 @@ const BookingPhoto = mongoose.models.BookingPhoto || mongoose.model('BookingPhot
 const app = express();
 if (compression) app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cors());
-// Cache-control for static assets only – APIs remain no-cache
+// Cache-control for static assets only â€“ APIs remain no-cache
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api')) res.setHeader('Cache-Control', 'public, max-age=300');
   else res.setHeader('Cache-Control', 'no-cache');
@@ -57,14 +57,14 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
 });
 
-// ── Persistent file storage (local fallback) ─────────────────
+// â”€â”€ Persistent file storage (local fallback) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DATA_FILE = path.join(__dirname, 'fixon_data.json');
 const PHOTOS_FILE = path.join(__dirname, 'fixon_photos.json');
 
-// ── In-memory stores (declared HERE so loadData() can write to them) ──
-const users = {};           // userId → live location tracking
-const workers = {};         // workerId → { _id, name, lat, lng } (live location)
-const bookingPhotos = {};   // bookingId → { beforePhoto, afterPhoto, etc. }
+// â”€â”€ In-memory stores (declared HERE so loadData() can write to them) â”€â”€
+const users = {};           // userId â†’ live location tracking
+const workers = {};         // workerId â†’ { _id, name, lat, lng } (live location)
+const bookingPhotos = {};   // bookingId â†’ { beforePhoto, afterPhoto, etc. }
 let messages = [];
 let bookings = [];
 let registeredUsers = [];   // real sign-ups
@@ -88,23 +88,23 @@ let adminWorkers = [
   { _id: 'W_DEFAULT_16', name: 'Priya Studio',    phone: '9876543225', email: 'priya@fixon.com',         category: 'Makeup Artist', skills: ['Makeup Artist','Bridal Makeup','Styling'],              rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_MKP_1001', workerPassword: 'FXN1016', createdAt: new Date().toISOString() },
 ];
 let services = [
-  { _id: 'SV1',  name: 'Plumbing',            icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
-  { _id: 'SV2',  name: 'Electrical',           icon: '⚡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
-  { _id: 'SV3',  name: 'Cleaning',             icon: '🧹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
-  { _id: 'SV4',  name: 'AC Repair',            icon: '❄️', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
-  { _id: 'SV5',  name: 'Carpentry',            icon: '🪚', color: '#EC4899', price: 699,  active: true, packages: [] },
-  { _id: 'SV6',  name: 'Painting',             icon: '🎨', color: '#EF4444', price: 2499, active: true, packages: [] },
-  { _id: 'SV7',  name: 'Pest Control',         icon: '🐛', color: '#8B5CF6', price: 999,  active: true, packages: [] },
-  { _id: 'SV8',  name: 'CCTV Setup',           icon: '📹', color: '#059669', price: 3499, active: true, packages: [] },
-  // 🎉 Wedding & Event Services
-  { _id: 'SV9',  name: 'Photo Studio',         icon: '📸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
-  { _id: 'SV10', name: 'Wedding Tent House',   icon: '🎪', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
-  { _id: 'SV11', name: 'Catering Services',    icon: '🍽', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
-  { _id: 'SV12', name: 'Decoration Services',  icon: '🎀', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
-  { _id: 'SV13', name: 'DJ & Music',           icon: '🎵', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
-  { _id: 'SV14', name: 'Videography',          icon: '🎥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
-  { _id: 'SV15', name: 'Vehicle Rental',       icon: '🚗', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
-  { _id: 'SV16', name: 'Makeup Artist',        icon: '💄', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
+  { _id: 'SV1',  name: 'Plumbing',            icon: 'ðŸ”§', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: 'SV2',  name: 'Electrical',           icon: 'âš¡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
+  { _id: 'SV3',  name: 'Cleaning',             icon: 'ðŸ§¹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
+  { _id: 'SV4',  name: 'AC Repair',            icon: 'â„ï¸', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: 'SV5',  name: 'Carpentry',            icon: 'ðŸªš', color: '#EC4899', price: 699,  active: true, packages: [] },
+  { _id: 'SV6',  name: 'Painting',             icon: 'ðŸŽ¨', color: '#EF4444', price: 2499, active: true, packages: [] },
+  { _id: 'SV7',  name: 'Pest Control',         icon: 'ðŸ›', color: '#8B5CF6', price: 999,  active: true, packages: [] },
+  { _id: 'SV8',  name: 'CCTV Setup',           icon: 'ðŸ“¹', color: '#059669', price: 3499, active: true, packages: [] },
+  // ðŸŽ‰ Wedding & Event Services
+  { _id: 'SV9',  name: 'Photo Studio',         icon: 'ðŸ“¸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
+  { _id: 'SV10', name: 'Wedding Tent House',   icon: 'ðŸŽª', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
+  { _id: 'SV11', name: 'Catering Services',    icon: 'ðŸ½', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
+  { _id: 'SV12', name: 'Decoration Services',  icon: 'ðŸŽ€', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
+  { _id: 'SV13', name: 'DJ & Music',           icon: 'ðŸŽµ', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
+  { _id: 'SV14', name: 'Videography',          icon: 'ðŸŽ¥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
+  { _id: 'SV15', name: 'Vehicle Rental',       icon: 'ðŸš—', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
+  { _id: 'SV16', name: 'Makeup Artist',        icon: 'ðŸ’„', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
 ];
 let coupons = [
   { _id: 'CP1', code: 'FIXON10',  discount: 10, type: 'percent', minOrder: 300, expiry: '2026-12-31', active: true, used: 0 },
@@ -142,22 +142,22 @@ function applyDefaultCreds(workers) {
 // Merge in any DEFAULT services that are not already stored (by _id)
 // This ensures new services added in code automatically appear on Render
 const DEFAULT_SERVICES_SNAPSHOT = [
-  { _id: 'SV1',  name: 'Plumbing',            icon: '🔧', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
-  { _id: 'SV2',  name: 'Electrical',           icon: '⚡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
-  { _id: 'SV3',  name: 'Cleaning',             icon: '🧹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
-  { _id: 'SV4',  name: 'AC Repair',            icon: '❄️', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
-  { _id: 'SV5',  name: 'Carpentry',            icon: '🪚', color: '#EC4899', price: 699,  active: true, packages: [] },
-  { _id: 'SV6',  name: 'Painting',             icon: '🎨', color: '#EF4444', price: 2499, active: true, packages: [] },
-  { _id: 'SV7',  name: 'Pest Control',         icon: '🐛', color: '#8B5CF6', price: 999,  active: true, packages: [] },
-  { _id: 'SV8',  name: 'CCTV Setup',           icon: '📹', color: '#059669', price: 3499, active: true, packages: [] },
-  { _id: 'SV9',  name: 'Photo Studio',         icon: '📸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
-  { _id: 'SV10', name: 'Wedding Tent House',   icon: '🎪', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
-  { _id: 'SV11', name: 'Catering Services',    icon: '🍽', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
-  { _id: 'SV12', name: 'Decoration Services',  icon: '🎀', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
-  { _id: 'SV13', name: 'DJ & Music',           icon: '🎵', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
-  { _id: 'SV14', name: 'Videography',          icon: '🎥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
-  { _id: 'SV15', name: 'Vehicle Rental',       icon: '🚗', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
-  { _id: 'SV16', name: 'Makeup Artist',        icon: '💄', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
+  { _id: 'SV1',  name: 'Plumbing',            icon: 'ðŸ”§', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: 'SV2',  name: 'Electrical',           icon: 'âš¡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
+  { _id: 'SV3',  name: 'Cleaning',             icon: 'ðŸ§¹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
+  { _id: 'SV4',  name: 'AC Repair',            icon: 'â„ï¸', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: 'SV5',  name: 'Carpentry',            icon: 'ðŸªš', color: '#EC4899', price: 699,  active: true, packages: [] },
+  { _id: 'SV6',  name: 'Painting',             icon: 'ðŸŽ¨', color: '#EF4444', price: 2499, active: true, packages: [] },
+  { _id: 'SV7',  name: 'Pest Control',         icon: 'ðŸ›', color: '#8B5CF6', price: 999,  active: true, packages: [] },
+  { _id: 'SV8',  name: 'CCTV Setup',           icon: 'ðŸ“¹', color: '#059669', price: 3499, active: true, packages: [] },
+  { _id: 'SV9',  name: 'Photo Studio',         icon: 'ðŸ“¸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
+  { _id: 'SV10', name: 'Wedding Tent House',   icon: 'ðŸŽª', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
+  { _id: 'SV11', name: 'Catering Services',    icon: 'ðŸ½', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
+  { _id: 'SV12', name: 'Decoration Services',  icon: 'ðŸŽ€', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
+  { _id: 'SV13', name: 'DJ & Music',           icon: 'ðŸŽµ', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
+  { _id: 'SV14', name: 'Videography',          icon: 'ðŸŽ¥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
+  { _id: 'SV15', name: 'Vehicle Rental',       icon: 'ðŸš—', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
+  { _id: 'SV16', name: 'Makeup Artist',        icon: 'ðŸ’„', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
 ];
 
 function mergeDefaultServices() {
@@ -165,7 +165,7 @@ function mergeDefaultServices() {
   const missing = DEFAULT_SERVICES_SNAPSHOT.filter(s => !existingIds.has(s._id));
   if (missing.length > 0) {
     services = [...services, ...missing];
-    console.log(`✅ Merged ${missing.length} new default services:`, missing.map(s => s.name).join(', '));
+    console.log(`âœ… Merged ${missing.length} new default services:`, missing.map(s => s.name).join(', '));
     saveData();
   }
 }
@@ -194,7 +194,7 @@ function mergeDefaultWorkers() {
   const missing = DEFAULT_WORKERS_SNAPSHOT.filter(w => !existingIds.has(w._id));
   if (missing.length > 0) {
     adminWorkers = [...adminWorkers, ...missing];
-    console.log(`✅ Merged ${missing.length} default workers into active list`);
+    console.log(`âœ… Merged ${missing.length} default workers into active list`);
   }
 }
 
@@ -211,15 +211,15 @@ async function loadData() {
         if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = doc.adminWorkers;
         if (doc.services && doc.services.length > 0) services = doc.services;
         if (doc.coupons && doc.coupons.length > 0) coupons = doc.coupons;
-        console.log('✅ Data loaded from MongoDB Atlas! Users:', registeredUsers.length);
+        console.log('âœ… Data loaded from MongoDB Atlas! Users:', registeredUsers.length);
         adminWorkers = applyDefaultCreds(adminWorkers);
         mergeDefaultWorkers();
         mergeDefaultServices();
-        console.log('✅ Workers loaded:', adminWorkers.length);
+        console.log('âœ… Workers loaded:', adminWorkers.length);
         return;
       }
     } catch (err) {
-      console.error('⚠️ MongoDB load failed, falling back to file:', err.message);
+      console.error('âš ï¸ MongoDB load failed, falling back to file:', err.message);
     }
   }
 
@@ -240,13 +240,13 @@ async function loadData() {
       }
     }
   } catch (error) {
-    console.error('🔥 Local Data Load Error:', error);
+    console.error('ðŸ”¥ Local Data Load Error:', error);
   }
 
   adminWorkers = applyDefaultCreds(adminWorkers);
   mergeDefaultWorkers();
   mergeDefaultServices();
-  console.log('✅ Workers loaded:', adminWorkers.length, '| Credentialed:', adminWorkers.filter(w=>w.workerId).length);
+  console.log('âœ… Workers loaded:', adminWorkers.length, '| Credentialed:', adminWorkers.filter(w=>w.workerId).length);
 }
 
 // Generate unique Worker ID + password from category
@@ -281,11 +281,11 @@ async function loadPhotos() {
           afterPhotoUploadedAt: p.afterPhotoUploadedAt || null
         };
       });
-      console.log('✅ Photos loaded from MongoDB Atlas! Count:', Object.keys(bookingPhotos).length);
+      console.log('âœ… Photos loaded from MongoDB Atlas! Count:', Object.keys(bookingPhotos).length);
 
       // Migrated local photos if database is empty
       if (photos.length === 0 && fs.existsSync(PHOTOS_FILE)) {
-        console.log('📤 Migrating local photos to MongoDB...');
+        console.log('ðŸ“¤ Migrating local photos to MongoDB...');
         const localPhotos = JSON.parse(fs.readFileSync(PHOTOS_FILE, 'utf-8') || '{}');
         for (const [bookingId, photoObj] of Object.entries(localPhotos)) {
           await BookingPhoto.findOneAndUpdate(
@@ -294,11 +294,11 @@ async function loadPhotos() {
             { upsert: true }
           );
         }
-        console.log('✅ Migration complete!');
+        console.log('âœ… Migration complete!');
       }
       return;
     } catch (err) {
-      console.error('⚠️ MongoDB photos load failed, using file fallback:', err.message);
+      console.error('âš ï¸ MongoDB photos load failed, using file fallback:', err.message);
     }
   }
 
@@ -311,9 +311,9 @@ async function loadPhotos() {
         Object.assign(bookingPhotos, parsed);
       }
     }
-    console.log('✅ Photos loaded from local file! Count:', Object.keys(bookingPhotos).length);
+    console.log('âœ… Photos loaded from local file! Count:', Object.keys(bookingPhotos).length);
   } catch (error) {
-    console.error('🔥 Local Photos Load Error:', error);
+    console.error('ðŸ”¥ Local Photos Load Error:', error);
   }
 }
 
@@ -330,7 +330,7 @@ async function savePhotos(bookingId) {
         { upsert: true, new: true }
       );
     } catch (err) {
-      console.error('⚠️ MongoDB photo save failed:', err.message);
+      console.error('âš ï¸ MongoDB photo save failed:', err.message);
     }
   }
 
@@ -338,11 +338,11 @@ async function savePhotos(bookingId) {
   try {
     fs.writeFileSync(PHOTOS_FILE, JSON.stringify(bookingPhotos, null, 2), 'utf-8');
   } catch (error) {
-    console.error('🔥 Local Photo Save Error:', error);
+    console.error('ðŸ”¥ Local Photo Save Error:', error);
   }
 }
 
-// Debounced saveData — prevents blocking API responses with heavy writes on every request
+// Debounced saveData â€” prevents blocking API responses with heavy writes on every request
 let _saveTimer = null;
 function saveData() {
   if (_saveTimer) clearTimeout(_saveTimer);
@@ -383,9 +383,9 @@ async function _doSave() {
         { key: 'main', ...dataObj },
         { upsert: true, new: true }
       );
-      return; // success — no need for file fallback
+      return; // success â€” no need for file fallback
     } catch (err) {
-      console.error('⚠️ MongoDB save failed, using file fallback:', err.message);
+      console.error('âš ï¸ MongoDB save failed, using file fallback:', err.message);
     }
   }
 
@@ -393,33 +393,33 @@ async function _doSave() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(dataObj, null, 2), 'utf-8');
   } catch (error) {
-    console.error('🔥 Local Data Save Error:', error);
+    console.error('ðŸ”¥ Local Data Save Error:', error);
   }
 }
 
-// ── Start server: connect MongoDB first, THEN load data ────────
+// â”€â”€ Start server: connect MongoDB first, THEN load data â”€â”€â”€â”€â”€â”€â”€â”€
 async function startServer() {
   // 1. Connect to MongoDB Atlas first (await it!)
   if (MONGODB_URI) {
     try {
       await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
-      console.log('✅ MongoDB Atlas connected!');
+      console.log('âœ… MongoDB Atlas connected!');
     } catch (err) {
-      console.error('❌ MongoDB connect error:', err.message);
-      console.log('⚠️  Falling back to local file storage...');
+      console.error('âŒ MongoDB connect error:', err.message);
+      console.log('âš ï¸  Falling back to local file storage...');
     }
   }
 
   // 2. Load data AFTER connection is established
   await loadData();
   await loadPhotos();
-  console.log('🔥 Initial data loaded!');
+  console.log('ðŸ”¥ Initial data loaded!');
 
   // 3. Start HTTP server
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 FixoN Server running at port ${PORT}`);
-    console.log(`   Socket.IO ready for real-time tracking ⚡\n`);
+    console.log(`\nðŸš€ FixoN Server running at port ${PORT}`);
+    console.log(`   Socket.IO ready for real-time tracking âš¡\n`);
   });
 
   // 4. Auto-save every 30 seconds
@@ -438,20 +438,20 @@ async function startServer() {
       const parsed = urlMod.parse(`${SELF_URL}/api/health`);
       const requester = parsed.protocol === 'https:' ? https : http2;
       requester.get(`${SELF_URL}/api/health`, (res) => {
-        console.log(`🏓 Keep-alive ping → ${res.statusCode}`);
+        console.log(`ðŸ“ Keep-alive ping â†’ ${res.statusCode}`);
       }).on('error', () => {});
     } catch (_) {}
   }, 14 * 60 * 1000); // every 14 minutes
 }
 
 startServer().catch(err => {
-  console.error('❌ Fatal startup error:', err);
+  console.error('âŒ Fatal startup error:', err);
   const PORT = process.env.PORT || 5000;
-  server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server started (Emergency Mode) on port ${PORT}`));
+  server.listen(PORT, '0.0.0.0', () => console.log(`ðŸš€ Server started (Emergency Mode) on port ${PORT}`));
 });
 
-// ── Socket.IO Connection Handler ──────────────────────────────
-// Maps socket.id → userId so we can detect when a customer goes offline
+// â”€â”€ Socket.IO Connection Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Maps socket.id â†’ userId so we can detect when a customer goes offline
 const socketUserMap = {};
 
 io.on('connection', (socket) => {
@@ -468,7 +468,7 @@ io.on('connection', (socket) => {
         users[userId] = { _id: userId, name: userName, email: realUser?.email || '' };
       }
       users[userId].lastSeen = new Date().toISOString();
-      console.log(`👤 Customer joined socket: ${userName} (${userId})`);
+      console.log(`ðŸ‘¤ Customer joined socket: ${userName} (${userId})`);
     }
   });
 
@@ -477,7 +477,7 @@ io.on('connection', (socket) => {
     socket.isAdmin = true;
   });
 
-  // ✅ When customer disconnects → immediately remove from live map
+  // âœ… When customer disconnects â†’ immediately remove from live map
   socket.on('disconnect', () => {
     const userId = socket.userId || socketUserMap[socket.id];
     if (userId) {
@@ -488,13 +488,13 @@ io.on('connection', (socket) => {
       if (!stillConnected) {
         delete users[userId];
         io.emit('user_offline', { userId });
-        console.log(`📴 Customer offline: ${userId}`);
+        console.log(`ðŸ“´ Customer offline: ${userId}`);
       }
     }
   });
 });
 
-// ── Periodic MongoDB Reload every 60s (so admin panel gets Render cloud bookings) ──
+// â”€â”€ Periodic MongoDB Reload every 60s (so admin panel gets Render cloud bookings) â”€â”€
 setInterval(async () => {
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
     try {
@@ -505,41 +505,41 @@ setInterval(async () => {
         if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = applyDefaultCreds(doc.adminWorkers);
       }
     } catch (e) {
-      // Silent fail — in-memory data stays valid
+      // Silent fail â€” in-memory data stays valid
     }
   }
 }, 60000);
 
-// ── Smart Bot auto-responder ───────────────────────────────
+// â”€â”€ Smart Bot auto-responder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BOT_RULES = [
   { keywords: ['booking', 'book', 'schedule', 'cancel'],
-    reply: '📅 For booking issues, you can view or cancel your bookings in the "My Bookings" tab. Need something specific?' },
+    reply: 'ðŸ“… For booking issues, you can view or cancel your bookings in the "My Bookings" tab. Need something specific?' },
   { keywords: ['payment', 'pay', 'charge', 'refund', 'money'],
-    reply: '💳 Payments are processed securely. Refunds take 3-5 business days. Would you like to speak with an admin?' },
+    reply: 'ðŸ’³ Payments are processed securely. Refunds take 3-5 business days. Would you like to speak with an admin?' },
   { keywords: ['worker', 'technician', 'plumber', 'electrician', 'late', 'delay'],
-    reply: '👷 I understand your concern! Our team is tracking the worker\'s location. An admin will update you shortly.' },
+    reply: 'ðŸ‘· I understand your concern! Our team is tracking the worker\'s location. An admin will update you shortly.' },
   { keywords: ['price', 'cost', 'charge', 'expensive', 'how much'],
-    reply: '💰 All prices are listed transparently in the app. No hidden charges ever! Visit Services to see pricing.' },
+    reply: 'ðŸ’° All prices are listed transparently in the app. No hidden charges ever! Visit Services to see pricing.' },
   { keywords: ['hello', 'hi', 'hey', 'help', 'hii'],
-    reply: '👋 Hello! Welcome to FixoN Support. How can I help you today? You can ask me about bookings, payments, or services!' },
+    reply: 'ðŸ‘‹ Hello! Welcome to FixoN Support. How can I help you today? You can ask me about bookings, payments, or services!' },
   { keywords: ['thank', 'thanks', 'okay', 'ok', 'great'],
-    reply: '😊 You\'re welcome! Is there anything else I can help you with?' },
+    reply: 'ðŸ˜Š You\'re welcome! Is there anything else I can help you with?' },
   { keywords: ['location', 'track', 'where', 'gps'],
-    reply: '📍 Your location is being tracked in real-time. Our admin can see your position to assign the nearest worker!' },
+    reply: 'ðŸ“ Your location is being tracked in real-time. Our admin can see your position to assign the nearest worker!' },
   { keywords: ['leak', 'water', 'pipe', 'tap', 'clog', 'sink', 'drain'],
-    reply: '💧 Plumbing issue detected! If you have an active water leak, please shut off your main water valve first. You can book an emergency Plumber directly from the home screen.' },
+    reply: 'ðŸ’§ Plumbing issue detected! If you have an active water leak, please shut off your main water valve first. You can book an emergency Plumber directly from the home screen.' },
   { keywords: ['shock', 'power', 'fuse', 'spark', 'wire', 'short', 'electricity'],
-    reply: '⚡ Electrical hazard! Please stay away from wet areas and do not touch exposed wires. Turn off the main circuit breaker if safe, and book a certified Electrician from our app immediately.' },
+    reply: 'âš¡ Electrical hazard! Please stay away from wet areas and do not touch exposed wires. Turn off the main circuit breaker if safe, and book a certified Electrician from our app immediately.' },
   { keywords: ['ac', 'cool', 'heat', 'compressor', 'filter', 'dripping'],
-    reply: '❄️ AC issue? If your AC is not cooling, it could be a dirty filter or low refrigerant. You can book a certified AC technician under the "AC Repair" service.' },
+    reply: 'â„ï¸ AC issue? If your AC is not cooling, it could be a dirty filter or low refrigerant. You can book a certified AC technician under the "AC Repair" service.' },
   { keywords: ['coupon', 'promo', 'discount', 'code', 'not working'],
-    reply: '🎫 Promo code issues? Ensure the code is typed in ALL CAPS (e.g. FIRST50). Also check that your cart meets the minimum order amount and the code hasn\'t expired.' },
+    reply: 'ðŸŽ« Promo code issues? Ensure the code is typed in ALL CAPS (e.g. FIRST50). Also check that your cart meets the minimum order amount and the code hasn\'t expired.' },
   { keywords: ['wallet', 'cashback', 'bonus', 'balance'],
-    reply: '👛 Wallet questions? Referral bonuses and cashbacks are auto-credited to your wallet. Wallet balance will be applied automatically on your next checkout.' },
+    reply: 'ðŸ‘› Wallet questions? Referral bonuses and cashbacks are auto-credited to your wallet. Wallet balance will be applied automatically on your next checkout.' },
   { keywords: ['bug', 'crash', 'not loading', 'error', 'slow', 'app'],
-    reply: '📱 App problem? Try restarting the app or clearing cache. If it still doesn\'t load, please reinstall the app or contact support at support@fixon.com.' },
+    reply: 'ðŸ“± App problem? Try restarting the app or clearing cache. If it still doesn\'t load, please reinstall the app or contact support at support@fixon.com.' },
   { keywords: ['contact', 'call', 'number', 'phone', 'email', 'support'],
-    reply: '📞 Contact FixoN Support directly at 1800-FIXON-00 or email us at support@fixon.com. We are available 24/7!' },
+    reply: 'ðŸ“ž Contact FixoN Support directly at 1800-FIXON-00 or email us at support@fixon.com. We are available 24/7!' },
 ];
 
 function getBotReply(message) {
@@ -547,14 +547,14 @@ function getBotReply(message) {
   for (const rule of BOT_RULES) {
     if (rule.keywords.some(k => lower.includes(k))) return rule.reply;
   }
-  return '🤖 I\'ve received your message and forwarded it to our support team. An admin will respond shortly! You can also call us at 1800-FIXON-00.';
+  return 'ðŸ¤– I\'ve received your message and forwarded it to our support team. An admin will respond shortly! You can also call us at 1800-FIXON-00.';
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  USER AUTH ROUTES (mobile app register / login)
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// Register a new user — called from mobile signup
+// Register a new user â€” called from mobile signup
 app.post('/api/auth/user/register', (req, res) => {
   const { name, email, phone, password } = req.body;
   if (!name || !email) return res.status(400).json({ success: false, error: 'Name and email required' });
@@ -581,11 +581,11 @@ app.post('/api/auth/user/register', (req, res) => {
   saveData();  // persist immediately
 
   io.emit('new_user', newUser);
-  console.log(`🆕 New user registered: ${name} (${email})`);
+  console.log(`ðŸ†• New user registered: ${name} (${email})`);
   res.json({ success: true, token: 'local_' + userId, user: newUser });
 });
 
-// Login — called from mobile login screen
+// Login â€” called from mobile login screen
 app.post('/api/auth/user/login', (req, res) => {
   const { email, password } = req.body;
   const user = registeredUsers.find(u => u.email === email);
@@ -594,7 +594,7 @@ app.post('/api/auth/user/login', (req, res) => {
   res.json({ success: true, token: 'local_' + user._id, user });
 });
 
-// ── Customer Bank Details (for refunds) ─────────────────────────
+// â”€â”€ Customer Bank Details (for refunds) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // PUT /api/user/:userId/bank-details
 app.put('/api/user/:userId/bank-details', (req, res) => {
   const { userId } = req.params;
@@ -610,7 +610,7 @@ app.put('/api/user/:userId/bank-details', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
   saveData();
-  console.log(`🏦 Bank details saved for: ${user.name} (${userId})`);
+  console.log(`ðŸ¦ Bank details saved for: ${user.name} (${userId})`);
   res.json({ success: true, message: 'Bank details saved', bankDetails: user.bankDetails });
 });
 
@@ -715,9 +715,9 @@ app.get('/api/admin/stats', (req, res) => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  LOCATION ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Customer pushes live location
 app.post('/api/location/update', (req, res) => {
@@ -738,7 +738,7 @@ app.post('/api/location/update', (req, res) => {
        email: email || realUser?.email || '' 
      };
     io.emit('new_user', users[userId]);
-    console.log(`👤 New customer registered: ${users[userId].name}`);
+    console.log(`ðŸ‘¤ New customer registered: ${users[userId].name}`);
   }
   users[userId].lat = parseFloat(lat);
   users[userId].lng = parseFloat(lng);
@@ -754,7 +754,7 @@ app.post('/api/location/update', (req, res) => {
     address: users[userId].address,
   });
 
-  console.log(`📍 Location update: ${users[userId].name} → ${lat}, ${lng}`);
+  console.log(`ðŸ“ Location update: ${users[userId].name} â†’ ${lat}, ${lng}`);
   res.json({ success: true });
 });
 
@@ -767,12 +767,12 @@ app.post('/api/location/worker', (req, res) => {
   workers[workerId].lat = parseFloat(lat);
   workers[workerId].lng = parseFloat(lng);
 
-  // ✅ Also update currentLocation in adminWorkers so the map can show workers
+  // âœ… Also update currentLocation in adminWorkers so the map can show workers
   const adminWorker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
   if (adminWorker) {
     adminWorker.currentLocation = { lat: parseFloat(lat), lng: parseFloat(lng) };
     adminWorker.isOnline = true;
-    console.log(`📍 Worker location: ${adminWorker.name} → ${lat}, ${lng}`);
+    console.log(`ðŸ“ Worker location: ${adminWorker.name} â†’ ${lat}, ${lng}`);
   }
 
   io.emit('worker_location', { workerId, lat: workers[workerId].lat, lng: workers[workerId].lng });
@@ -806,11 +806,11 @@ app.get('/api/location/customers', (req, res) => {
   res.json({ success: true, customers: liveCustomers });
 });
 
-// ══════════════════════════════════════════════════════════════
-//  BOOKING ROUTES (for mobile app — no separate backend)
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  BOOKING ROUTES (for mobile app â€” no separate backend)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// Full enrich — includes photos (used for individual booking detail/photos APIs)
+// Full enrich â€” includes photos (used for individual booking detail/photos APIs)
 function enrichBooking(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
@@ -847,7 +847,7 @@ function enrichBooking(b) {
   return bookingCopy;
 }
 
-// Light enrich — retains problemPhoto for worker/admin preview while removing heavy worker photos
+// Light enrich â€” retains problemPhoto for worker/admin preview while removing heavy worker photos
 function enrichBookingLight(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
@@ -882,7 +882,7 @@ function enrichBookingLight(b) {
   return bookingCopy;
 }
 
-// ── Upload Before/After Photos for a Booking ─────────────────
+// â”€â”€ Upload Before/After Photos for a Booking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/bookings/:id/photos', async (req, res) => {
   const bookingId = req.params.id;
   const { beforePhoto, afterPhoto, workerBeforePhoto, workerAfterPhoto, problemPhoto, customerProblemPhoto, workerNotes, completionNotes } = req.body;
@@ -938,7 +938,7 @@ app.post('/api/bookings/:id/photos', async (req, res) => {
         { upsert: true, new: true }
       );
     } catch (err) {
-      console.error('⚠️ Failed to save photo to MongoDB:', err.message);
+      console.error('âš ï¸ Failed to save photo to MongoDB:', err.message);
     }
   }
 
@@ -952,7 +952,7 @@ app.post('/api/bookings/:id/photos', async (req, res) => {
   });
 
   const photoType = beforePhoto ? 'Before' : 'After';
-  console.log(`📸 ${photoType} photo uploaded for booking ${bookingId}`);
+  console.log(`ðŸ“¸ ${photoType} photo uploaded for booking ${bookingId}`);
   res.json({ success: true, photos: bookingPhotos[bookingId], booking: b ? enrichBooking(b) : null });
 });
 
@@ -1102,7 +1102,7 @@ app.post('/api/bookings', (req, res) => {
   saveData();
 
   io.emit('new_booking', booking);
-  console.log(`📦 Booking [${booking.status}]: ${booking.service} by ${finalName}`);
+  console.log(`ðŸ“¦ Booking [${booking.status}]: ${booking.service} by ${finalName}`);
 
   res.json({ success: true, booking: enrichBooking(booking) });
 });
@@ -1125,15 +1125,15 @@ app.put('/api/bookings/:id/status', (req, res) => {
   saveData();
 
   io.emit('booking_update', { bookingId: b._id, status, booking: b });
-  console.log(`🔄 Booking ${b._id} → ${status}`);
+  console.log(`ðŸ”„ Booking ${b._id} â†’ ${status}`);
 
-  // ── Notify the assigned worker when admin confirms ──────────
+  // â”€â”€ Notify the assigned worker when admin confirms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (status === 'accepted' && workerId) {
     const assignedWorker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
     const workerNotif = {
       _id: 'WN' + Date.now(),
       workerId: workerId,
-      title: '🎉 New Booking Assigned!',
+      title: 'ðŸŽ‰ New Booking Assigned!',
       message: `You have a new ${b.service} job assigned by admin. Please check your app.`,
       type: 'new_booking',
       bookingId: b._id,
@@ -1149,17 +1149,17 @@ app.put('/api/bookings/:id/status', (req, res) => {
       booking: b,
       notification: workerNotif,
     });
-    console.log(`🔔 Worker ${assignedWorker?.name || workerId} notified about booking ${b._id}`);
+    console.log(`ðŸ”” Worker ${assignedWorker?.name || workerId} notified about booking ${b._id}`);
   }
 
-  // ── Notify customer that their booking was confirmed ────────
+  // â”€â”€ Notify customer that their booking was confirmed â”€â”€â”€â”€â”€â”€â”€â”€
   if (status === 'accepted') {
     const customerId = b.userId?._id || b.userId;
     if (customerId) {
       const custNotif = {
         _id: 'N' + Date.now(),
         userId: customerId,
-        title: '✅ Booking Confirmed!',
+        title: 'âœ… Booking Confirmed!',
         message: `Your ${b.service} booking has been confirmed. Worker is on the way!`,
         type: 'booking',
         bookingId: b._id,
@@ -1174,7 +1174,7 @@ app.put('/api/bookings/:id/status', (req, res) => {
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
-// Admin: get all bookings — always fetch latest from MongoDB if connected
+// Admin: get all bookings â€” always fetch latest from MongoDB if connected
 app.get('/api/bookings', async (req, res) => {
   // If MongoDB is connected, reload from DB to get bookings created via Render cloud
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
@@ -1193,9 +1193,9 @@ app.get('/api/bookings', async (req, res) => {
   res.json({ success: true, bookings: bookings.map(enrichBookingLight).reverse() });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  SYLLABUS STRICT ALIASING ROUTES (SECTION 17)
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // 17.1: GET /api/admin/users/count
 app.get('/api/admin/users/count', (req, res) => {
@@ -1295,7 +1295,7 @@ const handleBookingStatusUpdate = async (req, res) => {
     }
   }
 
-  // ── ATOMIC PERSIST: write to MongoDB IMMEDIATELY ──────────────────────────
+  // â”€â”€ ATOMIC PERSIST: write to MongoDB IMMEDIATELY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const cleanBookings = bookings.map(bk => {
     const copy = { ...bk };
     delete copy.beforePhoto; delete copy.afterPhoto; delete copy.problemPhoto;
@@ -1309,9 +1309,9 @@ const handleBookingStatusUpdate = async (req, res) => {
         { $set: { bookings: cleanBookings } },
         { upsert: true }
       );
-      console.log(`💾 Booking ${b._id} atomically saved to MongoDB → ${normalizedNewStatus}`);
+      console.log(`ðŸ’¾ Booking ${b._id} atomically saved to MongoDB â†’ ${normalizedNewStatus}`);
     } catch (err) {
-      console.error('⚠️ MongoDB atomic save failed:', err.message);
+      console.error('âš ï¸ MongoDB atomic save failed:', err.message);
       saveData(); // fall back to debounced save
     }
   } else {
@@ -1326,7 +1326,7 @@ const handleBookingStatusUpdate = async (req, res) => {
     io.emit('booking_status_update', { userId: customerId, bookingId: b._id, status: normalizedNewStatus, booking: enriched });
   }
 
-  console.log(`✅ Booking ${b._id} status updated → ${normalizedNewStatus}`);
+  console.log(`âœ… Booking ${b._id} status updated â†’ ${normalizedNewStatus}`);
   res.json({ success: true, booking: enriched });
 };
 
@@ -1336,9 +1336,9 @@ app.patch('/api/bookings/:id', handleBookingStatusUpdate);
 app.put('/api/bookings/:id', handleBookingStatusUpdate);
 
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  STATS ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app.get('/api/stats/customers', (req, res) => {
   res.json({
@@ -1349,9 +1349,9 @@ app.get('/api/stats/customers', (req, res) => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  WORKERS ROUTES (Admin Panel CRUD)
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app.get('/api/workers', (req, res) => {
   res.json({ success: true, workers: adminWorkers });
@@ -1365,7 +1365,7 @@ app.post('/api/workers', (req, res) => {
   res.json({ success: true, worker: w });
 });
 
-// Worker SELF-Registration (from worker app — no credentials yet, pending admin review)
+// Worker SELF-Registration (from worker app â€” no credentials yet, pending admin review)
 app.post('/api/workers/register', (req, res) => {
   const { name, email, phone, address, city, category, experience,
           aadhaarNumber, panNumber, aadhaarPhotoUrl, panPhotoUrl,
@@ -1414,7 +1414,7 @@ app.post('/api/workers/register', (req, res) => {
   adminWorkers.push(newWorker);
   saveData();
   io.emit('worker_registered', newWorker);
-  console.log(`🆕 Worker self-registered: ${name} (${phone}) — awaiting admin approval`);
+  console.log(`ðŸ†• Worker self-registered: ${name} (${phone}) â€” awaiting admin approval`);
   res.json({ success: true, worker: newWorker, message: 'Registration submitted! Admin will review within 24 hours.' });
 });
 
@@ -1449,7 +1449,7 @@ app.put('/api/workers/:id', (req, res) => {
     updated.workerId = creds.workerId;
     updated.workerPassword = creds.password;
     updated.credentialsGeneratedAt = new Date().toISOString();
-    console.log(`🔑 Credentials generated for ${updated.name}: ID=${creds.workerId} Pass=${creds.password}`);
+    console.log(`ðŸ”‘ Credentials generated for ${updated.name}: ID=${creds.workerId} Pass=${creds.password}`);
   }
 
   adminWorkers[idx] = updated;
@@ -1474,9 +1474,9 @@ app.patch('/api/workers/:id/toggle', (req, res) => {
   res.json({ success: true, worker: w });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  WORKER VERIFICATION & APP ENDPOINTS
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Worker submits document for verification (Aadhaar or PAN)
 app.post('/api/workers/:id/verify-document', (req, res) => {
@@ -1498,7 +1498,7 @@ app.post('/api/workers/:id/verify-document', (req, res) => {
   w.documentStatus = 'pending';
   saveData();
   io.emit('worker_document_submitted', { workerId: w._id, documentType, documentNumber });
-  console.log(`🪪 Document [${documentType}] submitted for worker ${w.name}`);
+  console.log(`ðŸªª Document [${documentType}] submitted for worker ${w.name}`);
   res.json({ success: true, message: 'Document submitted for review', worker: w });
 });
 
@@ -1520,7 +1520,7 @@ app.post('/api/workers/:id/approve', (req, res) => {
 
   saveData();
   io.emit('worker_approved', w);
-  console.log(`✅ Worker ${w.name} approved! ID: ${w.workerId}`);
+  console.log(`âœ… Worker ${w.name} approved! ID: ${w.workerId}`);
   res.json({ success: true, worker: w });
 });
 
@@ -1537,7 +1537,7 @@ app.post('/api/workers/:id/reject', (req, res) => {
 
   saveData();
   io.emit('worker_rejected', w);
-  console.log(`❌ Worker ${w.name} rejected: ${w.rejectionReason}`);
+  console.log(`âŒ Worker ${w.name} rejected: ${w.rejectionReason}`);
   res.json({ success: true, worker: w });
 });
 
@@ -1554,7 +1554,7 @@ app.post('/api/workers/:id/block', (req, res) => {
   }
   saveData();
   io.emit('worker_updated', w);
-  console.log(`🔒 Worker ${w.name} isBlocked: ${w.isBlocked}`);
+  console.log(`ðŸ”’ Worker ${w.name} isBlocked: ${w.isBlocked}`);
   res.json({ success: true, blocked: w.isBlocked, worker: w });
 });
 
@@ -1566,7 +1566,7 @@ app.post('/api/workers/:id/reset-password', (req, res) => {
   const newPass = 'FXN' + Math.floor(1000 + Math.random() * 9000);
   w.workerPassword = newPass;
   saveData();
-  console.log(`🔑 New password generated for worker ${w.name}: ${newPass}`);
+  console.log(`ðŸ”‘ New password generated for worker ${w.name}: ${newPass}`);
   res.json({ success: true, workerId: w.workerId, newPassword: newPass, worker: w });
 });
 
@@ -1578,7 +1578,7 @@ app.post('/api/workers/:id/approve-aadhaar', (req, res) => {
   w.aadhaarVerified = true;
   saveData();
   io.emit('worker_updated', w);
-  console.log(`🪪 Aadhaar approved for worker ${w.name}`);
+  console.log(`ðŸªª Aadhaar approved for worker ${w.name}`);
   res.json({ success: true, worker: w });
 });
 
@@ -1590,7 +1590,7 @@ app.post('/api/workers/:id/approve-pan', (req, res) => {
   w.panVerified = true;
   saveData();
   io.emit('worker_updated', w);
-  console.log(`💳 PAN approved for worker ${w.name}`);
+  console.log(`ðŸ’³ PAN approved for worker ${w.name}`);
   res.json({ success: true, worker: w });
 });
 
@@ -1702,7 +1702,7 @@ app.get('/api/worker/:id/bookings', (req, res) => {
   res.json({ success: true, bookings: myJobs.map(enrichBookingLight).reverse() });
 });
 
-// Worker Accept Booking — atomic MongoDB persist
+// Worker Accept Booking â€” atomic MongoDB persist
 app.post('/api/worker/:id/accept-booking/:bookingId', async (req, res) => {
   const workerId = req.params.id;
   const worker = adminWorkers.find(w => w._id === workerId || w.workerId === workerId);
@@ -1730,9 +1730,9 @@ app.post('/api/worker/:id/accept-booking/:bookingId', async (req, res) => {
         { $set: { bookings: cleanBookings } },
         { upsert: true }
       );
-      console.log(`💾 Booking ${b._id} ACCEPTED & saved to MongoDB`);
+      console.log(`ðŸ’¾ Booking ${b._id} ACCEPTED & saved to MongoDB`);
     } catch (err) {
-      console.error('⚠️ MongoDB atomic save failed on accept-booking:', err.message);
+      console.error('âš ï¸ MongoDB atomic save failed on accept-booking:', err.message);
       saveData();
     }
   } else {
@@ -1745,7 +1745,7 @@ app.post('/api/worker/:id/accept-booking/:bookingId', async (req, res) => {
     const custNotif = {
       _id: 'N' + Date.now(),
       userId: customerId,
-      title: '✅ Booking Accepted!',
+      title: 'âœ… Booking Accepted!',
       message: `${worker?.name || 'Worker'} has accepted your ${b.service} booking.`,
       type: 'booking',
       bookingId: b._id,
@@ -1760,7 +1760,7 @@ app.post('/api/worker/:id/accept-booking/:bookingId', async (req, res) => {
 
   // Real-time broadcast to all (Admin, Worker, Customer)
   io.emit('booking_update', { bookingId: b._id, status: 'accepted', booking: enrichBooking(b) });
-  console.log(`✅ Worker ${worker?.name || workerId} accepted booking ${b._id}`);
+  console.log(`âœ… Worker ${worker?.name || workerId} accepted booking ${b._id}`);
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
@@ -1781,7 +1781,7 @@ app.post('/api/worker/:id/reject-booking/:bookingId', (req, res) => {
   saveData();
 
   io.emit('booking_update', { bookingId: b._id, status: 'pending', booking: enrichBooking(b) });
-  console.log(`❌ Worker ${worker?.name || workerId} rejected booking ${b._id}`);
+  console.log(`âŒ Worker ${worker?.name || workerId} rejected booking ${b._id}`);
   res.json({ success: true, booking: enrichBooking(b) });
 });
 
@@ -1821,7 +1821,7 @@ app.get('/api/bookings/:id/invoice', (req, res) => {
   res.json({ success: true, invoice });
 });
 
-// Worker Update Job Status — strict one-way, atomic MongoDB-first persist
+// Worker Update Job Status â€” strict one-way, atomic MongoDB-first persist
 app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
   const b = bookings.find(x => x._id === req.params.bookingId);
   if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
@@ -1835,9 +1835,9 @@ app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
   const currentRank = STATUS_RANKS[currentNormalized] ?? 0;
   const newRank = STATUS_RANKS[newStatus] ?? 0;
 
-  // STRICT REGRESSION PREVENTION — check rank BEFORE touching b.status
+  // STRICT REGRESSION PREVENTION â€” check rank BEFORE touching b.status
   if (currentRank > newRank && newStatus !== 'cancelled') {
-    console.log(`⚠️ Regression blocked: ${currentNormalized}(${currentRank}) → ${newStatus}(${newRank})`);
+    console.log(`âš ï¸ Regression blocked: ${currentNormalized}(${currentRank}) â†’ ${newStatus}(${newRank})`);
     return res.json({ success: true, booking: enrichBooking(b), message: 'Status already advanced' });
   }
 
@@ -1859,7 +1859,7 @@ app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
     }
   }
 
-  // ── ATOMIC PERSIST: write to MongoDB IMMEDIATELY (not debounced) ──────────
+  // â”€â”€ ATOMIC PERSIST: write to MongoDB IMMEDIATELY (not debounced) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const cleanBookings = bookings.map(bk => {
     const copy = { ...bk };
     delete copy.beforePhoto; delete copy.afterPhoto; delete copy.problemPhoto;
@@ -1873,9 +1873,9 @@ app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
         { $set: { bookings: cleanBookings } },
         { upsert: true }
       );
-      console.log(`💾 Booking ${b._id} status atomically saved to MongoDB → ${newStatus}`);
+      console.log(`ðŸ’¾ Booking ${b._id} status atomically saved to MongoDB â†’ ${newStatus}`);
     } catch (err) {
-      console.error('⚠️ MongoDB atomic save failed, using file fallback:', err.message);
+      console.error('âš ï¸ MongoDB atomic save failed, using file fallback:', err.message);
       try { fs.writeFileSync(DATA_FILE, JSON.stringify({ registeredUsers, bookings: cleanBookings, messages, notificationsList, adminWorkers, services, coupons }, null, 2), 'utf-8'); } catch (_) {}
     }
   } else {
@@ -1883,14 +1883,14 @@ app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
     saveData();
   }
 
-  // ── Notify customer for each step ──────────────────────────────────────────
+  // â”€â”€ Notify customer for each step â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const customerId = b.userId?._id || b.userId;
   const notifMessages = {
-    on_the_way: { title: '🏍️ Worker On The Way!',  msg: `Your ${b.service} worker is on the way.` },
-    arrived:    { title: '📍 Worker Arrived!',       msg: `Your ${b.service} worker has arrived.` },
-    ongoing:    { title: '🔧 Work Started!',          msg: `Work has started for your ${b.service} booking.` },
-    completed:  { title: '🎉 Job Completed!',         msg: `Your ${b.service} booking has been completed!` },
-    cancelled:  { title: '❌ Booking Cancelled',      msg: `Your ${b.service} booking was cancelled.` },
+    on_the_way: { title: 'ðŸï¸ Worker On The Way!',  msg: `Your ${b.service} worker is on the way.` },
+    arrived:    { title: 'ðŸ“ Worker Arrived!',       msg: `Your ${b.service} worker has arrived.` },
+    ongoing:    { title: 'ðŸ”§ Work Started!',          msg: `Work has started for your ${b.service} booking.` },
+    completed:  { title: 'ðŸŽ‰ Job Completed!',         msg: `Your ${b.service} booking has been completed!` },
+    cancelled:  { title: 'âŒ Booking Cancelled',      msg: `Your ${b.service} booking was cancelled.` },
   };
 
   const enriched = enrichBooking(b);
@@ -1908,7 +1908,7 @@ app.post('/api/worker/:id/booking/:bookingId/:action', async (req, res) => {
   }
 
   io.emit('booking_update', { bookingId: b._id, status: newStatus, booking: enriched });
-  console.log(`🛠️ Worker updated booking ${b._id} status → ${newStatus}`);
+  console.log(`ðŸ› ï¸ Worker updated booking ${b._id} status â†’ ${newStatus}`);
   res.json({ success: true, booking: enriched });
 });
 
@@ -1925,9 +1925,9 @@ app.put('/api/worker/:id/status', (req, res) => {
   res.json({ success: true, worker: w });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  WORKER PAYOUT ROUTE
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app.get('/api/workers/:id/payouts', (req, res) => {
   const workerId = req.params.id;
@@ -1967,9 +1967,9 @@ app.get('/api/workers/:id/payouts', (req, res) => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  RATINGS ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 let ratings = []; // { _id, bookingId, workerId, rating, comment, createdAt }
 
@@ -2013,7 +2013,7 @@ app.post('/api/ratings', (req, res) => {
   }
 
   saveData();
-  console.log(`⭐ Rating: ${newRating.rating}/5 for worker ${workerId}`);
+  console.log(`â­ Rating: ${newRating.rating}/5 for worker ${workerId}`);
   res.json({ success: true, rating: newRating });
 });
 
@@ -2025,13 +2025,13 @@ app.get('/api/ratings/worker/:id', (req, res) => {
   res.json({ success: true, ratings: workerRatings, count: workerRatings.length });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  INVOICE ROUTE
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  CUSTOMER AUTHENTICATION & USER MANAGEMENT API
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// 1. GET /api/admin/users — Admin Control Panel customer list
+// 1. GET /api/admin/users â€” Admin Control Panel customer list
 app.get('/api/admin/users', async (req, res) => {
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
     try {
@@ -2047,7 +2047,7 @@ app.get('/api/admin/users', async (req, res) => {
   res.json({ success: true, users: registeredUsers });
 });
 
-// 2. POST /api/auth/user/register — Customer self-registration
+// 2. POST /api/auth/user/register â€” Customer self-registration
 app.post('/api/auth/user/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
   const cleanEmail = (email || '').trim().toLowerCase();
@@ -2081,11 +2081,11 @@ app.post('/api/auth/user/register', async (req, res) => {
   registeredUsers.push(newUser);
   await saveData();
   io.emit('new_user', newUser);
-  console.log(`👤 New customer registered: ${newUser.name} (${newUser.email} / ${newUser.phone})`);
+  console.log(`ðŸ‘¤ New customer registered: ${newUser.name} (${newUser.email} / ${newUser.phone})`);
   res.json({ success: true, token: 'token_' + newUser._id, user: newUser });
 });
 
-// 3. POST /api/auth/user/login — Customer login
+// 3. POST /api/auth/user/login â€” Customer login
 app.post('/api/auth/user/login', async (req, res) => {
   const { email, password } = req.body;
   const cleanEmail = (email || '').trim().toLowerCase();
@@ -2112,7 +2112,7 @@ app.post('/api/auth/user/login', async (req, res) => {
 
 // NOTE: /api/auth/send-otp is handled below with real SMS support
 
-// 5. POST /api/auth/verify-otp — OTP Verification & Auto Register
+// 5. POST /api/auth/verify-otp â€” OTP Verification & Auto Register
 app.post('/api/auth/verify-otp', async (req, res) => {
   const { phone, otp, name } = req.body;
   const cleanPhone = (phone || '').trim();
@@ -2137,7 +2137,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   res.json({ success: true, token: 'token_' + user._id, user });
 });
 
-// 6. PATCH /api/admin/users/:id/block — Block / Unblock Customer
+// 6. PATCH /api/admin/users/:id/block â€” Block / Unblock Customer
 app.patch('/api/admin/users/:id/block', async (req, res) => {
   const u = registeredUsers.find(x => String(x._id) === String(req.params.id));
   if (!u) return res.status(404).json({ success: false, error: 'User not found' });
@@ -2146,13 +2146,13 @@ app.patch('/api/admin/users/:id/block', async (req, res) => {
   res.json({ success: true, user: u });
 });
 
-// 7. GET /api/user/:id/bank-details — Fetch Bank Details
+// 7. GET /api/user/:id/bank-details â€” Fetch Bank Details
 app.get('/api/user/:id/bank-details', (req, res) => {
   const u = registeredUsers.find(x => String(x._id) === String(req.params.id));
   res.json({ success: true, bankDetails: u?.bankDetails || null });
 });
 
-// 8. POST /api/user/:id/bank-details — Save Bank Details
+// 8. POST /api/user/:id/bank-details â€” Save Bank Details
 app.post('/api/user/:id/bank-details', async (req, res) => {
   const u = registeredUsers.find(x => String(x._id) === String(req.params.id));
   if (!u) return res.status(404).json({ success: false, error: 'User not found' });
@@ -2235,7 +2235,7 @@ app.get('/api/bookings/:id/invoice', (req, res) => {
 
 
 
-// ── Customer-facing: always read fresh from MongoDB so Admin Panel price changes reflect immediately
+// â”€â”€ Customer-facing: always read fresh from MongoDB so Admin Panel price changes reflect immediately
 app.get('/api/services', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -2248,7 +2248,7 @@ app.get('/api/services', async (req, res) => {
         services = doc.services; // update in-memory cache
       }
     } catch (e) {
-      console.error('⚠️ Failed to refresh services from MongoDB:', e.message);
+      console.error('âš ï¸ Failed to refresh services from MongoDB:', e.message);
     }
   }
   res.json({ success: true, services: services.filter(s => s.active !== false) });
@@ -2303,7 +2303,7 @@ app.put('/api/admin/services/:id', async (req, res) => {
   
   // Real-time broadcast to all connected apps
   io.emit('services_updated', { services });
-  console.log(`✅ Service "${services[idx].name}" updated → price ₹${services[idx].price} saved to MongoDB Atlas`);
+  console.log(`âœ… Service "${services[idx].name}" updated â†’ price â‚¹${services[idx].price} saved to MongoDB Atlas`);
   
   res.json({ success: true, service: services[idx] });
 });
@@ -2316,7 +2316,7 @@ app.delete('/api/admin/services/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// ── Admin: force reload all data from MongoDB (useful after external changes)
+// â”€â”€ Admin: force reload all data from MongoDB (useful after external changes)
 app.post('/api/admin/reload-data', async (req, res) => {
   try {
     await loadData();
@@ -2326,9 +2326,9 @@ app.post('/api/admin/reload-data', async (req, res) => {
   }
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  COUPON ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // GET /api/coupons  (Supports ?userId=... for customer app filtering)
 app.get('/api/coupons', (req, res) => {
@@ -2383,7 +2383,7 @@ app.post('/api/coupons', (req, res) => {
 
   coupons.push(newCoupon);
   saveData();
-  console.log(`🎟️ New coupon created: ${cleanCode}`);
+  console.log(`ðŸŽŸï¸ New coupon created: ${cleanCode}`);
   res.json({ success: true, coupon: newCoupon });
 });
 
@@ -2413,7 +2413,7 @@ app.post('/api/admin/coupons', (req, res) => {
 
   coupons.push(newCoupon);
   saveData();
-  console.log(`🎟️ New coupon created: ${cleanCode}`);
+  console.log(`ðŸŽŸï¸ New coupon created: ${cleanCode}`);
   res.json({ success: true, coupon: newCoupon });
 });
 
@@ -2428,7 +2428,7 @@ const handleCouponToggle = (req, res) => {
 
   coupon.active = !coupon.active;
   saveData();
-  console.log(`🎟️ Coupon ${coupon.code} active state toggled to: ${coupon.active}`);
+  console.log(`ðŸŽŸï¸ Coupon ${coupon.code} active state toggled to: ${coupon.active}`);
   res.json({ success: true, coupon });
 };
 
@@ -2442,7 +2442,7 @@ const handleCouponDelete = (req, res) => {
   const cId = req.params.id;
   coupons = coupons.filter(c => String(c._id) !== String(cId) && c.code.toUpperCase() !== String(cId).toUpperCase());
   saveData();
-  console.log(`🎟️ Coupon ${cId} deleted`);
+  console.log(`ðŸŽŸï¸ Coupon ${cId} deleted`);
   res.json({ success: true });
 };
 
@@ -2480,7 +2480,7 @@ app.post('/api/coupons/apply', (req, res) => {
   // 4. Min order check
   const amount = Number(subtotal) || 0;
   if (coupon.minOrder && amount < coupon.minOrder) {
-    return res.status(400).json({ success: false, message: `Minimum order amount of ₹${coupon.minOrder} required for this coupon` });
+    return res.status(400).json({ success: false, message: `Minimum order amount of â‚¹${coupon.minOrder} required for this coupon` });
   }
 
   // Calculate discount
@@ -2506,9 +2506,9 @@ app.post('/api/coupons/apply', (req, res) => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  CHAT ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // (Duplicate route removed for clarity - defined near top of file)
 
@@ -2537,7 +2537,7 @@ app.post('/api/chat/admin-reply', (req, res) => {
   messages.push(msgObj);
   io.emit('receive_message', msgObj);
   saveData(); // Persist admin reply to MongoDB
-  console.log(`📤 Admin → ${receiverId}: ${message}`);
+  console.log(`ðŸ“¤ Admin â†’ ${receiverId}: ${message}`);
   res.json({ success: true, message: msgObj });
 });
 
@@ -2574,7 +2574,7 @@ app.post('/api/chat/send', (req, res) => {
   messages.push(msgObj);
   io.emit('receive_message', msgObj);
   saveData(); // Persist to MongoDB so Admin Panel always sees messages
-  console.log(`📩 ${users[senderId].name}: ${message}`);
+  console.log(`ðŸ“© ${users[senderId].name}: ${message}`);
 
   // Bot auto-reply
   setTimeout(() => {
@@ -2594,11 +2594,11 @@ app.post('/api/chat/send', (req, res) => {
   res.json({ success: true, message: msgObj });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  SOCKET.IO
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// Map: socketId → userId  (so we know WHICH customer disconnected)
+// Map: socketId â†’ userId  (so we know WHICH customer disconnected)
 const socketToUser = {};
 
 // Periodically clean up offline users/locations from memory (every 15s) to prevent memory leaks
@@ -2615,7 +2615,7 @@ setInterval(() => {
       if (timeSinceLastSeen > OFFLINE_THRESHOLD) {
         const activeSocket = u.socketId ? io.sockets.sockets.get(u.socketId) : null;
         if (!activeSocket) {
-          console.log(`🧹 Periodic cleanup: removing inactive customer ${u.name || userId} from memory`);
+          console.log(`ðŸ§¹ Periodic cleanup: removing inactive customer ${u.name || userId} from memory`);
           io.emit('user_offline', { userId });
           delete users[userId];
         }
@@ -2625,11 +2625,11 @@ setInterval(() => {
 }, 15000);
 
 io.on('connection', (socket) => {
-  console.log('✅ Client connected:', socket.id);
+  console.log('âœ… Client connected:', socket.id);
 
-  // Admin panel joins — send only LIVE customers (active in last 60s)
+  // Admin panel joins â€” send only LIVE customers (active in last 60s)
   socket.on('admin_join', () => {
-    console.log('👑 Admin panel connected');
+    console.log('ðŸ‘‘ Admin panel connected');
     const ONLINE_MS = 60 * 1000;
     const now = Date.now();
     Object.values(users)
@@ -2665,10 +2665,10 @@ io.on('connection', (socket) => {
     messages.push(msgObj);
     io.emit('receive_message', msgObj);
     saveData();
-    console.log(`📩 [Socket] ${users[sId].name}: ${data?.message}`);
+    console.log(`ðŸ“© [Socket] ${users[sId].name}: ${data?.message}`);
   });
 
-  // Customer app opens → register this socket ↔ userId mapping
+  // Customer app opens â†’ register this socket â†” userId mapping
   socket.on('customer_join', (data) => {
     const userId = data?.userId;
     if (userId) {
@@ -2680,32 +2680,32 @@ io.on('connection', (socket) => {
       }
       users[userId].socketId = socket.id;
       users[userId].lastSeen = new Date().toISOString();
-      console.log(`👤 Customer online: ${users[userId].name} (${userId})`);
+      console.log(`ðŸ‘¤ Customer online: ${users[userId].name} (${userId})`);
     }
   });
 
-  // Client disconnects → immediately mark customer offline
+  // Client disconnects â†’ immediately mark customer offline
   socket.on('disconnect', () => {
     const userId = socketToUser[socket.id];
     if (userId && users[userId]) {
       // ONLY mark offline / delete if this socket is the active one for the user (prevents race conditions)
       if (users[userId].socketId === socket.id) {
-        console.log(`📴 Customer offline: ${users[userId].name} (${userId})`);
+        console.log(`ðŸ“´ Customer offline: ${users[userId].name} (${userId})`);
         io.emit('user_offline', { userId });
         delete users[userId]; // Delete from users map completely to free memory
       } else {
-        console.log(`ℹ️ Socket disconnect ignored for user ${userId} (reconnected on socket: ${users[userId].socketId})`);
+        console.log(`â„¹ï¸ Socket disconnect ignored for user ${userId} (reconnected on socket: ${users[userId].socketId})`);
       }
     }
     delete socketToUser[socket.id];
-    console.log('❌ Disconnected:', socket.id);
+    console.log('âŒ Disconnected:', socket.id);
   });
 });
 
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  COUPONS ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app.get(['/api/coupons', '/api/admin/coupons'], (req, res) => {
   res.json({ success: true, coupons });
@@ -2746,7 +2746,7 @@ app.post('/api/coupons/apply', (req, res) => {
   const coupon = coupons.find(c => c.code === code?.toUpperCase() && c.active);
   if (!coupon) return res.status(404).json({ success: false, error: 'Invalid or expired coupon' });
   if (new Date(coupon.expiry) < new Date()) return res.status(400).json({ success: false, error: 'Coupon expired' });
-  if (coupon.minOrder && orderAmount < coupon.minOrder) return res.status(400).json({ success: false, error: `Minimum order ₹${coupon.minOrder} required` });
+  if (coupon.minOrder && orderAmount < coupon.minOrder) return res.status(400).json({ success: false, error: `Minimum order â‚¹${coupon.minOrder} required` });
 
   const discount = coupon.type === 'percent'
     ? Math.round((orderAmount * coupon.discount) / 100)
@@ -2757,9 +2757,9 @@ app.post('/api/coupons/apply', (req, res) => {
   res.json({ success: true, discount, finalAmount: orderAmount - discount, coupon });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  REFERRAL ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app.post('/api/referral/generate', (req, res) => {
   const { userId } = req.body;
@@ -2784,14 +2784,14 @@ app.post('/api/referral/apply', (req, res) => {
 
   saveData();
   io.emit('referral_bonus', { referrerId: referrer._id, newUserId, bonus: 50 });
-  res.json({ success: true, message: 'Both users credited ₹50!' });
+  res.json({ success: true, message: 'Both users credited â‚¹50!' });
 });
 
 // (Invoice route is defined above at /api/bookings/:id/invoice)
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  WORKER PAYOUT ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 app.get('/api/workers/:id/payouts', (req, res) => {
   const worker = adminWorkers.find(w => w._id === req.params.id);
@@ -2832,13 +2832,13 @@ app.get('/api/admin/payouts', (req, res) => {
   res.json({ success: true, payouts: payoutSummary });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  OTP LOGIN ROUTES
-//  ─ Real SMS via Fast2SMS when FAST2SMS_KEY env var is set
-//  ─ Falls back to console/response mode for local development
-// ══════════════════════════════════════════════════════════════
+//  â”€ Real SMS via Fast2SMS when FAST2SMS_KEY env var is set
+//  â”€ Falls back to console/response mode for local development
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-const otpStore = {}; // phone → { otp, expires, sentAt }
+const otpStore = {}; // phone â†’ { otp, expires, sentAt }
 const FAST2SMS_KEY = process.env.FAST2SMS_KEY || '';
 const IS_PROD = !!FAST2SMS_KEY;
 
@@ -2880,23 +2880,23 @@ app.post('/api/auth/send-otp', async (req, res) => {
   otpStore[phone] = { otp, expires: Date.now() + 5 * 60 * 1000, sentAt: Date.now() };
 
   if (IS_PROD) {
-    // ── Real SMS ──────────────────────────────────────────────
+    // â”€â”€ Real SMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     try {
       await sendSmsOtp(phone, otp);
-      console.log(`📱 Real SMS OTP sent to ${phone}`);
-      // ⚠️ Never return OTP in production
+      console.log(`ðŸ“± Real SMS OTP sent to ${phone}`);
+      // âš ï¸ Never return OTP in production
       res.json({ success: true, message: `OTP sent to +91 ${phone}` });
     } catch (err) {
       console.error('SMS Error:', err.message);
       res.status(500).json({ success: false, error: 'Failed to send SMS. Check Fast2SMS key or balance.' });
     }
   } else {
-    // ── Development mode: return OTP in response ──────────────
-    console.log(`📱 [DEV] OTP for ${phone}: ${otp}  (Set FAST2SMS_KEY to enable real SMS)`);
+    // â”€â”€ Development mode: return OTP in response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    console.log(`ðŸ“± [DEV] OTP for ${phone}: ${otp}  (Set FAST2SMS_KEY to enable real SMS)`);
     res.json({
       success: true,
       message: `[DEV MODE] OTP generated for ${phone}`,
-      otp,           // ← Only in dev! Removed in production
+      otp,           // â† Only in dev! Removed in production
       dev: true,
     });
   }
@@ -2916,7 +2916,7 @@ app.post('/api/auth/verify-otp', (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid OTP. Please try again.' });
   }
 
-  delete otpStore[phone]; // Consume OTP — one-time use
+  delete otpStore[phone]; // Consume OTP â€” one-time use
   let user = registeredUsers.find(u => u.phone === phone);
   if (!user) {
     const userId = 'U' + Date.now();
@@ -2934,16 +2934,16 @@ app.post('/api/auth/verify-otp', (req, res) => {
     };
     registeredUsers.push(user);
     saveData();
-    console.log(`🆕 New user via OTP: ${user.name} (${phone})`);
+    console.log(`ðŸ†• New user via OTP: ${user.name} (${phone})`);
   } else {
-    console.log(`✅ OTP login: ${user.name} (${phone})`);
+    console.log(`âœ… OTP login: ${user.name} (${phone})`);
   }
   res.json({ success: true, token: 'local_' + user._id, user });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  CITIES & WORKER FILTERING
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const CITIES = ['Hyderabad', 'Warangal', 'Karimnagar', 'Nizamabad', 'Khammam', 'Nalgonda', 'Suryapet'];
 
@@ -2960,22 +2960,22 @@ app.get('/api/workers/city/:city', (req, res) => {
   res.json({ success: true, workers: cityWorkers });
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  FCM PUSH NOTIFICATION TOKEN STORAGE
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-const fcmTokens = {}; // userId → fcmToken
+const fcmTokens = {}; // userId â†’ fcmToken
 
 app.post('/api/notifications/register', (req, res) => {
   const { userId, fcmToken } = req.body;
   if (userId && fcmToken) {
     fcmTokens[userId] = fcmToken;
-    console.log(`🔔 FCM token registered for user ${userId}`);
+    console.log(`ðŸ”” FCM token registered for user ${userId}`);
   }
   res.json({ success: true });
 });
 
-// GET /api/notifications — supports ?userId= filter for mobile apps
+// GET /api/notifications â€” supports ?userId= filter for mobile apps
 app.get('/api/notifications', (req, res) => {
   const { userId } = req.query;
   let filtered = notificationsList;
@@ -2984,11 +2984,11 @@ app.get('/api/notifications', (req, res) => {
       !n.userId || n.userId === 'all' || n.userId === userId
     );
   }
-  console.log(`🔍 GET /api/notifications → userId=${userId || 'all'}, count=${filtered.length}`);
+  console.log(`ðŸ” GET /api/notifications â†’ userId=${userId || 'all'}, count=${filtered.length}`);
   res.json({ success: true, notifications: filtered });
 });
 
-// POST /api/notifications/send — supports targeting: userId, workerId, or broadcast to 'all'
+// POST /api/notifications/send â€” supports targeting: userId, workerId, or broadcast to 'all'
 app.post('/api/notifications/send', (req, res) => {
   const { userId, workerId, title, body, message, type, targetType } = req.body;
   const notifBody = body || message || '';
@@ -3001,7 +3001,7 @@ app.post('/api/notifications/send', (req, res) => {
     body: notifBody,
     type: type || 'general',
     read: false,
-    icon: type === 'promo' ? '🎁' : type === 'booking' ? '📦' : type === 'worker' ? '👷' : type === 'emergency' ? '🚨' : '📢',
+    icon: type === 'promo' ? 'ðŸŽ' : type === 'booking' ? 'ðŸ“¦' : type === 'worker' ? 'ðŸ‘·' : type === 'emergency' ? 'ðŸš¨' : 'ðŸ“¢',
     createdAt: new Date().toISOString(),
   };
 
@@ -3016,23 +3016,23 @@ app.post('/api/notifications/send', (req, res) => {
     io.emit('booking_status_update', { userId, notification: newNotif });
   }
 
-  console.log(`🔔 Notification [${newNotif.type}] → ${userId || workerId || 'ALL'}: "${title}"`);
+  console.log(`ðŸ”” Notification [${newNotif.type}] â†’ ${userId || workerId || 'ALL'}: "${title}"`);
   res.json({ success: true, notification: newNotif });
 });
 
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  PREMIUM ADDITIONS: PHOTOS, VERIFICATION, CHAT & AI
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // (Primary photo upload route is defined earlier at line ~732)
 
-// 2. Submit Worker Document Verification — supports separate Aadhaar and PAN
+// 2. Submit Worker Document Verification â€” supports separate Aadhaar and PAN
 app.post('/api/workers/:id/verify-document', (req, res) => {
   const { documentType, documentNumber, documentFrontUrl, documentBackUrl } = req.body;
   // Find worker by _id OR workerId (so worker app can send either)
   const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
   if (!w) {
-    console.log(`❌ verify-document: worker not found for id=${req.params.id}`);
+    console.log(`âŒ verify-document: worker not found for id=${req.params.id}`);
     return res.status(404).json({ success: false, error: 'Worker not found. Make sure you are logged in to the worker app.' });
   }
 
@@ -3066,7 +3066,7 @@ app.post('/api/workers/:id/verify-document', (req, res) => {
 
   saveData();
   io.emit('worker_updated', w);
-  console.log(`📋 ${documentType} document submitted by worker: ${w.name} (${w._id})`);
+  console.log(`ðŸ“‹ ${documentType} document submitted by worker: ${w.name} (${w._id})`);
   res.json({ success: true, worker: w });
 });
 
@@ -3118,7 +3118,7 @@ app.post('/api/admin/workers/:id/approve', (req, res) => {
 
   saveData();
   io.emit('worker_updated', w);
-  console.log(`✅ Worker APPROVED: ${w.name} → ID: ${w.workerId} / Pass: ${w.workerPassword}`);
+  console.log(`âœ… Worker APPROVED: ${w.name} â†’ ID: ${w.workerId} / Pass: ${w.workerPassword}`);
   res.json({ success: true, worker: w });
 });
 
@@ -3139,7 +3139,7 @@ app.post('/api/admin/workers/:id/reject', (req, res) => {
 
   saveData();
   io.emit('worker_updated', w);
-  console.log(`❌ Worker REJECTED: ${w.name}`);
+  console.log(`âŒ Worker REJECTED: ${w.name}`);
   res.json({ success: true, worker: w });
 });
 
@@ -3158,7 +3158,7 @@ app.post('/api/admin/workers/:id/block', (req, res) => {
   }
   saveData();
   io.emit('worker_updated', w);
-  console.log(`🔒 Worker ${w.isBlocked ? 'BLOCKED' : 'UNBLOCKED'}: ${w.name}`);
+  console.log(`ðŸ”’ Worker ${w.isBlocked ? 'BLOCKED' : 'UNBLOCKED'}: ${w.name}`);
   res.json({ success: true, blocked: w.isBlocked, worker: w });
 });
 
@@ -3171,7 +3171,7 @@ app.post('/api/admin/workers/:id/reset-password', (req, res) => {
   w.workerPassword = newPassword;
   w.passwordResetAt = new Date().toISOString();
   saveData();
-  console.log(`🔑 Password reset for worker ${w.name}: ${newPassword}`);
+  console.log(`ðŸ”‘ Password reset for worker ${w.name}: ${newPassword}`);
   res.json({ success: true, newPassword, workerId: w.workerId, worker: w });
 });
 
@@ -3212,7 +3212,7 @@ app.post('/api/chat/send-private', (req, res) => {
 
   messages.push(msgObj);
   io.emit('receive_message', msgObj);
-  console.log(`💬 Private Msg: ${senderName || senderId} → ${receiverId}: ${message}`);
+  console.log(`ðŸ’¬ Private Msg: ${senderName || senderId} â†’ ${receiverId}: ${message}`);
 
   if (receiverId === 'bot') {
     setTimeout(() => {
@@ -3290,12 +3290,12 @@ app.post('/api/ai/detect-issue', async (req, res) => {
 
       return res.json({ success: true, analysis });
     } catch (err) {
-      console.error('🔥 Real Gemini API Error:', err);
+      console.error('ðŸ”¥ Real Gemini API Error:', err);
     }
   }
 
   // Fallback simulator mode (highly realistic responses for testing)
-  console.log('🤖 [AI] Using Mock Intelligent Diagnosis Mode');
+  console.log('ðŸ¤– [AI] Using Mock Intelligent Diagnosis Mode');
   await new Promise(resolve => setTimeout(resolve, 1500));
 
   const mockDiagnoses = [
@@ -3328,9 +3328,9 @@ app.post('/api/ai/detect-issue', async (req, res) => {
 
 
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  WORKER APP ROUTES
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Helper: generate worker ID & password
 function generateWorkerCredentials(category, existingCount) {
@@ -3364,7 +3364,7 @@ app.post('/api/worker/login', (req, res) => {
   saveData();
   io.emit('worker_status', { workerId: w._id, isOnline: true });
 
-  console.log(`👷 Worker login: ${w.name} (${w.workerId})`);
+  console.log(`ðŸ‘· Worker login: ${w.name} (${w.workerId})`);
   res.json({ success: true, token: 'worker_' + w._id, worker: w });
 });
 
@@ -3404,203 +3404,14 @@ app.get('/api/worker/:id/dashboard', (req, res) => {
   });
 });
 
-// W3. Get Worker's Bookings
-app.get('/api/worker/:id/bookings', (req, res) => {
-  const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
-  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
+// NOTE: Worker routes W3-W11 previously duplicated here have been removed.
+// The primary comprehensive worker routes are defined earlier in this file
+// at lines ~1654-1926 with full Socket.IO, MongoDB atomic save, and notification support.
 
-  const myBookings = bookings.filter(b => {
-    const wId = b.workerId?._id || b.workerId;
-    return wId === w._id;
-  });
-  res.json({ success: true, bookings: mybookings.map(enrichBookingLight) });
-});
+// Worker routes W4-W11 have been consolidated into the primary handler section above.
 
-// W4. Get Pending Bookings (for worker's category — new bookings to accept)
-app.get('/api/worker/:id/pending-bookings', (req, res) => {
-  const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
-  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
 
-  const pending = bookings.filter(b => {
-    const cat = b.category || b.service || '';
-    const matches = cat.toLowerCase().includes(w.category.toLowerCase()) ||
-                    w.category.toLowerCase().includes(cat.toLowerCase()) ||
-                    (w.skills || []).some(s => cat.toLowerCase().includes(s.toLowerCase()));
-    
-    // Check if worker has already rejected this booking
-    const hasRejected = b.rejectedBy && (b.rejectedBy.includes(w._id) || b.rejectedBy.includes(w.workerId));
-    
-    return b.status === 'pending' && !b.workerId && matches && !hasRejected;
-  });
-  res.json({ success: true, bookings: pending.map(enrichBookingLight) });
-});
-
-// W5. Accept Booking
-app.post('/api/worker/:wId/accept-booking/:bookingId', (req, res) => {
-  console.log(`📥 [API] Worker Accept Booking requested: wId=${req.params.wId}, bookingId=${req.params.bookingId}`);
-  const w = adminWorkers.find(x => x._id === req.params.wId || x.workerId === req.params.wId);
-  if (!w) {
-    console.log(`❌ Worker not found for ID: ${req.params.wId}`);
-    return res.status(404).json({ success: false, error: 'Worker not found' });
-  }
-
-  const b = bookings.find(x => x._id === req.params.bookingId);
-  if (!b) {
-    console.log(`❌ Booking not found for ID: ${req.params.bookingId}`);
-    return res.status(404).json({ success: false, error: 'Booking not found' });
-  }
-  if (b.status !== 'pending') {
-    console.log(`❌ Booking ${b._id} cannot be accepted. Current status: ${b.status}`);
-    return res.status(400).json({ success: false, error: 'Booking already taken' });
-  }
-
-  b.workerId = { _id: w._id, name: w.name, phone: w.phone, rating: w.rating };
-  b.status = 'accepted';
-  b.acceptedAt = new Date().toISOString();
-  w.isAvailable = false;
-
-  saveData();
-  io.emit('booking_update', { bookingId: b._id, status: 'accepted', booking: b });
-  io.emit('worker_updated', w);
-
-  // Notify customer
-  const notif = {
-    _id: 'N' + Date.now(),
-    userId: b.userId?._id || b.userId,
-    title: '✅ Worker Assigned!',
-    message: `${w.name} has accepted your booking and is on the way!`,
-    type: 'booking',
-    bookingId: b._id,
-    createdAt: new Date().toISOString(),
-    read: false,
-  };
-  notificationsList.push(notif);
-  io.emit('new_notification', notif);
-
-  console.log(`👷 ${w.name} accepted booking ${b._id}`);
-  res.json({ success: true, booking: b });
-});
-
-// W6. Reject Booking
-app.post('/api/worker/:wId/reject-booking/:bookingId', (req, res) => {
-  console.log(`📥 [API] Worker Reject Booking requested: wId=${req.params.wId}, bookingId=${req.params.bookingId}`);
-  const w = adminWorkers.find(x => x._id === req.params.wId || x.workerId === req.params.wId);
-  if (!w) {
-    console.log(`❌ Worker not found for ID: ${req.params.wId}`);
-    return res.status(404).json({ success: false, error: 'Worker not found' });
-  }
-
-  const b = bookings.find(x => x._id === req.params.bookingId);
-  if (!b) {
-    console.log(`❌ Booking not found for ID: ${req.params.bookingId}`);
-    return res.status(404).json({ success: false, error: 'Booking not found' });
-  }
-
-  // Just skip — booking stays pending for another worker
-  b.rejectedBy = b.rejectedBy || [];
-  if (!b.rejectedBy.includes(w._id)) {
-    b.rejectedBy.push(w._id);
-  }
-
-  saveData();
-  console.log(`❌ ${w.name} rejected booking ${b._id}`);
-  res.json({ success: true, message: 'Booking skipped' });
-});
-
-// W7. Mark Booking as On The Way
-app.post('/api/worker/:wId/booking/:bookingId/on-the-way', (req, res) => {
-  const w = adminWorkers.find(x => x._id === req.params.wId || x.workerId === req.params.wId);
-  const b = bookings.find(x => x._id === req.params.bookingId);
-  if (!w || !b) return res.status(404).json({ success: false, error: 'Not found' });
-
-  b.status = 'on_the_way';
-  b.onTheWayAt = new Date().toISOString();
-  saveData();
-  io.emit('booking_update', { bookingId: b._id, status: 'on_the_way', booking: b });
-
-  const notif = {
-    _id: 'N' + Date.now(),
-    userId: b.userId?._id || b.userId,
-    title: '🏍️ Worker On The Way!',
-    message: `${w.name} is heading to your location now.`,
-    type: 'booking',
-    bookingId: b._id,
-    createdAt: new Date().toISOString(),
-    read: false,
-  };
-  notificationsList.push(notif);
-  io.emit('new_notification', notif);
-
-  res.json({ success: true, booking: b });
-});
-
-// W8. Start Work (ongoing)
-app.post('/api/worker/:wId/booking/:bookingId/start', (req, res) => {
-  const b = bookings.find(x => x._id === req.params.bookingId);
-  if (!b) return res.status(404).json({ success: false, error: 'Booking not found' });
-  b.status = 'ongoing';
-  b.startedAt = new Date().toISOString();
-  saveData();
-  io.emit('booking_update', { bookingId: b._id, status: 'ongoing', booking: b });
-  res.json({ success: true, booking: b });
-});
-
-// W9. Complete Booking
-app.post('/api/worker/:wId/booking/:bookingId/complete', (req, res) => {
-  const w = adminWorkers.find(x => x._id === req.params.wId || x.workerId === req.params.wId);
-  const b = bookings.find(x => x._id === req.params.bookingId);
-  if (!w || !b) return res.status(404).json({ success: false, error: 'Not found' });
-
-  b.status = 'completed';
-  b.completedAt = new Date().toISOString();
-  w.isAvailable = true;
-
-  // Update worker stats
-  w.totalEarnings = (w.totalEarnings || 0) + Math.round((b.price || 0) * 0.8);
-  w.completedJobs = (w.completedJobs || 0) + 1;
-
-  saveData();
-  io.emit('booking_update', { bookingId: b._id, status: 'completed', booking: b });
-  io.emit('worker_updated', w);
-
-  const notif = {
-    _id: 'N' + Date.now(),
-    userId: b.userId?._id || b.userId,
-    title: '🎉 Service Completed!',
-    message: `${w.name} has completed your service. Please rate your experience!`,
-    type: 'booking',
-    bookingId: b._id,
-    createdAt: new Date().toISOString(),
-    read: false,
-  };
-  notificationsList.push(notif);
-  io.emit('new_notification', notif);
-
-  console.log(`✅ ${w.name} completed booking ${b._id}`);
-  res.json({ success: true, booking: b });
-});
-
-// W10. Toggle Online / Offline
-app.put('/api/worker/:id/status', (req, res) => {
-  const { isOnline } = req.body;
-  const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
-  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
-  w.isOnline = isOnline;
-  w.isAvailable = isOnline;
-  w.lastSeen = new Date().toISOString();
-  saveData();
-  io.emit('worker_status', { workerId: w._id, isOnline });
-  res.json({ success: true, worker: w });
-});
-
-// W11. Get Worker Profile
-app.get('/api/worker/:id/profile', (req, res) => {
-  const w = adminWorkers.find(x => x._id === req.params.id || x.workerId === req.params.id);
-  if (!w) return res.status(404).json({ success: false, error: 'Worker not found' });
-  res.json({ success: true, worker: w });
-});
-
-// ── Health check ─────────────────────────────────────────────
+// â”€â”€ Health check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',

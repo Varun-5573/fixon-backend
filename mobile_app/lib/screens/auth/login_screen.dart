@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  final _emailCtrl    = TextEditingController(text: 'pittala@gmail.com');
-  final _passwordCtrl = TextEditingController(text: 'Password@123');
+  final _emailCtrl    = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   
   // OTP Fields
   final _phoneCtrl    = TextEditingController();
@@ -52,12 +52,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _login() async {
     setState(() => _error = null);
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+    if (email.isEmpty) { setState(() => _error = 'Please enter your email address'); return; }
+    if (password.isEmpty) { setState(() => _error = 'Please enter your password'); return; }
     final auth = context.read<AuthProvider>();
-    final ok = await auth.login(_emailCtrl.text.trim(), _passwordCtrl.text);
+    final ok = await auth.login(email, password);
     if (ok && mounted) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     } else if (mounted) {
-      setState(() => _error = 'Invalid credentials. Try pittala@gmail.com / Password@123');
+      setState(() => _error = 'Invalid email or password. Please check and try again.');
     }
   }
 

@@ -48,43 +48,29 @@ class AuthProvider extends ChangeNotifier {
           return true;
         }
       }
-
-      // If user not registered yet, auto-register them seamlessly!
-      if (res.statusCode == 401 || res.statusCode == 404) {
-        final regSuccess = await register(
-          email.contains('@') ? email.split('@')[0] : 'Customer',
-          email,
-          '9876543210',
-          password,
-        );
-        if (regSuccess) {
-          _loading = false; notifyListeners();
-          return true;
-        }
-      }
     } catch (e) {
-      print('❌ LOGIN ERROR: $e');
-      if (email.isNotEmpty) {
-        _token = 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
-        _user = {'_id': 'U_${DateTime.now().millisecondsSinceEpoch}', 'name': email.split('@')[0], 'email': email, 'phone': '9876543210'};
-        final p = await SharedPreferences.getInstance();
-        await p.setString('fixon_token', _token!);
-        await p.setString('fixon_user', jsonEncode(_user));
-        _loading = false; notifyListeners();
-        return true;
-      }
+      debugPrint('❌ LOGIN ERROR: $e');
     }
     _loading = false; notifyListeners();
     return false;
   }
 
-  Future<bool> register(String name, String email, String phone, String password) async {
+  Future<bool> register(String name, String email, String phone, String password, {String? firstName, String? lastName}) async {
     _loading = true; notifyListeners();
     try {
+      final fName = firstName ?? (name.contains(' ') ? name.split(' ').first : name);
+      final lName = lastName ?? (name.contains(' ') ? name.split(' ').skip(1).join(' ') : '');
       final res = await http.post(
         Uri.parse('$kBaseUrl/api/auth/user/register'),
         headers: kHeaders,
-        body: jsonEncode({'name': name, 'email': email, 'phone': phone, 'password': password}),
+        body: jsonEncode({
+          'name': name,
+          'firstName': fName,
+          'lastName': lName,
+          'email': email,
+          'phone': phone,
+          'password': password,
+        }),
       ).timeout(const Duration(seconds: 15));
       
       if (res.statusCode == 200 || res.statusCode == 201) {
@@ -98,27 +84,15 @@ class AuthProvider extends ChangeNotifier {
           _loading = false; notifyListeners();
           return true;
         }
+        // Show backend error to user
+        _loading = false; notifyListeners();
+        return false;
       }
     } catch (e) {
-      print('❌ REGISTER ERROR: $e');
+      debugPrint('❌ REGISTER ERROR: $e');
     }
-
-    // Fail-safe registration: create user session so user can ALWAYS register seamlessly!
-    _token = 'local_token_${DateTime.now().millisecondsSinceEpoch}';
-    _user = {
-      '_id': 'U_${DateTime.now().millisecondsSinceEpoch}',
-      'name': name.isNotEmpty ? name : 'Customer',
-      'email': email,
-      'phone': phone,
-      'createdAt': DateTime.now().toIso8601String()
-    };
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setString('fixon_token', _token!);
-      await p.setString('fixon_user', jsonEncode(_user));
-    } catch (_) {}
     _loading = false; notifyListeners();
-    return true;
+    return false;
   }
 
   Future<String?> sendOtp(String phone) async {

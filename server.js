@@ -621,41 +621,44 @@ app.get('/api/user/:userId/bank-details', (req, res) => {
   res.json({ success: true, bankDetails: user.bankDetails || null });
 });
 
-// Admin: get all registered, active, and chatting users
-app.get('/api/admin/users', (req, res) => {
+// Admin: get all registered, active, booking, and chatting users
+const getAdminUsersHandler = (req, res) => {
   const userMap = {};
 
   // 1. Populate registered users
   registeredUsers.forEach(u => {
-    const liveInfo = users[u._id];
+    if (!u || !u._id) return;
+    const sId = String(u._id);
+    const liveInfo = users[sId] || users[u._id];
     const isOnline = liveInfo && liveInfo.lastSeen 
       ? (new Date() - new Date(liveInfo.lastSeen) < 60000)
       : false;
 
-    userMap[u._id] = {
+    userMap[sId] = {
       ...u,
+      _id: sId,
       location: liveInfo 
         ? { lat: liveInfo.lat, lng: liveInfo.lng, address: liveInfo.address || u.location?.address || '' } 
         : (u.location || {}),
       isOnline,
       lastSeen: liveInfo ? liveInfo.lastSeen : (u.lastSeen || null),
-      totalBookings: bookings.filter(b => b.userId?._id === u._id).length,
     };
   });
 
   // 2. Add active users (live location tracks)
   Object.values(users).forEach(u => {
-    if (!userMap[u._id]) {
+    if (!u || !u._id) return;
+    const sId = String(u._id);
+    if (!userMap[sId]) {
       const isOnline = u.lastSeen ? (new Date() - new Date(u.lastSeen) < 60000) : false;
-      userMap[u._id] = {
-        _id: u._id,
+      userMap[sId] = {
+        _id: sId,
         name: u.name || 'Customer',
         email: u.email || '',
         phone: u.phone || '',
         location: { lat: u.lat, lng: u.lng, address: u.address || '' },
         isOnline,
         lastSeen: u.lastSeen,
-        totalBookings: bookings.filter(b => b.userId?._id === u._id).length,
         isBlocked: false,
         createdAt: u.lastSeen || new Date().toISOString(),
       };
@@ -664,27 +667,62 @@ app.get('/api/admin/users', (req, res) => {
 
   // 3. Add chatting users from messages history
   messages.forEach(m => {
-    const senderId = m.senderId;
+    const senderId = m.senderId ? String(m.senderId) : null;
     if (senderId && senderId !== 'admin' && senderId !== 'bot' && !userMap[senderId]) {
       const liveInfo = users[senderId];
       const isOnline = liveInfo && liveInfo.lastSeen ? (new Date() - new Date(liveInfo.lastSeen) < 120000) : false;
       userMap[senderId] = {
         _id: senderId,
-        name: m.name || ('Customer ' + senderId.slice(-4)),
-        email: senderId + '@fixon.com',
-        phone: '',
+        name: m.senderName || m.name || ('Customer ' + senderId.slice(-4)),
+        email: m.senderEmail || (senderId + '@fixon.com'),
+        phone: m.senderPhone || '',
         location: liveInfo ? { lat: liveInfo.lat, lng: liveInfo.lng, address: liveInfo.address || '' } : {},
         isOnline,
         lastSeen: liveInfo ? liveInfo.lastSeen : null,
-        totalBookings: bookings.filter(b => b.userId?._id === senderId).length,
         isBlocked: false,
         createdAt: m.createdAt || new Date().toISOString(),
       };
     }
   });
 
-  res.json({ success: true, users: Object.values(userMap) });
-});
+  // 4. Add customers from bookings array
+  bookings.forEach(b => {
+    const uId = b.userId?._id ? String(b.userId._id) : (b.userId ? String(b.userId) : null);
+    if (uId && uId !== 'undefined' && uId !== 'null' && !userMap[uId]) {
+      const liveInfo = users[uId];
+      userMap[uId] = {
+        _id: uId,
+        name: b.userId?.name || b.userName || ('Customer ' + uId.slice(-4)),
+        email: b.userId?.email || b.userEmail || '',
+        phone: b.userId?.phone || b.userPhone || '',
+        location: b.location || {},
+        isOnline: liveInfo ? (new Date() - new Date(liveInfo.lastSeen) < 60000) : false,
+        lastSeen: liveInfo ? liveInfo.lastSeen : null,
+        isBlocked: false,
+        createdAt: b.createdAt || new Date().toISOString()
+      };
+    }
+  });
+
+  // 5. Calculate totalBookings for each customer accurately
+  const userList = Object.values(userMap).map(u => {
+    const count = bookings.filter(b => {
+      const bUserId = b.userId?._id ? String(b.userId._id) : (b.userId ? String(b.userId) : null);
+      const bPhone = b.userId?.phone || b.userPhone;
+      return (bUserId === u._id) || (u.phone && bPhone === u.phone);
+    }).length;
+
+    return {
+      ...u,
+      totalBookings: count
+    };
+  });
+
+  res.json({ success: true, users: userList });
+};
+
+app.get('/api/admin/users', getAdminUsersHandler);
+app.get('/api/users', getAdminUsersHandler);
 
 // Admin: get user count
 app.get('/api/admin/users/count', (req, res) => {

@@ -4,7 +4,7 @@ import axios from 'axios';
 //  PRODUCTION BACKEND — Back4app (free, always-on, no laptop needed)
 //  Local dev: Electron / localhost admin panel uses localhost:5000
 // ══════════════════════════════════════════════════════════════
-const PRODUCTION_URL = 'https://witty-moose-march.loca.lt';
+const PRODUCTION_URL = 'https://fixon-backend.onrender.com';
 
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 

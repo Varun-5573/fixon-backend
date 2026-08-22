@@ -32,6 +32,14 @@ api.interceptors.response.use(
   e => Promise.reject(e.response?.data || { message: 'Network error' })
 );
 
+const fetchCloud = async (path, timeoutMs = 4000) => {
+  try {
+    const res = await axios.get(`${CLOUD}${path}`, { timeout: timeoutMs });
+    if (res.data && typeof res.data === 'object') return res.data;
+  } catch {}
+  return null;
+};
+
 // ─── Demo Data ────────────────────────────────────────────
 const DEMO_USERS = [
   { _id: 'u1', name: 'Adithya Varun', email: 'pittala@gmail.com', phone: '9876543210', isBlocked: false, totalBookings: 5, createdAt: new Date().toISOString(), location: { lat: 17.412, lng: 78.455 } },
@@ -132,10 +140,8 @@ export const adminApi = {
       if (r.data?.success && r.data.users) localUsers = r.data.users;
     } catch {}
 
-    try {
-      const r = await axios.get(`${CLOUD}/api/admin/users`, { timeout: 10000 });
-      if (r.data?.success && r.data.users) cloudUsers = r.data.users;
-    } catch {}
+    const cloudData = await fetchCloud('/api/admin/users');
+    if (cloudData?.success && cloudData.users) cloudUsers = cloudData.users;
 
     const userMap = new Map();
     [...localUsers, ...cloudUsers].forEach(u => {
@@ -152,7 +158,9 @@ export const adminApi = {
     let localW = [];
     let cloudW = [];
     try { const r = await localApi.get('/api/workers'); localW = r.data?.workers || []; } catch {}
-    try { const r = await axios.get(`${CLOUD}/api/workers`, { timeout: 15000 }); cloudW = r.data?.workers || []; } catch {}
+    const cloudData = await fetchCloud('/api/workers');
+    if (cloudData?.workers) cloudW = cloudData.workers;
+
     const map = new Map();
     [...localW, ...cloudW].forEach(w => { if (w._id) map.set(w._id, w); });
     const merged = Array.from(map.values());
@@ -228,10 +236,8 @@ export const adminApi = {
     } catch {}
 
     // 2. Try Render cloud (where mobile app creates bookings)
-    try {
-      const cloudRes = await axios.get(`${CLOUD}/api/bookings`, { timeout: 30000 });
-      cloudBookings = cloudRes.data?.bookings || [];
-    } catch {}
+    const cloudRes = await fetchCloud('/api/bookings');
+    if (cloudRes?.bookings) cloudBookings = cloudRes.bookings;
 
     const ranks = {
       pending: 0, assigned: 1, accepted: 2, confirmed: 2,

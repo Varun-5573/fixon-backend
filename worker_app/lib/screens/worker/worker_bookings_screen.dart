@@ -205,7 +205,19 @@ class _BookingCardState extends State<_BookingCard> {
     final isNew = widget.isNew;
     final onRefresh = widget.onRefresh;
     final wp = context.read<WorkerProvider>();
-    final status = booking['status']?.toString() ?? 'pending';
+    String normStatus(String? s) {
+      if (s == null) return 'pending';
+      final str = s.toLowerCase().replaceAll(RegExp(r'[\s-]'), '_');
+      if (['confirmed', 'accepted', 'accept'].contains(str)) return 'accepted';
+      if (['on_the_way', 'ontheway', 'on-the-way', 'way'].contains(str)) return 'on_the_way';
+      if (['arrived', 'arrive'].contains(str)) return 'arrived';
+      if (['ongoing', 'in_progress', 'started', 'start', 'working'].contains(str)) return 'ongoing';
+      if (['completed', 'complete', 'done', 'finished'].contains(str)) return 'completed';
+      if (['cancelled', 'cancel'].contains(str)) return 'cancelled';
+      return str;
+    }
+
+    final status = normStatus(booking['status']?.toString());
 
     final userName = booking['userName']?.toString() ??
                      (booking['userId'] is Map ? booking['userId']['name']?.toString() : null) ??
@@ -225,6 +237,7 @@ class _BookingCardState extends State<_BookingCard> {
       'pending':     'PENDING',
       'accepted':    'ACCEPTED',
       'on_the_way':  'ON THE WAY 🏍️',
+      'arrived':     'ARRIVED 📍',
       'ongoing':     'IN PROGRESS 🔧',
       'in_progress': 'IN PROGRESS 🔧',
       'completed':   'COMPLETED ✅',
@@ -234,6 +247,7 @@ class _BookingCardState extends State<_BookingCard> {
       'pending':     AppColors.accent,
       'accepted':    AppColors.primary,
       'on_the_way':  AppColors.warning,
+      'arrived':     AppColors.secondary,
       'ongoing':     AppColors.secondary,
       'in_progress': AppColors.secondary,
       'completed':   AppColors.success,
@@ -812,15 +826,20 @@ class _BookingCardState extends State<_BookingCard> {
   }
 
   Widget _buildImageWidget(String src) {
-    if (src.startsWith('data:image')) {
-      try {
-        final decodedBytes = base64Decode(src.split(',').last);
-        return Image.memory(decodedBytes, fit: BoxFit.cover);
-      } catch (_) {}
+    if (src.isEmpty) {
+      return Container(
+        color: Colors.black26,
+        child: const Center(child: Icon(Icons.image_not_supported, color: Colors.white54, size: 32)),
+      );
     }
     if (src.startsWith('http://') || src.startsWith('https://')) {
       return Image.network(src, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white54));
     }
+    try {
+      final cleanStr = src.contains(',') ? src.split(',').last : src;
+      final decodedBytes = base64Decode(cleanStr);
+      return Image.memory(decodedBytes, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white54));
+    } catch (_) {}
     return Container(
       color: Colors.black26,
       child: const Center(child: Icon(Icons.image, color: Colors.white54, size: 32)),

@@ -53,10 +53,12 @@ function setupSocket(s, name) {
   events.forEach(evt => {
     s.on(evt, (data) => {
       // Create event key for deduplication across dual sockets
-      const eventKey = `${evt}:${JSON.stringify(data?.bookingId || data?.id || data?.userId || data)}`;
+      const entityId = data?._id || data?.bookingId || data?.id || data?.userId || '';
+      const statusKey = data?.status || data?.booking?.status || '';
+      const eventKey = entityId ? `${evt}:${entityId}:${statusKey}` : `${evt}:${JSON.stringify(data)}`;
       if (recentEvents.has(eventKey)) return; // Skip duplicate from second socket
       recentEvents.add(eventKey);
-      setTimeout(() => recentEvents.delete(eventKey), 1000);
+      setTimeout(() => recentEvents.delete(eventKey), 800);
 
       console.log(`📡 [Socket ${name}] Event: ${evt}`, data);
       if (listeners[evt]) {

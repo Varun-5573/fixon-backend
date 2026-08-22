@@ -17,11 +17,26 @@ export default function UsersPage(props) {
     load();
     const poll = setInterval(load, 10000);
     if (props.socket) {
-      props.socket.on('new_user', () => {
+      const handleNewUser = () => {
         load();
         toast.success('🆕 New customer registered!');
-      });
-      return () => { clearInterval(poll); props.socket.off('new_user'); };
+      };
+      const handleStatusUpdate = () => {
+        load();
+      };
+
+      props.socket.on('new_user', handleNewUser);
+      props.socket.on('user_join', handleStatusUpdate);
+      props.socket.on('user_location', handleStatusUpdate);
+      props.socket.on('user_offline', handleStatusUpdate);
+
+      return () => { 
+        clearInterval(poll); 
+        props.socket.off('new_user', handleNewUser);
+        props.socket.off('user_join', handleStatusUpdate);
+        props.socket.off('user_location', handleStatusUpdate);
+        props.socket.off('user_offline', handleStatusUpdate);
+      };
     }
     return () => clearInterval(poll);
   }, [props.socket]);

@@ -428,23 +428,11 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
   }
 
   Widget _buildImage(String src) {
-    if (src.startsWith('data:image')) {
-      try {
-        final decodedBytes = base64Decode(src.split(',').last);
-        return Image.memory(
-          decodedBytes,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => const Center(
-            child: Icon(Icons.broken_image, color: Colors.white30, size: 30),
-          ),
-        );
-      } catch (e) {
-        return const Center(
-          child: Icon(Icons.broken_image, color: Colors.white30, size: 30),
-        );
-      }
+    if (src.isEmpty) {
+      return const Center(
+        child: Icon(Icons.broken_image, color: Colors.white30, size: 30),
+      );
     }
-    
     if (src.startsWith('http://') || src.startsWith('https://')) {
       return Image.network(
         src,
@@ -454,10 +442,21 @@ class _BeforeAfterPhotosWidgetState extends State<BeforeAfterPhotosWidget>
         ),
       );
     }
-    
-    return const Center(
-      child: Icon(Icons.broken_image, color: Colors.white30, size: 30),
-    );
+    try {
+      final cleanStr = src.contains(',') ? src.split(',').last : src;
+      final decodedBytes = base64Decode(cleanStr);
+      return Image.memory(
+        decodedBytes,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image, color: Colors.white30, size: 30),
+        ),
+      );
+    } catch (e) {
+      return const Center(
+        child: Icon(Icons.broken_image, color: Colors.white30, size: 30),
+      );
+    }
   }
 
   void _viewFullPhoto(String photo) {

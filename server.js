@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -847,18 +847,12 @@ function enrichBooking(b) {
   return bookingCopy;
 }
 
-// Light enrich â€” retains problemPhoto for worker/admin preview while removing heavy worker photos
+// Light enrich — retains all photo metadata and aliases for consistent rendering
 function enrichBookingLight(b) {
   if (!b) return b;
   const bookingCopy = { ...b };
   bookingCopy.status = normalizeStatus(bookingCopy.status);
   
-  // Remove heavy worker completion photos from list response, but KEEP customer problem photo!
-  delete bookingCopy.beforePhoto;
-  delete bookingCopy.afterPhoto;
-  delete bookingCopy.workerBeforePhoto;
-  delete bookingCopy.workerAfterPhoto;
-
   if (bookingCopy.workerId && bookingCopy.workerId._id) {
     const worker = adminWorkers.find(w => w._id === bookingCopy.workerId._id);
     bookingCopy.workerId = {
@@ -869,15 +863,24 @@ function enrichBookingLight(b) {
     };
   }
 
-  // Preserve customer problem photo from booking object or photo store
+  // Hydrate photo URLs/data from booking object or photo store
   const photoData = bookingPhotos[bookingCopy._id] || {};
   bookingCopy.customerProblemPhoto = b.customerProblemPhoto || b.problemPhoto || photoData.customerProblemPhoto || photoData.problemPhoto || null;
   bookingCopy.problemPhoto = bookingCopy.customerProblemPhoto;
+  bookingCopy.workerBeforePhoto = photoData.workerBeforePhoto || photoData.beforePhoto || b.workerBeforePhoto || b.beforePhoto || null;
+  bookingCopy.beforePhoto = bookingCopy.workerBeforePhoto;
+  bookingCopy.workerAfterPhoto = photoData.workerAfterPhoto || photoData.afterPhoto || b.workerAfterPhoto || b.afterPhoto || null;
+  bookingCopy.afterPhoto = bookingCopy.workerAfterPhoto;
 
   // Photo existence flags
   bookingCopy.hasProblemPhoto = !!bookingCopy.customerProblemPhoto;
-  bookingCopy.hasBeforePhoto = !!(photoData.workerBeforePhoto || photoData.beforePhoto || b.workerBeforePhoto || b.beforePhoto);
-  bookingCopy.hasAfterPhoto = !!(photoData.workerAfterPhoto || photoData.afterPhoto || b.workerAfterPhoto || b.afterPhoto);
+  bookingCopy.hasBeforePhoto = !!bookingCopy.workerBeforePhoto;
+  bookingCopy.hasAfterPhoto = !!bookingCopy.workerAfterPhoto;
+
+  if (photoData) {
+    bookingCopy.beforePhotoUploadedAt = photoData.beforePhotoUploadedAt || null;
+    bookingCopy.afterPhotoUploadedAt = photoData.afterPhotoUploadedAt || null;
+  }
 
   return bookingCopy;
 }
@@ -2275,7 +2278,7 @@ app.post('/api/admin/services', async (req, res) => {
   res.json({ success: true, service: s });
 });
 
-app.put('/api/admin/services/:id', async (req, res) => {
+const handleServiceUpdate = async (req, res) => {
   const targetId = req.params.id;
   let idx = services.findIndex(s => s._id === targetId || String(s._id) === String(targetId));
   
@@ -2303,10 +2306,15 @@ app.put('/api/admin/services/:id', async (req, res) => {
   
   // Real-time broadcast to all connected apps
   io.emit('services_updated', { services });
-  console.log(`âœ… Service "${services[idx].name}" updated â†’ price â‚¹${services[idx].price} saved to MongoDB Atlas`);
+  console.log(`✅ Service "${services[idx].name}" updated → price ₹${services[idx].price} saved to MongoDB Atlas`);
   
   res.json({ success: true, service: services[idx] });
-});
+};
+
+app.put('/api/admin/services/:id', handleServiceUpdate);
+app.patch('/api/admin/services/:id', handleServiceUpdate);
+app.put('/api/services/:id', handleServiceUpdate);
+app.patch('/api/services/:id', handleServiceUpdate);
 
 app.delete('/api/admin/services/:id', async (req, res) => {
   const targetId = req.params.id;

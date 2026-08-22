@@ -58,54 +58,17 @@ class AppColors {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  PRODUCTION BACKEND — URL fetched dynamically from GitHub Pages
-//  config.json: https://varun-5573.github.io/fixon-backend/config.json
+//  PRODUCTION BACKEND — Render Cloud (always online, no laptop needed)
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://witty-moose-march.loca.lt';
+const String kProductionUrl = 'https://fixon-backend.onrender.com';
 
-// In-memory cached URL so we only fetch once per app session
 String _cachedBackendUrl = kProductionUrl;
 
 String get kBaseUrl => _cachedBackendUrl;
 
-// Call this ONCE at app startup — fetches the live URL from GitHub Pages
+// Always returns Render cloud URL — works from any network, anytime
 Future<String> resolveBaseUrl() async {
-  try {
-    final configUrl = Uri.parse(
-      'https://varun-5573.github.io/fixon-backend/config.json?t=${DateTime.now().millisecondsSinceEpoch}',
-    );
-    final res = await http.get(configUrl).timeout(const Duration(seconds: 5));
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      final url = data['backendUrl'] as String?;
-      if (url != null && url.isNotEmpty) {
-        // Test if URL is responsive
-        try {
-          final testRes = await http.get(
-            Uri.parse('$url/api/services'),
-            headers: {'bypass-tunnel-reminder': 'true'},
-          ).timeout(const Duration(seconds: 4));
-          if (testRes.statusCode == 200) {
-            _cachedBackendUrl = url;
-            return url;
-          }
-        } catch (_) {}
-      }
-    }
-  } catch (_) {}
-
-  // Fallback to local Wi-Fi IP if on same network
-  try {
-    const localIp = 'http://10.78.7.161:5000'; // same Wi-Fi = instant local speed
-    final testRes = await http.get(
-      Uri.parse('$localIp/api/services'),
-    ).timeout(const Duration(seconds: 2));
-    if (testRes.statusCode == 200) {
-      _cachedBackendUrl = localIp;
-      return localIp;
-    }
-  } catch (_) {}
-
+  // Always use Render cloud — it's always online
   _cachedBackendUrl = kProductionUrl;
   return kProductionUrl;
 }

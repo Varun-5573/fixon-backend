@@ -81,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
       );
     } else {
-      setState(() => _error = 'Failed to send OTP. Is the local backend running?');
+      setState(() => _error = 'Failed to send OTP. Check your internet connection and try again.');
     }
   }
 

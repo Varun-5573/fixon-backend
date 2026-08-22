@@ -2080,11 +2080,7 @@ app.post('/api/auth/user/login', async (req, res) => {
   res.json({ success: true, token: 'token_' + user._id, user });
 });
 
-// 4. POST /api/auth/send-otp — OTP Request
-app.post('/api/auth/send-otp', (req, res) => {
-  const { phone } = req.body;
-  res.json({ success: true, otp: '123456', message: 'OTP sent successfully' });
-});
+// NOTE: /api/auth/send-otp is handled below with real SMS support
 
 // 5. POST /api/auth/verify-otp — OTP Verification & Auto Register
 app.post('/api/auth/verify-otp', async (req, res) => {

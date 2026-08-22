@@ -460,15 +460,31 @@ io.on('connection', (socket) => {
     const userId = data?.userId;
     const userName = data?.name || 'Customer';
     if (userId) {
-      socket.userId = userId;
-      socketUserMap[socket.id] = userId;
-      // Update lastSeen so they appear online
-      if (!users[userId]) {
-        const realUser = registeredUsers.find(u => u._id === userId);
-        users[userId] = { _id: userId, name: userName, email: realUser?.email || '' };
+      const sId = String(userId);
+      socket.userId = sId;
+      socketUserMap[socket.id] = sId;
+      
+      const realUser = registeredUsers.find(u => String(u._id) === sId);
+      if (realUser) {
+        realUser.lastSeen = new Date().toISOString();
+        realUser.isOnline = true;
       }
-      users[userId].lastSeen = new Date().toISOString();
-      console.log(`ðŸ‘¤ Customer joined socket: ${userName} (${userId})`);
+
+      if (!users[sId]) {
+        users[sId] = { 
+          _id: sId, 
+          name: userName || realUser?.name || 'Customer', 
+          email: realUser?.email || '',
+          phone: realUser?.phone || ''
+        };
+      }
+      users[sId].lastSeen = new Date().toISOString();
+      users[sId].isOnline = true;
+
+      // Broadcast instant online update to admin control panel
+      io.emit('user_join', { userId: sId, name: userName, isOnline: true });
+      io.emit('user_location', { userId: sId, isOnline: true });
+      console.log(`👤 Customer joined socket: ${userName} (${sId})`);
     }
   });
 
@@ -630,9 +646,10 @@ const getAdminUsersHandler = (req, res) => {
     if (!u || !u._id) return;
     const sId = String(u._id);
     const liveInfo = users[sId] || users[u._id];
-    const isOnline = liveInfo && liveInfo.lastSeen 
-      ? (new Date() - new Date(liveInfo.lastSeen) < 60000)
-      : false;
+    const isOnline = !!(
+      (liveInfo && liveInfo.lastSeen && (new Date() - new Date(liveInfo.lastSeen) < 180000)) ||
+      (u.lastSeen && (new Date() - new Date(u.lastSeen) < 180000))
+    );
 
     userMap[sId] = {
       ...u,

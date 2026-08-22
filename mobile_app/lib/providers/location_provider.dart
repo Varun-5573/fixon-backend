@@ -75,7 +75,7 @@ class LocationProvider extends ChangeNotifier {
       _socket = IO.io(
         kBaseUrl,
         IO.OptionBuilder()
-            .setTransports(['websocket'])
+            .setTransports(['websocket', 'polling'])
             .enableAutoConnect()
             .enableReconnection()
             .setReconnectionDelay(1000)

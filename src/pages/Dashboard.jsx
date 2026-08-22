@@ -43,7 +43,7 @@ export default function Dashboard({ socket }) {
     load();
     loadLiveCustomers();
     const poll = setInterval(load, 20000);
-    const custPoll = setInterval(loadLiveCustomers, 10000);
+    const custPoll = setInterval(loadLiveCustomers, 15000);
 
     if (socket) {
       const addEvent = (type, msg, icon, color) =>
@@ -52,19 +52,33 @@ export default function Dashboard({ socket }) {
       socket.on('new_booking', b => { addEvent('booking', `New Booking: ${b.service || 'Service'}`, '📦', '#7C3AED'); load(); });
       socket.on('booking_update', d => { addEvent('update', `Booking #${String(d.bookingId||'').slice(-5)} → ${d.status}`, '🔄', '#F59E0B'); load(); });
       socket.on('payment_success', d => { addEvent('payment', `Payment ₹${d.amount||''}`, '💰', '#10B981'); load(); });
-      socket.on('user_join', u => { addEvent('user', `Customer Online: ${u.name||'User'}`, '👤', '#06B6D4'); loadLiveCustomers(); });
+
+      // Directly update live customer count without API fetch
+      socket.on('user_join', u => {
+        addEvent('user', `Customer Online: ${u.name||'Customer'}`, '👤', '#06B6D4');
+        setLiveCustomers(prev => ({ ...prev, active: (prev.active || 0) + 1 }));
+      });
+
+      socket.on('user_offline', u => {
+        setLiveCustomers(prev => ({ ...prev, active: Math.max(0, (prev.active || 0) - 1) }));
+      });
+
+      socket.on('user_location', () => {
+        // location update means customer is online — just refresh count
+        loadLiveCustomers();
+      });
+
       socket.on('new_user', u => {
         addEvent('user', `New Customer: ${u.name||'User'}`, '🆕', '#7C3AED');
         load();
         loadLiveCustomers();
       });
-      socket.on('user_location', () => loadLiveCustomers());
     }
     return () => {
       clearInterval(poll); clearInterval(custPoll);
       socket?.off('new_booking'); socket?.off('booking_update');
       socket?.off('payment_success'); socket?.off('user_join');
-      socket?.off('new_user'); socket?.off('user_location');
+      socket?.off('user_offline'); socket?.off('new_user'); socket?.off('user_location');
     };
   }, [socket]);
 

@@ -15,27 +15,68 @@ export default function UsersPage(props) {
 
   useEffect(() => {
     load();
-    const poll = setInterval(load, 10000);
+    const poll = setInterval(load, 15000);
     if (props.socket) {
-      const handleNewUser = () => {
+      const handleNewUser = (data) => {
         load();
         toast.success('🆕 New customer registered!');
       };
-      const handleStatusUpdate = () => {
-        load();
+
+      // Directly update isOnline in local state from socket events
+      // This works even when customer is on Render cloud and admin is on local server
+      const handleUserJoin = (data) => {
+        const uid = data?.userId || data?._id;
+        if (!uid) return;
+        setUsers(prev => {
+          const exists = prev.find(u => u._id === uid || u._id === String(uid));
+          if (exists) {
+            return prev.map(u =>
+              (u._id === uid || u._id === String(uid))
+                ? { ...u, isOnline: true, lastSeen: new Date().toISOString() }
+                : u
+            );
+          }
+          // New user not in list yet — trigger a load
+          load();
+          return prev;
+        });
+      };
+
+      const handleUserOffline = (data) => {
+        const uid = data?.userId || data?._id;
+        if (!uid) return;
+        setUsers(prev =>
+          prev.map(u =>
+            (u._id === uid || u._id === String(uid))
+              ? { ...u, isOnline: false }
+              : u
+          )
+        );
+      };
+
+      const handleUserLocation = (data) => {
+        const uid = data?.userId || data?._id;
+        if (!uid) return;
+        setUsers(prev =>
+          prev.map(u =>
+            (u._id === uid || u._id === String(uid))
+              ? { ...u, isOnline: true, lastSeen: new Date().toISOString() }
+              : u
+          )
+        );
       };
 
       props.socket.on('new_user', handleNewUser);
-      props.socket.on('user_join', handleStatusUpdate);
-      props.socket.on('user_location', handleStatusUpdate);
-      props.socket.on('user_offline', handleStatusUpdate);
+      props.socket.on('user_join', handleUserJoin);
+      props.socket.on('user_location', handleUserLocation);
+      props.socket.on('user_offline', handleUserOffline);
 
-      return () => { 
-        clearInterval(poll); 
+      return () => {
+        clearInterval(poll);
         props.socket.off('new_user', handleNewUser);
-        props.socket.off('user_join', handleStatusUpdate);
-        props.socket.off('user_location', handleStatusUpdate);
-        props.socket.off('user_offline', handleStatusUpdate);
+        props.socket.off('user_join', handleUserJoin);
+        props.socket.off('user_location', handleUserLocation);
+        props.socket.off('user_offline', handleUserOffline);
       };
     }
     return () => clearInterval(poll);

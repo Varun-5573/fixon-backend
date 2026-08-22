@@ -461,7 +461,17 @@ export const adminApi = {
   getAdminUsers: () => localApi.get('/api/admin/users').then(r => r.data).catch(() => ({ success: false })),
 
   // Customer count fallback compatibility
-  getCustomerStats: () => localApi.get('/api/admin/users/count').then(r => r.data).catch(() => ({ success: true, totalUsers: 0, activeUsers: 0 })),
+  getCustomerStats: async () => {
+    try {
+      const res = await adminApi.getUsers();
+      if (res && res.users) {
+        const total = res.users.length;
+        const active = res.users.filter(u => u.isOnline).length;
+        return { success: true, totalUsers: total, activeUsers: active, newUsersToday: 0 };
+      }
+    } catch {}
+    return localApi.get('/api/admin/users/count').then(r => r.data).catch(() => ({ success: true, totalUsers: 0, activeUsers: 0 }));
+  },
 
   // Live customer locations — merge from Render cloud AND local server
   getLiveLocations: async () => {

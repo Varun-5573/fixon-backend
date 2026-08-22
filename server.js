@@ -743,10 +743,38 @@ app.get('/api/users', getAdminUsersHandler);
 
 // Admin: get user count
 app.get('/api/admin/users/count', (req, res) => {
+  const userMap = {};
+  registeredUsers.forEach(u => { if (u && u._id) userMap[String(u._id)] = u; });
+  Object.values(users).forEach(u => { if (u && u._id) userMap[String(u._id)] = u; });
+  messages.forEach(m => {
+    if (m.senderId && m.senderId !== 'admin' && m.senderId !== 'bot') userMap[String(m.senderId)] = true;
+  });
+  bookings.forEach(b => {
+    const uId = b.userId?._id ? String(b.userId._id) : (b.userId ? String(b.userId) : null);
+    if (uId && uId !== 'undefined' && uId !== 'null') userMap[uId] = true;
+  });
+
+  const total = Object.keys(userMap).length;
+
+  const activeCount = Object.values(users).filter(u => {
+    if (!u) return false;
+    if (u.isOnline === true) return true;
+    if (u.lastSeen) return (new Date() - new Date(u.lastSeen) < 180000);
+    return false;
+  }).length;
+
+  const onlineRegisteredCount = registeredUsers.filter(u => {
+    if (u.isOnline === true) return true;
+    if (u.lastSeen) return (new Date() - new Date(u.lastSeen) < 180000);
+    return false;
+  }).length;
+
+  const finalActive = Math.max(activeCount, onlineRegisteredCount);
+
   res.json({
     success: true,
-    totalUsers: registeredUsers.length,
-    activeUsers: Object.keys(users).length,
+    totalUsers: total,
+    activeUsers: finalActive,
     newUsersToday: registeredUsers.filter(u => new Date(u.createdAt).toDateString() === new Date().toDateString()).length
   });
 });
@@ -756,15 +784,24 @@ app.get('/api/admin/stats', (req, res) => {
   const completed = bookings.filter(b => b.status === 'completed').length;
   const pending = bookings.filter(b => b.status === 'pending').length;
   const revenue = bookings.filter(b => b.status === 'completed').reduce((s, b) => s + (b.price || 0), 0);
+  
+  const userMap = {};
+  registeredUsers.forEach(u => { if (u && u._id) userMap[String(u._id)] = u; });
+  Object.values(users).forEach(u => { if (u && u._id) userMap[String(u._id)] = u; });
+  bookings.forEach(b => {
+    const uId = b.userId?._id ? String(b.userId._id) : (b.userId ? String(b.userId) : null);
+    if (uId && uId !== 'undefined' && uId !== 'null') userMap[uId] = true;
+  });
+
   res.json({
     success: true,
     stats: {
-      totalUsers: registeredUsers.length,
-      totalWorkers: 0,
+      totalUsers: Object.keys(userMap).length,
+      totalWorkers: adminWorkers.length,
       totalBookings: bookings.length,
       completedBookings: completed,
       pendingBookings: pending,
-      activeBookings: bookings.filter(b => ['accepted','ongoing'].includes(b.status)).length,
+      activeBookings: bookings.filter(b => ['accepted','on_the_way','arrived','ongoing','in_progress'].includes(b.status)).length,
       totalRevenue: revenue,
     }
   });

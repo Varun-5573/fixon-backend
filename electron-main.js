@@ -1,10 +1,35 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
+const { fork } = require('child_process');
 
 let mainWindow;
+let serverProcess = null;
+
+function startBackendServer() {
+  // Check if server is already running on port 5000
+  const req = http.get('http://localhost:5000/api/health', (res) => {
+    if (res.statusCode === 200) {
+      console.log('✅ Local server is already running on port 5000');
+    }
+  });
+  req.on('error', () => {
+    console.log('🚀 Spawning background Node server (server.js)...');
+    try {
+      serverProcess = fork(path.join(__dirname, 'server.js'), [], {
+        cwd: __dirname,
+        silent: false
+      });
+      serverProcess.on('error', (err) => console.error('Server process error:', err));
+    } catch (e) {
+      console.error('Failed to spawn server.js:', e);
+    }
+  });
+}
 
 function createWindow() {
+  startBackendServer();
+
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
@@ -30,9 +55,6 @@ function createWindow() {
       mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
     }
   });
-
-  // Open DevTools in development if needed (uncomment for debug)
-  // mainWindow.webContents.openDevTools();
 
   // Create a minimal menu
   const template = [
@@ -70,6 +92,9 @@ function createWindow() {
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
+  if (serverProcess) {
+    try { serverProcess.kill(); } catch (e) {}
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }

@@ -61,24 +61,32 @@ class AppColors {
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
 const String kProductionUrl = 'https://fixon-backend.onrender.com';
-const String kLocalLaptopIp = 'http://10.251.123.161:5000';
-const String kEmulatorIp = 'http://10.0.2.2:5000';
+const List<String> kCandidateIps = [
+  'http://10.78.7.161:5000',
+  'http://10.251.123.161:5000',
+  'http://192.168.29.161:5000',
+  'http://192.168.43.161:5000',
+  'http://192.168.1.161:5000',
+  'http://10.0.2.2:5000',
+  'http://localhost:5000',
+  'https://fixon-backend.onrender.com',
+];
 
-String _cachedBackendUrl = kLocalLaptopIp;
+String _cachedBackendUrl = 'http://10.78.7.161:5000';
 String get kServerIp => _cachedBackendUrl;
 String get kBaseUrl => _cachedBackendUrl;
 
 Future<String> resolveBaseUrl() async {
-  for (final url in [kLocalLaptopIp, kEmulatorIp, kProductionUrl]) {
+  for (final url in kCandidateIps) {
     try {
-      final res = await http.get(Uri.parse('$url/api/health')).timeout(const Duration(seconds: 2));
+      final res = await http.get(Uri.parse('$url/api/health')).timeout(const Duration(milliseconds: 1500));
       if (res.statusCode == 200) {
         _cachedBackendUrl = url;
         return url;
       }
     } catch (_) {}
   }
-  _cachedBackendUrl = kLocalLaptopIp;
+  _cachedBackendUrl = 'http://10.78.7.161:5000';
   return _cachedBackendUrl;
 }
 

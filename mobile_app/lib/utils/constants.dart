@@ -60,35 +60,32 @@ class AppColors {
 // ══════════════════════════════════════════════════════════════
 //  PRODUCTION BACKEND — Render Cloud (always online, no laptop needed)
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://fixon-backend.onrender.com';
+const String kProductionUrl = 'https://miss-gathering-females-sculpture.trycloudflare.com';
 const List<String> kCandidateIps = [
+  'https://miss-gathering-females-sculpture.trycloudflare.com',
   'http://10.78.7.161:5000',
   'http://10.251.123.161:5000',
-  'http://192.168.29.161:5000',
-  'http://192.168.43.161:5000',
-  'http://192.168.1.161:5000',
   'http://10.0.2.2:5000',
   'http://localhost:5000',
-  'https://fixon-backend.onrender.com',
 ];
 
-String _cachedBackendUrl = 'http://10.78.7.161:5000';
+String _cachedBackendUrl = kProductionUrl;
 
 String get kBaseUrl => _cachedBackendUrl;
 
-// Dynamic URL resolution with health probing
+// Dynamic URL resolution with health probing (prioritizes public Cloudflare HTTPS URL)
 Future<String> resolveBaseUrl() async {
   for (final url in kCandidateIps) {
     try {
-      final res = await http.get(Uri.parse('$url/api/health')).timeout(const Duration(milliseconds: 1500));
+      final res = await http.get(Uri.parse('$url/api/health')).timeout(const Duration(milliseconds: 2000));
       if (res.statusCode == 200) {
         _cachedBackendUrl = url;
-        debugPrint('✅ Resolved active backend: $url');
+        debugPrint('✅ Resolved active production backend: $url');
         return url;
       }
     } catch (_) {}
   }
-  _cachedBackendUrl = 'http://10.78.7.161:5000';
+  _cachedBackendUrl = kProductionUrl;
   return _cachedBackendUrl;
 }
 

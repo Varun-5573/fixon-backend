@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 // ══════════════════════════════════════════════════════════════
 //  PRODUCTION SOCKET — Railway backend (always-on, no laptop required)
 // ══════════════════════════════════════════════════════════════
-const PRODUCTION_URL = 'https://fixon-backend.onrender.com';
+const PRODUCTION_URL = 'https://miss-gathering-females-sculpture.trycloudflare.com';
 
 const isDev = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' || 

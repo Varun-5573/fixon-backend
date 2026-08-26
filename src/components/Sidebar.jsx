@@ -18,9 +18,10 @@ const navGroups = [
     ]
   },
   {
-    label: 'Services',
+    label: 'Services & Store',
     items: [
       { id: 'services',   icon: '🛠️', label: 'Services' },
+      { id: 'spare_parts', icon: '🛒', label: 'Spare Parts Store', badge: 'NEW', badgeStyle: 'live' },
       { id: 'coupons',    icon: '🎟️', label: 'Coupons' },
     ]
   },

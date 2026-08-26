@@ -24,6 +24,12 @@ const AppDataSchema = new mongoose.Schema({
   adminWorkers: { type: Array, default: [] },
   services: { type: Array, default: [] },
   coupons: { type: Array, default: [] },
+  spareParts: { type: Array, default: [] },
+  sparePartOrders: { type: Array, default: [] },
+  sparePartCategories: { type: Array, default: [] },
+  sparePartSuppliers: { type: Array, default: [] },
+  sparePartRequests: { type: Array, default: [] },
+  sparePartAuditHistory: { type: Array, default: [] },
 }, { minimize: false });
 const AppData = mongoose.models.AppData || mongoose.model('AppData', AppDataSchema);
 
@@ -69,6 +75,118 @@ let messages = [];
 let bookings = [];
 let registeredUsers = [];   // real sign-ups
 let notificationsList = []; // admin sent notifications
+let spareParts = [
+  {
+    _id: 'SP100001',
+    name: 'LG AC Capacitor 25µF',
+    category: 'AC Parts',
+    brand: 'LG',
+    partNumber: 'EAE31131507',
+    quality: 'Original',
+    price: 499,
+    discountPrice: 450,
+    stock: 15,
+    lowStockThreshold: 5,
+    compatibleModels: ['LG 1.5 Ton Split AC', 'LG 2 Ton Split AC', 'LG Dual Inverter Models'],
+    description: 'High performance original LG dual run capacitor for inverter split AC units.',
+    warranty: '6 Months Replacement Warranty',
+    photo: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=60',
+    additionalPhotos: [],
+    deliveryCharge: 40,
+    active: true,
+    supplierId: 'SUP001',
+    supplierName: 'CoolTech Components Pvt Ltd',
+    supplierContact: '9848012345',
+    purchasePrice: 280,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    _id: 'SP100002',
+    name: 'Samsung Refrigerator Defrost Heater',
+    category: 'Refrigerator Parts',
+    brand: 'Samsung',
+    partNumber: 'DA47-00247C',
+    quality: 'OEM',
+    price: 699,
+    discountPrice: 599,
+    stock: 8,
+    lowStockThreshold: 3,
+    compatibleModels: ['Samsung Double Door 253L', 'Samsung Frost Free 300L'],
+    description: 'Defrost heating element for Samsung frost-free refrigerators.',
+    warranty: '3 Months Warranty',
+    photo: 'https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=500&auto=format&fit=crop&q=60',
+    additionalPhotos: [],
+    deliveryCharge: 50,
+    active: true,
+    supplierId: 'SUP002',
+    supplierName: 'Apex Appliance Spares',
+    supplierContact: '9123456789',
+    purchasePrice: 380,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    _id: 'SP100003',
+    name: 'IFB Washing Machine Drain Pump',
+    category: 'Washing Machine Parts',
+    brand: 'IFB',
+    partNumber: 'IFB-DP-880',
+    quality: 'Original',
+    price: 899,
+    discountPrice: 799,
+    stock: 4, // low stock test case
+    lowStockThreshold: 5,
+    compatibleModels: ['IFB Executive Plus 6.5kg', 'IFB Senator Smart 8kg'],
+    description: 'Heavy duty drain pump motor assembly for IFB front load washing machines.',
+    warranty: '6 Months Warranty',
+    photo: 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=500&auto=format&fit=crop&q=60',
+    additionalPhotos: [],
+    deliveryCharge: 60,
+    active: true,
+    supplierId: 'SUP001',
+    supplierName: 'CoolTech Components Pvt Ltd',
+    supplierContact: '9848012345',
+    purchasePrice: 450,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+let sparePartOrders = [];
+let sparePartCategories = [
+  { id: 'cat_ac', name: 'AC Parts', icon: '❄️', active: true },
+  { id: 'cat_fridge', name: 'Refrigerator Parts', icon: '🧊', active: true },
+  { id: 'cat_wash', name: 'Washing Machine Parts', icon: '🧺', active: true },
+  { id: 'cat_tv', name: 'TV Parts', icon: '📺', active: true },
+  { id: 'cat_elec', name: 'Electrical Parts', icon: '⚡', active: true },
+  { id: 'cat_plumb', name: 'Plumbing Parts', icon: '🚰', active: true },
+  { id: 'cat_cctv', name: 'CCTV Parts', icon: '📹', active: true },
+  { id: 'cat_clean', name: 'Cleaning Equipment Parts', icon: '🧹', active: true },
+  { id: 'cat_ro', name: 'RO/Water Purifier Parts', icon: '💧', active: true },
+  { id: 'cat_gen', name: 'General Home Appliance Parts', icon: '🔧', active: true }
+];
+let sparePartSuppliers = [
+  {
+    _id: 'SUP001',
+    name: 'CoolTech Components Pvt Ltd',
+    phone: '9848012345',
+    email: 'supply@cooltech.com',
+    address: 'Secunderabad Electronics Market, Hyderabad',
+    notes: 'Primary supplier for LG & IFB genuine parts',
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: 'SUP002',
+    name: 'Apex Appliance Spares',
+    phone: '9123456789',
+    email: 'sales@apexspares.in',
+    address: 'Troop Bazaar, Abids, Hyderabad',
+    notes: 'OEM supplier for Samsung & Whirlpool spares',
+    createdAt: new Date().toISOString()
+  }
+];
+let sparePartRequests = [];
+let sparePartAuditHistory = [];
 let adminWorkers = [
   { _id: 'W_DEFAULT_1', name: 'VARUN',            phone: '9000853346', email: 'ADITHYAVARUN@GMAIL.COM',  category: 'Plumbing',   skills: ['Plumbing','Pipe Repair','Bathroom','Leak Fix'],         rating: 5.0, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_PLM_1001', workerPassword: 'FXN1001', createdAt: new Date().toISOString() },
   { _id: 'W_DEFAULT_2', name: 'ADITHYA',          phone: '8179712126', email: 'varunpittala@gmail.com',  category: 'Electrical', skills: ['Electrical','Wiring','Fan Installation','Switch Repair'],  rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '7 years',  workerId: 'FIXON_ELC_1001', workerPassword: 'FXN1002', createdAt: new Date().toISOString() },
@@ -211,6 +329,12 @@ async function loadData() {
         if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = doc.adminWorkers;
         if (doc.services && doc.services.length > 0) services = doc.services;
         if (doc.coupons && doc.coupons.length > 0) coupons = doc.coupons;
+        if (doc.spareParts && doc.spareParts.length > 0) spareParts = doc.spareParts;
+        if (doc.sparePartOrders && doc.sparePartOrders.length > 0) sparePartOrders = doc.sparePartOrders;
+        if (doc.sparePartCategories && doc.sparePartCategories.length > 0) sparePartCategories = doc.sparePartCategories;
+        if (doc.sparePartSuppliers && doc.sparePartSuppliers.length > 0) sparePartSuppliers = doc.sparePartSuppliers;
+        if (doc.sparePartRequests && doc.sparePartRequests.length > 0) sparePartRequests = doc.sparePartRequests;
+        if (doc.sparePartAuditHistory && doc.sparePartAuditHistory.length > 0) sparePartAuditHistory = doc.sparePartAuditHistory;
         console.log('âœ… Data loaded from MongoDB Atlas! Users:', registeredUsers.length);
         adminWorkers = applyDefaultCreds(adminWorkers);
         mergeDefaultWorkers();
@@ -237,6 +361,12 @@ async function loadData() {
         if (parsed.adminWorkers && parsed.adminWorkers.length > 0) adminWorkers = parsed.adminWorkers;
         if (parsed.services && parsed.services.length > 0) services = parsed.services;
         if (parsed.coupons && parsed.coupons.length > 0) coupons = parsed.coupons;
+        if (parsed.spareParts && parsed.spareParts.length > 0) spareParts = parsed.spareParts;
+        if (parsed.sparePartOrders && parsed.sparePartOrders.length > 0) sparePartOrders = parsed.sparePartOrders;
+        if (parsed.sparePartCategories && parsed.sparePartCategories.length > 0) sparePartCategories = parsed.sparePartCategories;
+        if (parsed.sparePartSuppliers && parsed.sparePartSuppliers.length > 0) sparePartSuppliers = parsed.sparePartSuppliers;
+        if (parsed.sparePartRequests && parsed.sparePartRequests.length > 0) sparePartRequests = parsed.sparePartRequests;
+        if (parsed.sparePartAuditHistory && parsed.sparePartAuditHistory.length > 0) sparePartAuditHistory = parsed.sparePartAuditHistory;
       }
     }
   } catch (error) {
@@ -373,7 +503,21 @@ async function _doSave() {
     return n;
   });
 
-  const dataObj = { registeredUsers, bookings: cleanBookings, messages, notificationsList: cleanNotifs, adminWorkers, services, coupons };
+  const dataObj = {
+    registeredUsers,
+    bookings: cleanBookings,
+    messages,
+    notificationsList: cleanNotifs,
+    adminWorkers,
+    services,
+    coupons,
+    spareParts,
+    sparePartOrders,
+    sparePartCategories,
+    sparePartSuppliers,
+    sparePartRequests,
+    sparePartAuditHistory
+  };
 
   // 1. Save to MongoDB Atlas (primary)
   if (MONGODB_URI && mongoose.connection.readyState === 1) {
@@ -2416,6 +2560,886 @@ app.delete('/api/admin/services/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// =========================================================================
+// 🛒 SPARE PARTS STORE API ENDPOINTS
+// =========================================================================
+
+// Refresh Spare Parts from MongoDB
+async function refreshSparePartsFromDb() {
+  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+    try {
+      const doc = await AppData.findOne({ key: 'main' }).lean();
+      if (doc) {
+        if (doc.spareParts && doc.spareParts.length > 0) spareParts = doc.spareParts;
+        if (doc.sparePartOrders) sparePartOrders = doc.sparePartOrders;
+        if (doc.sparePartCategories) sparePartCategories = doc.sparePartCategories;
+        if (doc.sparePartSuppliers) sparePartSuppliers = doc.sparePartSuppliers;
+        if (doc.sparePartRequests) sparePartRequests = doc.sparePartRequests;
+        if (doc.sparePartAuditHistory) sparePartAuditHistory = doc.sparePartAuditHistory;
+      }
+    } catch (e) {
+      console.error('⚠️ Failed to refresh spare parts from MongoDB:', e.message);
+    }
+  }
+}
+
+// 1. Customer Spare Parts Store Listing (Public)
+app.get('/api/spare-parts', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  await refreshSparePartsFromDb();
+
+  const { category, brand, search, quality, inStockOnly } = req.query;
+  let result = spareParts.filter(p => p.active !== false);
+
+  if (category && category !== 'All') {
+    result = result.filter(p => p.category?.toLowerCase() === category.toLowerCase());
+  }
+
+  if (brand && brand !== 'All') {
+    result = result.filter(p => p.brand?.toLowerCase() === brand.toLowerCase());
+  }
+
+  if (quality && quality !== 'All') {
+    result = result.filter(p => p.quality?.toLowerCase() === quality.toLowerCase());
+  }
+
+  if (inStockOnly === 'true') {
+    result = result.filter(p => Number(p.stock) > 0);
+  }
+
+  if (search) {
+    const q = search.toLowerCase().trim();
+    result = result.filter(p =>
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.brand && p.brand.toLowerCase().includes(q)) ||
+      (p.partNumber && p.partNumber.toLowerCase().includes(q)) ||
+      (p.category && p.category.toLowerCase().includes(q)) ||
+      (Array.isArray(p.compatibleModels) && p.compatibleModels.some(m => m.toLowerCase().includes(q)))
+    );
+  }
+
+  // Strip private supplier info for customer response
+  const sanitized = result.map(p => {
+    const copy = { ...p };
+    delete copy.purchasePrice;
+    delete copy.supplierId;
+    delete copy.supplierContact;
+    delete copy.supplierName;
+    delete copy.supplierNotes;
+    return copy;
+  });
+
+  res.json({ success: true, count: sanitized.length, spareParts: sanitized });
+});
+
+// 2. Admin All Spare Parts Listing (Includes disabled & private supplier info)
+app.get('/api/admin/spare-parts', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  await refreshSparePartsFromDb();
+  res.json({ success: true, count: spareParts.length, spareParts });
+});
+
+// 3. Admin Add Spare Part
+app.post('/api/admin/spare-parts', async (req, res) => {
+  const {
+    name, category, brand, partNumber, price, discountPrice, stock,
+    lowStockThreshold, quality, compatibleModels, description, warranty,
+    photo, additionalPhotos, deliveryCharge, supplierId, supplierName,
+    supplierContact, purchasePrice
+  } = req.body;
+
+  if (!name || !price) {
+    return res.status(400).json({ success: false, message: 'Part Name and Price are required' });
+  }
+
+  const newPart = {
+    _id: 'SP' + (100000 + spareParts.length + 1),
+    name: String(name).trim(),
+    category: category || 'General Home Appliance Parts',
+    brand: brand || 'Generic',
+    partNumber: partNumber || 'N/A',
+    quality: quality || 'Original',
+    price: Number(price),
+    discountPrice: discountPrice !== undefined && discountPrice !== null && discountPrice !== '' ? Number(discountPrice) : null,
+    stock: stock !== undefined ? Number(stock) : 10,
+    lowStockThreshold: lowStockThreshold !== undefined ? Number(lowStockThreshold) : 5,
+    compatibleModels: Array.isArray(compatibleModels) ? compatibleModels : (compatibleModels ? [compatibleModels] : []),
+    description: description || '',
+    warranty: warranty || 'No Warranty Specified',
+    photo: photo || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=60',
+    additionalPhotos: Array.isArray(additionalPhotos) ? additionalPhotos : [],
+    deliveryCharge: deliveryCharge !== undefined ? Number(deliveryCharge) : 50,
+    active: true,
+    supplierId: supplierId || '',
+    supplierName: supplierName || '',
+    supplierContact: supplierContact || '',
+    purchasePrice: purchasePrice !== undefined ? Number(purchasePrice) : 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    history: []
+  };
+
+  spareParts.unshift(newPart);
+
+  // Audit log
+  sparePartAuditHistory.unshift({
+    partId: newPart._id,
+    partName: newPart.name,
+    action: 'CREATE',
+    changedBy: 'Admin',
+    changes: 'Product Created',
+    timestamp: new Date().toISOString()
+  });
+
+  await saveData();
+  io.emit('spare_parts_updated', { spareParts });
+
+  res.json({ success: true, message: 'Spare Part added successfully', sparePart: newPart });
+});
+
+// 4. Admin Quick Edit / Update Spare Part
+const handleSparePartUpdate = async (req, res) => {
+  const targetId = req.params.id;
+  await refreshSparePartsFromDb();
+
+  const idx = spareParts.findIndex(p => p._id === targetId || String(p._id) === String(targetId));
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Spare Part not found' });
+  }
+
+  const old = spareParts[idx];
+  const auditEntries = [];
+
+  if (req.body.price !== undefined && Number(req.body.price) !== old.price) {
+    auditEntries.push(`Price: ₹${old.price} → ₹${req.body.price}`);
+  }
+  if (req.body.stock !== undefined && Number(req.body.stock) !== old.stock) {
+    auditEntries.push(`Stock: ${old.stock} → ${req.body.stock}`);
+  }
+  if (req.body.active !== undefined && req.body.active !== old.active) {
+    auditEntries.push(`Status: ${old.active ? 'Enabled' : 'Disabled'} → ${req.body.active ? 'Enabled' : 'Disabled'}`);
+  }
+
+  const updated = {
+    ...old,
+    ...req.body,
+    price: req.body.price !== undefined ? Number(req.body.price) : old.price,
+    stock: req.body.stock !== undefined ? Math.max(0, Number(req.body.stock)) : old.stock,
+    discountPrice: req.body.discountPrice !== undefined ? (req.body.discountPrice ? Number(req.body.discountPrice) : null) : old.discountPrice,
+    lowStockThreshold: req.body.lowStockThreshold !== undefined ? Number(req.body.lowStockThreshold) : old.lowStockThreshold,
+    compatibleModels: Array.isArray(req.body.compatibleModels) ? req.body.compatibleModels : old.compatibleModels,
+    updatedAt: new Date().toISOString()
+  };
+
+  spareParts[idx] = updated;
+
+  // Low stock check
+  if (updated.stock <= (updated.lowStockThreshold || 5) && updated.stock > 0) {
+    io.emit('admin_alert', {
+      type: 'low_stock',
+      title: '⚠️ Low Stock Alert',
+      message: `${updated.name} has only ${updated.stock} left in stock!`,
+      partId: updated._id
+    });
+  } else if (updated.stock === 0) {
+    io.emit('admin_alert', {
+      type: 'out_of_stock',
+      title: '❌ Out of Stock Alert',
+      message: `${updated.name} is now Out of Stock!`,
+      partId: updated._id
+    });
+  }
+
+  if (auditEntries.length > 0) {
+    sparePartAuditHistory.unshift({
+      partId: updated._id,
+      partName: updated.name,
+      action: 'UPDATE',
+      changedBy: 'Admin',
+      changes: auditEntries.join(', '),
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  await saveData();
+  io.emit('spare_parts_updated', { spareParts });
+  io.emit('spare_part_stock_update', { partId: updated._id, stock: updated.stock, price: updated.price });
+
+  console.log(`✅ Spare Part "${updated.name}" updated → Price: ₹${updated.price}, Stock: ${updated.stock}`);
+  res.json({ success: true, message: 'Spare Part updated', sparePart: updated });
+};
+
+app.put('/api/admin/spare-parts/:id', handleSparePartUpdate);
+app.patch('/api/admin/spare-parts/:id', handleSparePartUpdate);
+app.put('/api/spare-parts/:id', handleSparePartUpdate);
+app.patch('/api/spare-parts/:id', handleSparePartUpdate);
+
+// 5. Disable / Soft Delete Spare Part (Does NOT delete database record)
+app.delete('/api/admin/spare-parts/:id', async (req, res) => {
+  const targetId = req.params.id;
+  const idx = spareParts.findIndex(p => p._id === targetId || String(p._id) === String(targetId));
+  if (idx !== -1) {
+    spareParts[idx].active = false;
+    spareParts[idx].updatedAt = new Date().toISOString();
+    
+    sparePartAuditHistory.unshift({
+      partId: targetId,
+      partName: spareParts[idx].name,
+      action: 'DISABLE',
+      changedBy: 'Admin',
+      changes: 'Product disabled from customer view',
+      timestamp: new Date().toISOString()
+    });
+
+    await saveData();
+    io.emit('spare_parts_updated', { spareParts });
+  }
+  res.json({ success: true, message: 'Part disabled successfully' });
+});
+
+// 6. Categories API
+app.get('/api/spare-parts/categories', (req, res) => {
+  res.json({ success: true, categories: sparePartCategories });
+});
+
+app.post('/api/admin/spare-parts/categories', async (req, res) => {
+  const { name, icon } = req.body;
+  if (!name) return res.status(400).json({ success: false, message: 'Category name required' });
+  const cat = {
+    id: 'cat_' + Date.now(),
+    name: name.trim(),
+    icon: icon || '🔧',
+    active: true
+  };
+  sparePartCategories.push(cat);
+  await saveData();
+  res.json({ success: true, category: cat, categories: sparePartCategories });
+});
+
+// 7. Spare Part Orders API
+
+// Valid order status transitions matrix
+const SPARE_ORDER_TRANSITIONS = {
+  'NEW': ['CONFIRMED', 'CANCELLED'],
+  'CONFIRMED': ['PACKED', 'CANCELLED'],
+  'PACKED': ['SHIPPED', 'CANCELLED'],
+  'SHIPPED': ['OUT_FOR_DELIVERY', 'CANCELLED'],
+  'OUT_FOR_DELIVERY': ['DELIVERED', 'CANCELLED'],
+  'DELIVERED': [],
+  'CANCELLED': []
+};
+
+// Friendly status display labels
+const ORDER_STATUS_LABELS = {
+  'NEW': 'Order Placed',
+  'CONFIRMED': 'Order Confirmed',
+  'PACKED': 'Packed',
+  'SHIPPED': 'Shipped',
+  'OUT_FOR_DELIVERY': 'Out for Delivery',
+  'DELIVERED': 'Delivered',
+  'CANCELLED': 'Cancelled'
+};
+
+app.get('/api/admin/spare-part-orders', async (req, res) => {
+  await refreshSparePartsFromDb();
+  res.json({ success: true, orders: sparePartOrders });
+});
+
+app.get('/api/spare-part-orders/my', async (req, res) => {
+  await refreshSparePartsFromDb();
+  const customerId = req.query.customerId || req.headers['user-id'] || req.headers['x-user-id'];
+  if (!customerId) return res.json({ success: true, orders: [] });
+  const myOrders = sparePartOrders.filter(o => String(o.customerId) === String(customerId));
+  res.json({ success: true, orders: myOrders });
+});
+
+// Helper: normalize an order ID from URL params (handles # encoding issues)
+function findOrderByUrlId(rawId) {
+  if (!rawId) return -1;
+  const decoded = decodeURIComponent(rawId);
+  const withHash = decoded.startsWith('#') ? decoded : `#${decoded}`;
+  const noHash   = decoded.startsWith('#') ? decoded.slice(1) : decoded;
+  return sparePartOrders.findIndex(o =>
+    o._id === decoded ||
+    o._id === withHash ||
+    o.orderId === decoded ||
+    o.orderId === withHash ||
+    o.lookupId === decoded ||
+    o.lookupId === noHash
+  );
+}
+
+app.get('/api/spare-part-orders/:id', async (req, res) => {
+  await refreshSparePartsFromDb();
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+  const order = sparePartOrders[idx];
+
+  // Security ownership check
+  const requestingUserId = req.query.customerId || req.headers['user-id'] || req.headers['x-user-id'] || req.headers['worker-id'];
+  const isAdmin = req.headers['x-admin-auth'] === 'true' || req.query.admin === 'true';
+
+  if (!isAdmin && requestingUserId && String(order.customerId) !== String(requestingUserId) && String(order.deliveryWorkerId) !== String(requestingUserId)) {
+    return res.status(403).json({ success: false, message: 'Access denied. You can only view your own orders.' });
+  }
+
+  res.json({ success: true, order });
+});
+
+app.post('/api/spare-part-orders', async (req, res) => {
+  const { customerId, customerName, customerPhone, items, deliveryAddress, comboWithTechnician, installationFee, paymentMethod } = req.body;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, message: 'Order must contain at least 1 item' });
+  }
+
+  await refreshSparePartsFromDb();
+
+  // Validate stock for all items
+  for (const item of items) {
+    const part = spareParts.find(p => p._id === item.partId || String(p._id) === String(item.partId));
+    if (!part) {
+      return res.status(404).json({ success: false, message: `Part not found: ${item.partName || item.partId}` });
+    }
+    if (part.active === false) {
+      return res.status(400).json({ success: false, message: `Part "${part.name}" is currently unavailable` });
+    }
+    if (part.stock < item.quantity) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient stock for "${part.name}". Available: ${part.stock}, Requested: ${item.quantity}`
+      });
+    }
+  }
+
+  // Deduct stock & prepare items list
+  let totalPartsAmount = 0;
+  let totalDelivery = 0;
+  const processedItems = [];
+
+  for (const item of items) {
+    const part = spareParts.find(p => p._id === item.partId || String(p._id) === String(item.partId));
+    part.stock = Math.max(0, part.stock - item.quantity);
+    
+    const priceToUse = part.discountPrice && part.discountPrice < part.price ? part.discountPrice : part.price;
+    const itemTotal = priceToUse * item.quantity;
+    totalPartsAmount += itemTotal;
+    totalDelivery += (part.deliveryCharge || 0);
+
+    processedItems.push({
+      partId: part._id,
+      partName: part.name,
+      brand: part.brand,
+      quality: part.quality,
+      photo: part.photo,
+      price: priceToUse,
+      quantity: item.quantity,
+      subtotal: itemTotal
+    });
+
+    // Check low stock alert
+    if (part.stock <= (part.lowStockThreshold || 5)) {
+      io.emit('admin_alert', {
+        type: 'low_stock',
+        title: '⚠️ Low Stock Alert',
+        message: `${part.name} dropped to ${part.stock} remaining!`,
+        partId: part._id
+      });
+    }
+  }
+
+  const instFee = comboWithTechnician ? Number(installationFee || 299) : 0;
+  const grandTotal = totalPartsAmount + totalDelivery + instFee;
+
+  const orderNum = 100001 + sparePartOrders.length;
+  const orderId = `#SP${orderNum}`;
+  const lookupId = `SP${orderNum}`; // URL-safe ID (no #)
+  const nowIso = new Date().toISOString();
+
+  const newOrder = {
+    _id: orderId,
+    orderId,
+    lookupId,
+    customerId: customerId || 'GUEST',
+    customerName: customerName || 'Valued Customer',
+    customerPhone: customerPhone || 'N/A',
+    items: processedItems,
+    partsAmount: totalPartsAmount,
+    subtotal: totalPartsAmount,
+    discount: 0,
+    deliveryCharge: totalDelivery,
+    comboWithTechnician: !!comboWithTechnician,
+    installationFee: instFee,
+    totalAmount: grandTotal,
+    deliveryAddress: typeof deliveryAddress === 'string' ? { address: deliveryAddress } : (deliveryAddress || { address: 'Default Customer Address' }),
+    paymentMethod: paymentMethod || 'COD',
+    paymentStatus: 'PENDING',
+    orderStatus: 'NEW',
+    deliveryWorkerId: null,
+    deliveryWorkerName: null,
+    deliveryWorkerPhone: null,
+    statusHistory: [
+      { status: 'NEW', note: 'Order placed by customer', timestamp: nowIso, updatedBy: 'customer' }
+    ],
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+
+  sparePartOrders.unshift(newOrder);
+
+  // Optional Combo Flow: If comboWithTechnician, create corresponding FixoN Technician booking!
+  if (comboWithTechnician) {
+    const techBookingId = `BK_SP_${Date.now()}`;
+    const techBooking = {
+      _id: techBookingId,
+      bookingId: techBookingId,
+      userId: customerId,
+      userName: customerName,
+      userPhone: customerPhone,
+      service: `Spare Part Installation (${processedItems[0]?.partName || 'Appliance Part'})`,
+      category: 'Maintenance',
+      address: typeof deliveryAddress === 'string' ? deliveryAddress : (deliveryAddress?.address || 'Customer Address'),
+      amount: instFee,
+      status: 'pending',
+      date: new Date().toISOString().split('T')[0],
+      time: 'As soon as part arrives',
+      sparePartOrderId: orderId,
+      notes: `Installation requested with Spare Part Order ${orderId}`,
+      createdAt: nowIso
+    };
+    bookings.unshift(techBooking);
+    io.emit('new_booking', techBooking);
+  }
+
+  await saveData();
+
+  // Socket broadcast to Admin Control Panel & Customer
+  io.emit('spare_part_order', newOrder);
+  io.emit('spare_parts_updated', { spareParts });
+
+  res.json({
+    success: true,
+    message: 'Spare Part Order placed successfully!',
+    order: newOrder
+  });
+});
+
+// Admin Status Transition Handler
+const handleOrderStatusChange = async (req, res) => {
+  const { status, note, updatedBy } = req.body;
+  const rawId = req.params.id;
+
+  await refreshSparePartsFromDb();
+  const idx = findOrderByUrlId(rawId);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: `Spare parts order not found: ${rawId}` });
+  }
+
+  const order = sparePartOrders[idx];
+  const currentStatus = order.orderStatus || 'NEW';
+
+  // Rule 28: Duplicate Status Change Check
+  if (status === currentStatus) {
+    return res.json({
+      success: false,
+      message: 'No status change required.',
+      order
+    });
+  }
+
+  // Rule 3: Valid Transitions Check
+  const allowedNext = SPARE_ORDER_TRANSITIONS[currentStatus] || [];
+  if (!allowedNext.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid status transition from ${currentStatus} to ${status}. Allowed: ${allowedNext.join(', ') || 'None'}`
+    });
+  }
+
+  const nowIso = new Date().toISOString();
+  order.orderStatus = status;
+  order.updatedAt = nowIso;
+
+  if (status === 'DELIVERED') {
+    order.paymentStatus = 'PAID';
+  }
+
+  if (!order.statusHistory) order.statusHistory = [];
+  order.statusHistory.push({
+    status,
+    note: note || `Status changed to ${ORDER_STATUS_LABELS[status] || status}`,
+    timestamp: nowIso,
+    updatedBy: updatedBy || 'admin'
+  });
+
+  await saveData();
+
+  const friendlyLabel = ORDER_STATUS_LABELS[status] || status;
+  const notifMsg = `Your FixoN spare parts order ${order.orderId} status has been updated to ${friendlyLabel}.`;
+
+  // Socket.IO Real-time Events
+  const payload = {
+    orderId: order.orderId,
+    status,
+    statusHistory: order.statusHistory,
+    timestamp: nowIso,
+    message: notifMsg,
+    order
+  };
+
+  io.emit('spare_part_order_status_updated', payload);
+  io.emit('spare_part_order_update', payload);
+
+  // Push Customer Notification
+  const notifObj = {
+    id: 'NOTIF_SP_' + Date.now(),
+    userId: order.customerId,
+    title: `📦 Order ${friendlyLabel}`,
+    message: notifMsg,
+    type: 'spare_part_order',
+    orderId: order.orderId,
+    createdAt: nowIso,
+    read: false
+  };
+  notificationsList.unshift(notifObj);
+  io.emit('notification', notifObj);
+
+  console.log(`✅ Order ${order.orderId} status transition: ${currentStatus} → ${status}`);
+  res.json({ success: true, message: `Order status updated to ${friendlyLabel}`, order });
+};
+
+app.put('/api/admin/spare-part-orders/:id/status', handleOrderStatusChange);
+app.patch('/api/admin/spare-part-orders/:id/status', handleOrderStatusChange);
+app.put('/api/spare-part-orders/:id/status', handleOrderStatusChange);
+
+// Admin Assign Delivery Worker
+app.put('/api/admin/spare-part-orders/:id/assign-worker', async (req, res) => {
+  const { workerId, workerName, workerPhone } = req.body;
+
+  await refreshSparePartsFromDb();
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const order = sparePartOrders[idx];
+  order.deliveryWorkerId = workerId;
+  order.deliveryWorkerName = workerName;
+  order.deliveryWorkerPhone = workerPhone;
+  order.updatedAt = new Date().toISOString();
+
+  await saveData();
+
+  io.emit('spare_part_delivery_assigned', { orderId: order.orderId, workerId, order });
+  res.json({ success: true, message: `Delivery worker ${workerName} assigned to order ${order.orderId}`, order });
+});
+
+// Worker Delivery Routes
+app.get('/api/worker/spare-part-deliveries', async (req, res) => {
+  await refreshSparePartsFromDb();
+  const workerId = req.query.workerId || req.headers['worker-id'];
+  if (!workerId) return res.json({ success: true, deliveries: [] });
+
+  const assigned = sparePartOrders.filter(o =>
+    String(o.deliveryWorkerId) === String(workerId) ||
+    (!o.deliveryWorkerId && (o.orderStatus === 'PACKED' || o.orderStatus === 'SHIPPED'))
+  );
+  res.json({ success: true, deliveries: assigned });
+});
+
+app.post('/api/worker/spare-part-orders/:id/accept-delivery', async (req, res) => {
+  const { workerId, workerName, workerPhone } = req.body;
+
+  await refreshSparePartsFromDb();
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const order = sparePartOrders[idx];
+  order.deliveryWorkerId = workerId;
+  order.deliveryWorkerName = workerName;
+  order.deliveryWorkerPhone = workerPhone;
+  order.updatedAt = new Date().toISOString();
+
+  await saveData();
+  res.json({ success: true, message: 'Delivery accepted by worker', order });
+});
+
+app.post('/api/worker/spare-part-orders/:id/start-delivery', async (req, res) => {
+  await refreshSparePartsFromDb();
+
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const order = sparePartOrders[idx];
+  const nowIso = new Date().toISOString();
+  order.orderStatus = 'OUT_FOR_DELIVERY';
+  order.updatedAt = nowIso;
+
+  if (!order.statusHistory) order.statusHistory = [];
+  order.statusHistory.push({
+    status: 'OUT_FOR_DELIVERY',
+    note: 'Out for delivery with FixoN delivery partner',
+    timestamp: nowIso,
+    updatedBy: 'worker'
+  });
+
+  await saveData();
+
+  const payload = {
+    orderId: order.orderId,
+    status: 'OUT_FOR_DELIVERY',
+    statusHistory: order.statusHistory,
+    timestamp: nowIso,
+    message: `Your FixoN spare parts order ${order.orderId} is out for delivery.`,
+    order
+  };
+
+  io.emit('spare_part_order_status_updated', payload);
+  io.emit('spare_part_order_update', payload);
+
+  res.json({ success: true, message: 'Delivery started! Customer notified.', order });
+});
+
+app.post('/api/worker/spare-part-orders/:id/delivered', async (req, res) => {
+  await refreshSparePartsFromDb();
+
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const order = sparePartOrders[idx];
+  const nowIso = new Date().toISOString();
+  order.orderStatus = 'DELIVERED';
+  order.paymentStatus = 'PAID';
+  order.updatedAt = nowIso;
+
+  if (!order.statusHistory) order.statusHistory = [];
+  order.statusHistory.push({
+    status: 'DELIVERED',
+    note: 'Order delivered successfully by worker',
+    timestamp: nowIso,
+    updatedBy: 'worker'
+  });
+
+  await saveData();
+
+  const payload = {
+    orderId: order.orderId,
+    status: 'DELIVERED',
+    statusHistory: order.statusHistory,
+    timestamp: nowIso,
+    message: `Your FixoN spare parts order ${order.orderId} has been delivered.`,
+    order
+  };
+
+  io.emit('spare_part_order_status_updated', payload);
+  io.emit('spare_part_order_update', payload);
+
+  res.json({ success: true, message: 'Order marked DELIVERED!', order });
+});
+
+// Live Delivery GPS Location Telemetry
+app.post('/api/worker/spare-part-orders/:id/location', async (req, res) => {
+  const { workerId, latitude, longitude, lat, lng, timestamp } = req.body;
+  const currentLat = latitude || lat;
+  const currentLng = longitude || lng;
+
+  if (!currentLat || !currentLng) {
+    return res.status(400).json({ success: false, message: 'Latitude and Longitude are required' });
+  }
+
+  await refreshSparePartsFromDb();
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const order = sparePartOrders[idx];
+
+  // Optional: Security check to ensure assigned worker updates GPS
+  if (workerId && order.deliveryWorkerId && String(order.deliveryWorkerId) !== String(workerId)) {
+    console.warn(`⚠️ Location update rejected: Worker ${workerId} is not assigned to order ${order.orderId}`);
+  }
+
+  order.workerLatitude = Number(currentLat);
+  order.workerLongitude = Number(currentLng);
+  order.lastLocationUpdate = timestamp || new Date().toISOString();
+
+  // Store worker location globally in memory
+  if (workerId || order.deliveryWorkerId) {
+    const wKey = String(workerId || order.deliveryWorkerId);
+    workers[wKey] = {
+      ...workers[wKey],
+      _id: wKey,
+      lat: Number(currentLat),
+      lng: Number(currentLng),
+      lastSeen: new Date().toISOString()
+    };
+  }
+
+  await saveData();
+
+  const payload = {
+    orderId: order.orderId,
+    lookupId: order.lookupId || order.orderId.replace('#', ''),
+    workerId: workerId || order.deliveryWorkerId,
+    latitude: Number(currentLat),
+    longitude: Number(currentLng),
+    timestamp: order.lastLocationUpdate,
+    orderStatus: order.orderStatus
+  };
+
+  io.emit('spare_part_delivery_location', payload);
+  io.emit('worker_location_updated', payload);
+
+  res.json({ success: true, message: 'Delivery location updated successfully', location: payload });
+});
+
+app.get('/api/spare-part-orders/:id/tracking', async (req, res) => {
+  await refreshSparePartsFromDb();
+  const idx = findOrderByUrlId(req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Order not found' });
+  }
+
+  const order = sparePartOrders[idx];
+  let custLat = 17.3850;
+  let custLng = 78.4867;
+
+  if (order.deliveryAddress && typeof order.deliveryAddress === 'object') {
+    custLat = Number(order.deliveryAddress.lat || order.deliveryAddress.latitude || custLat);
+    custLng = Number(order.deliveryAddress.lng || order.deliveryAddress.longitude || custLng);
+  }
+
+  res.json({
+    success: true,
+    orderId: order.orderId,
+    lookupId: order.lookupId,
+    orderStatus: order.orderStatus,
+    deliveryWorkerId: order.deliveryWorkerId,
+    deliveryWorkerName: order.deliveryWorkerName,
+    deliveryWorkerPhone: order.deliveryWorkerPhone,
+    workerLatitude: order.workerLatitude || null,
+    workerLongitude: order.workerLongitude || null,
+    lastLocationUpdate: order.lastLocationUpdate || null,
+    customerLat: custLat,
+    customerLng: custLng,
+    deliveryAddress: order.deliveryAddress
+  });
+});
+
+
+// 8. Suppliers API (Admin Private)
+app.get('/api/admin/spare-part-suppliers', (req, res) => {
+  res.json({ success: true, suppliers: sparePartSuppliers });
+});
+
+app.post('/api/admin/spare-part-suppliers', async (req, res) => {
+  const { name, phone, email, address, notes } = req.body;
+  if (!name) return res.status(400).json({ success: false, message: 'Supplier name required' });
+  const supplier = {
+    _id: 'SUP' + (100 + sparePartSuppliers.length + 1),
+    name: name.trim(),
+    phone: phone || '',
+    email: email || '',
+    address: address || '',
+    notes: notes || '',
+    createdAt: new Date().toISOString()
+  };
+  sparePartSuppliers.push(supplier);
+  await saveData();
+  res.json({ success: true, supplier, suppliers: sparePartSuppliers });
+});
+
+// 9. Worker Spare Part Requests API
+app.get('/api/admin/spare-part-requests', async (req, res) => {
+  await refreshSparePartsFromDb();
+  res.json({ success: true, requests: sparePartRequests });
+});
+
+app.post('/api/worker/spare-part-request', async (req, res) => {
+  const { workerId, workerName, bookingId, partName, category, quantity, reason } = req.body;
+
+  if (!partName) return res.status(400).json({ success: false, message: 'Part Name is required' });
+
+  const requestObj = {
+    _id: 'REQ' + Date.now(),
+    workerId: workerId || 'UNKNOWN_WORKER',
+    workerName: workerName || 'Worker',
+    bookingId: bookingId || 'N/A',
+    partName: String(partName).trim(),
+    category: category || 'General',
+    quantity: Number(quantity || 1),
+    reason: reason || 'Part replacement needed for customer repair job',
+    status: 'PENDING', // PENDING, APPROVED, REJECTED, DELIVERED
+    createdAt: new Date().toISOString()
+  };
+
+  sparePartRequests.unshift(requestObj);
+  await saveData();
+
+  io.emit('admin_alert', {
+    type: 'worker_part_request',
+    title: '🔧 Worker Part Request',
+    message: `${workerName || 'Worker'} requested ${quantity || 1}x ${partName} for Booking #${bookingId || ''}`
+  });
+
+  res.json({ success: true, message: 'Part request submitted to Admin!', request: requestObj });
+});
+
+app.put('/api/admin/spare-part-requests/:id', async (req, res) => {
+  const { status, adminNotes } = req.body;
+  const idx = sparePartRequests.findIndex(r => r._id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Request not found' });
+
+  sparePartRequests[idx].status = status;
+  if (adminNotes) sparePartRequests[idx].adminNotes = adminNotes;
+  sparePartRequests[idx].updatedAt = new Date().toISOString();
+
+  await saveData();
+  io.emit('worker_part_request_update', sparePartRequests[idx]);
+
+  res.json({ success: true, request: sparePartRequests[idx] });
+});
+
+// 10. Analytics API
+app.get('/api/admin/spare-parts/analytics', async (req, res) => {
+  await refreshSparePartsFromDb();
+
+  const totalParts = spareParts.length;
+  const activeParts = spareParts.filter(p => p.active !== false).length;
+  const outOfStock = spareParts.filter(p => Number(p.stock) === 0).length;
+  const lowStock = spareParts.filter(p => Number(p.stock) > 0 && Number(p.stock) <= (p.lowStockThreshold || 5)).length;
+
+  const totalOrders = sparePartOrders.length;
+  const pendingOrders = sparePartOrders.filter(o => o.orderStatus === 'NEW' || o.orderStatus === 'CONFIRMED' || o.orderStatus === 'PACKED').length;
+  const completedOrders = sparePartOrders.filter(o => o.orderStatus === 'DELIVERED').length;
+  
+  const revenue = sparePartOrders.reduce((sum, o) => sum + (o.orderStatus !== 'CANCELLED' ? Number(o.totalAmount || 0) : 0), 0);
+
+  res.json({
+    success: true,
+    analytics: {
+      totalParts,
+      activeParts,
+      outOfStock,
+      lowStock,
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      revenue,
+      pendingWorkerRequests: sparePartRequests.filter(r => r.status === 'PENDING').length
+    }
+  });
+});
+
 // â”€â”€ Admin: force reload all data from MongoDB (useful after external changes)
 app.post('/api/admin/reload-data', async (req, res) => {
   try {
@@ -3520,8 +4544,20 @@ app.get('/api/health', (req, res) => {
     workers: adminWorkers.length,
     coupons: coupons.length,
     messages: messages.length,
+    spareParts: spareParts.length,
+    sparePartOrders: sparePartOrders.length,
     uptime: process.uptime(),
   });
 });
 
-// (Server listen moved to top for startup sync)
+// Serve React Admin Control Panel production build
+app.use(express.static(path.join(__dirname, 'build')));
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  const buildIndex = path.join(__dirname, 'build', 'index.html');
+  if (fs.existsSync(buildIndex)) {
+    res.sendFile(buildIndex);
+  } else {
+    res.send('FixoN Admin Control Panel Backend Server Running');
+  }
+});

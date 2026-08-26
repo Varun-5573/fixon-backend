@@ -8,6 +8,8 @@ import 'worker_bookings_screen.dart';
 import 'worker_earnings_screen.dart';
 import 'worker_login_screen.dart';
 import 'worker_profile_screen.dart';
+import 'worker_spare_part_deliveries_screen.dart';
+
 
 class WorkerHomeScreen extends StatefulWidget {
   const WorkerHomeScreen({super.key});
@@ -335,11 +337,68 @@ class _DashboardTab extends StatelessWidget {
               ),
             ]),
           ),
+      // Spare Part Deliveries Card
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WorkerSparePartDeliveriesScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.4)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text('📦', style: TextStyle(fontSize: 22)),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Spare Part Deliveries',
+                          style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text),
+                        ),
+                        Text(
+                          'Manage assigned deliveries & GPS tracking',
+                          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSub),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text('Open →', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      )),
+      ),
 
       const SliverToBoxAdapter(child: SizedBox(height: 100)),
     ]);
+
   }
 
   Widget _statCard(String label, String value, String icon, Color color) {

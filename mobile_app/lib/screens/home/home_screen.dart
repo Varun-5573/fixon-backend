@@ -15,6 +15,7 @@ import '../notifications/notifications_screen.dart';
 import '../chat/chat_screen.dart';
 import '../location/location_picker_screen.dart';
 import '../profile/worker_verification_screen.dart';
+import '../shop/spare_parts_store_screen.dart';
 import '../../widgets/smart_recommendations_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
@@ -487,6 +488,94 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (_) => ServiceDetailScreen(service: svc),
               ));
             },
+          ),
+        ),
+
+        // ── 🛒 Spare Parts Store Banner ─────────────────────
+        if (_search.isEmpty) SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SparePartsStoreScreen()));
+              },
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF065F46), Color(0xFF047857), Color(0xFF10B981)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withOpacity(0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Center(
+                        child: Text('🛒', style: TextStyle(fontSize: 26)),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Spare Parts Store',
+                                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'NEW',
+                                  style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF065F46)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Buy genuine AC, Washer, Fridge parts + optional technician installation!',
+                            style: GoogleFonts.inter(fontSize: 11, color: Colors.white70),
+                            maxLines: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_forward_rounded, color: Color(0xFF065F46), size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
 

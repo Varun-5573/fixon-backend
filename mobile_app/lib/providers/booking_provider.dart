@@ -112,11 +112,23 @@ class BookingProvider extends ChangeNotifier {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (data['success'] == true) {
           final list = data['notifications'] as List? ?? [];
-          _notifications = list.map((n) {
+          final fresh = list.map((n) {
             final map = Map<String, dynamic>.from(n as Map);
             if (!map.containsKey('unread')) map['unread'] = true;
             return map;
           }).toList();
+
+          final seenKeys = <String>{};
+          final deduplicated = <Map<String, dynamic>>[];
+          for (final n in fresh) {
+            final key = (n['_id'] ?? n['id'])?.toString() ??
+                '${n['title']}_${n['message'] ?? n['body']}';
+            if (seenKeys.contains(key)) continue;
+            seenKeys.add(key);
+            deduplicated.add(n);
+          }
+
+          _notifications = deduplicated;
           _saveCachedNotifications();
           notifyListeners();
           return;
@@ -129,6 +141,24 @@ class BookingProvider extends ChangeNotifier {
     if (_notifications.isEmpty) {
       _notifications = List<Map<String, dynamic>>.from(_demoNotifications);
     }
+    notifyListeners();
+  }
+
+  void _addNotification(Map<String, dynamic> payload) {
+    final notifId = (payload['_id'] ?? payload['id'])?.toString();
+    if (notifId != null && notifId.isNotEmpty) {
+      final exists = _notifications.any((n) => (n['_id'] ?? n['id'])?.toString() == notifId);
+      if (exists) return; // Prevent duplicate notification
+    } else {
+      final title = payload['title']?.toString();
+      final body = (payload['message'] ?? payload['body'])?.toString();
+      final exists = _notifications.any((n) =>
+          n['title']?.toString() == title &&
+          (n['message'] ?? n['body'])?.toString() == body);
+      if (exists) return; // Prevent duplicate notification
+    }
+    _notifications.insert(0, payload);
+    _saveCachedNotifications();
     notifyListeners();
   }
 
@@ -286,8 +316,7 @@ class BookingProvider extends ChangeNotifier {
           // Check if targeting all users or specific user
           final targetUserId = payload['userId']?.toString();
           if (targetUserId == 'all' || targetUserId == _currentUserId) {
-            _notifications.insert(0, payload);
-            notifyListeners();
+            _addNotification(payload);
           }
         } catch (e) {
           debugPrint('⚠️ Socket notification parse error: $e');

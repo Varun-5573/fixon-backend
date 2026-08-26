@@ -124,7 +124,28 @@ class _WorkerLiveMapScreenState extends State<WorkerLiveMapScreen>
         ),
       );
     }
+
+    // If spare part delivery, post GPS location telemetry to server
+    if (widget.booking['orderId'] != null) {
+      try {
+        final wp = context.read<WorkerProvider>();
+        final cleanOrderId = widget.booking['orderId'].toString().replaceAll('#', '');
+        final workerId = wp.worker?['_id'] ?? wp.worker?['workerId'] ?? '';
+
+        http.post(
+          Uri.parse('$kBaseUrl/api/worker/spare-part-orders/$cleanOrderId/location'),
+          headers: kHeaders,
+          body: jsonEncode({
+            'workerId': workerId,
+            'latitude': pos.latitude,
+            'longitude': pos.longitude,
+            'timestamp': DateTime.now().toIso8601String(),
+          }),
+        );
+      } catch (_) {}
+    }
   }
+
 
   void _showError(String msg) {
     if (!mounted) return;

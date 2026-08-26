@@ -14,6 +14,7 @@ import ChatPage from './pages/ChatPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ServicesPage from './pages/ServicesPage';
 import CouponsPage from './pages/CouponsPage';
+import SparePartsPage from './pages/SparePartsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import './index.css';
@@ -26,6 +27,7 @@ const PAGE_TITLES = {
   workers:       '👷 Workers',
   payments:      '💳 Payments',
   services:      '🛠️ Services',
+  spare_parts:   '🛒 Spare Parts Store',
   coupons:       '🎟️ Coupons',
   livemap:       '🗺️ Live Map',
   chat:          '💬 Support Chat',
@@ -134,7 +136,9 @@ function AppInner() {
       case 'workers':       return <WorkersPage />;
       case 'payments':      return <PaymentsPage />;
       case 'services':      return <ServicesPage />;
+      case 'spare_parts':   return <SparePartsPage socket={socket} />;
       case 'coupons':       return <CouponsPage />;
+
       case 'livemap':       return <LiveMapPage socket={socket} focusedBooking={focusedBooking} onClearFocus={() => setFocusedBooking(null)} />;
       case 'chat':          return <ChatPage socket={socket} />;
       case 'notifications': return <NotificationsPage />;

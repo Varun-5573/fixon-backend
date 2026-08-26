@@ -8,6 +8,7 @@ import 'providers/booking_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/worker_provider.dart';
+import 'providers/spare_parts_provider.dart';
 import 'utils/constants.dart';
 
 void main() async {
@@ -27,6 +28,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BookingProvider()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => WorkerProvider()),
+        ChangeNotifierProvider(create: (_) => SparePartsProvider()),
       ],
       child: const FixoNApp(),
     ),

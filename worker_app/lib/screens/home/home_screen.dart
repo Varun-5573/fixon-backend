@@ -15,6 +15,7 @@ import '../notifications/notifications_screen.dart';
 import '../chat/chat_screen.dart';
 import '../location/location_picker_screen.dart';
 import '../profile/worker_verification_screen.dart';
+import '../worker/request_spare_part_screen.dart';
 import '../../widgets/smart_recommendations_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
@@ -303,6 +304,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(user?['name'] ?? 'User', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text)),
                 ]),
               ),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestSparePartScreen())),
+                child: Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.2), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF10B981))),
+                  child: const Center(child: Text('🔧', style: TextStyle(fontSize: 20))),
+                ),
+              ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScannerScreen())),
                 child: Container(

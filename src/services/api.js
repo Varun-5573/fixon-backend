@@ -529,5 +529,27 @@ export const adminApi = {
   // Invoice for a booking
   getInvoice: (bookingId) => localApi.get(`/api/bookings/${bookingId}/invoice`).then(r => r.data).catch(() => ({ success: false })),
 
+  // 🛒 SPARE PARTS STORE API METHODS
+  getSpareParts: () => localApi.get('/api/admin/spare-parts').then(r => r.data).catch(() => ({ success: false, spareParts: [] })),
+  addSparePart: (data) => localApi.post('/api/admin/spare-parts', data).then(r => r.data),
+  updateSparePart: (id, data) => localApi.put(`/api/admin/spare-parts/${id}`, data).then(r => r.data),
+  deleteSparePart: (id) => localApi.delete(`/api/admin/spare-parts/${id}`).then(r => r.data),
+  getSparePartCategories: () => localApi.get('/api/spare-parts/categories').then(r => r.data),
+  addSparePartCategory: (data) => localApi.post('/api/admin/spare-parts/categories', data).then(r => r.data),
+  getSparePartOrders: () => localApi.get('/api/admin/spare-part-orders').then(r => r.data),
+  // Strip '#' from order ID before using in URL - '#' is a URL fragment character and breaks HTTP routing
+  updateSparePartOrderStatus: (id, status, note) => {
+    const safeId = String(id).replace(/^#/, '');
+    return localApi.patch(`/api/admin/spare-part-orders/${safeId}/status`, { status, note }).then(r => r.data);
+  },
+  assignSparePartDeliveryWorker: (id, workerId, workerName, workerPhone) => {
+    const safeId = String(id).replace(/^#/, '');
+    return localApi.put(`/api/admin/spare-part-orders/${safeId}/assign-worker`, { workerId, workerName, workerPhone }).then(r => r.data);
+  },
+  getSparePartSuppliers: () => localApi.get('/api/admin/spare-part-suppliers').then(r => r.data),
+  addSparePartSupplier: (data) => localApi.post('/api/admin/spare-part-suppliers', data).then(r => r.data),
+  getSparePartRequests: () => localApi.get('/api/admin/spare-part-requests').then(r => r.data),
+  updateSparePartRequest: (id, data) => localApi.put(`/api/admin/spare-part-requests/${id}`, data).then(r => r.data),
+  getSparePartsAnalytics: () => localApi.get('/api/admin/spare-parts/analytics').then(r => r.data),
 };
 

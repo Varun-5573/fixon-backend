@@ -1,0 +1,9 @@
+node_modules/
+mobile_app/
+worker_app/
+.git/
+*.log
+*.ps1
+tunnel_manager.js
+seed_demo_data.js
+fixon-deploy/

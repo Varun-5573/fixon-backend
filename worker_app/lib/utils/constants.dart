@@ -60,9 +60,9 @@ class AppColors {
 //  PRODUCTION BACKEND — Single cloud URL (laptop NOT required)
 //  Deployed on Railway.app (no bandwidth limits, always-on)
 // ══════════════════════════════════════════════════════════════
-const String kProductionUrl = 'https://miss-gathering-females-sculpture.trycloudflare.com';
+const String kProductionUrl = 'https://verceltemp-six.vercel.app';
 const List<String> kCandidateIps = [
-  'https://miss-gathering-females-sculpture.trycloudflare.com',
+  'https://verceltemp-six.vercel.app',
   'http://10.78.7.161:5000',
   'http://10.251.123.161:5000',
   'http://10.0.2.2:5000',

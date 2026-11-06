@@ -14,9 +14,11 @@ import ChatPage from './pages/ChatPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ServicesPage from './pages/ServicesPage';
 import CouponsPage from './pages/CouponsPage';
-import SparePartsPage from './pages/SparePartsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
+import SparePartsPage from './pages/SparePartsPage';
+import FestivalOffersPage from './pages/FestivalOffersPage';
+// import PhoneNumberPage from './pages/PhoneNumberPage'; // file not found - disabled
 import './index.css';
 
 const PAGE_TITLES = {
@@ -33,6 +35,8 @@ const PAGE_TITLES = {
   chat:          '💬 Support Chat',
   notifications: '🔔 Notifications',
   settings:      '⚙️ Settings',
+  festival:      '🎉 Festival Offers',
+  phonenumber:   '📱 Phone Number',
 };
 
 function AppInner() {
@@ -143,6 +147,7 @@ function AppInner() {
       case 'chat':          return <ChatPage socket={socket} />;
       case 'notifications': return <NotificationsPage />;
       case 'settings':      return <SettingsPage />;
+      case 'festival':      return <FestivalOffersPage socket={socket} />;
       default:              return <Dashboard socket={socket} />;
     }
   };

@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -30,6 +30,7 @@ const AppDataSchema = new mongoose.Schema({
   sparePartSuppliers: { type: Array, default: [] },
   sparePartRequests: { type: Array, default: [] },
   sparePartAuditHistory: { type: Array, default: [] },
+  sparePartBrands: { type: Array, default: [] },
 }, { minimize: false });
 const AppData = mongoose.models.AppData || mongoose.model('AppData', AppDataSchema);
 
@@ -154,16 +155,18 @@ let spareParts = [
 ];
 let sparePartOrders = [];
 let sparePartCategories = [
-  { id: 'cat_ac', name: 'AC Parts', icon: '❄️', active: true },
-  { id: 'cat_fridge', name: 'Refrigerator Parts', icon: '🧊', active: true },
-  { id: 'cat_wash', name: 'Washing Machine Parts', icon: '🧺', active: true },
-  { id: 'cat_tv', name: 'TV Parts', icon: '📺', active: true },
-  { id: 'cat_elec', name: 'Electrical Parts', icon: '⚡', active: true },
-  { id: 'cat_plumb', name: 'Plumbing Parts', icon: '🚰', active: true },
-  { id: 'cat_cctv', name: 'CCTV Parts', icon: '📹', active: true },
-  { id: 'cat_clean', name: 'Cleaning Equipment Parts', icon: '🧹', active: true },
-  { id: 'cat_ro', name: 'RO/Water Purifier Parts', icon: '💧', active: true },
-  { id: 'cat_gen', name: 'General Home Appliance Parts', icon: '🔧', active: true }
+  { id: 'cat_ac',     name: 'AC Parts',                  icon: '❄️', active: true },
+  { id: 'cat_fridge', name: 'Refrigerator Parts',        icon: '🧊', active: true },
+  { id: 'cat_wash',   name: 'Washing Machine Parts',     icon: '🧺', active: true },
+  { id: 'cat_fan',    name: 'Fan Parts',                 icon: '🌀', active: true },
+  { id: 'cat_geyser', name: 'Geyser Parts',              icon: '🔥', active: true },
+  { id: 'cat_tv',     name: 'TV Parts',                  icon: '📺', active: true },
+  { id: 'cat_elec',   name: 'Electrical Parts',          icon: '⚡', active: true },
+  { id: 'cat_plumb',  name: 'Plumbing Parts',            icon: '🚰', active: true },
+  { id: 'cat_cctv',   name: 'CCTV Parts',                icon: '📹', active: true },
+  { id: 'cat_clean',  name: 'Cleaning Equipment Parts',  icon: '🧹', active: true },
+  { id: 'cat_ro',     name: 'RO/Water Purifier Parts',   icon: '💧', active: true },
+  { id: 'cat_gen',    name: 'General Home Appliance Parts', icon: '🔧', active: true }
 ];
 let sparePartSuppliers = [
   {
@@ -187,6 +190,54 @@ let sparePartSuppliers = [
 ];
 let sparePartRequests = [];
 let sparePartAuditHistory = [];
+// 🏷️ Spare Part Brands: { id, categoryId, categoryName, name, logo, active }
+let sparePartBrands = [
+  // AC Parts Brands
+  { id: 'br_ac_lg',       categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'LG',        logo: '❄️', active: true },
+  { id: 'br_ac_samsung',  categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Samsung',   logo: '❄️', active: true },
+  { id: 'br_ac_voltas',   categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Voltas',    logo: '❄️', active: true },
+  { id: 'br_ac_daikin',   categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Daikin',    logo: '❄️', active: true },
+  { id: 'br_ac_hitachi',  categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Hitachi',   logo: '❄️', active: true },
+  { id: 'br_ac_panasonic',categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Panasonic', logo: '❄️', active: true },
+  { id: 'br_ac_bluestar', categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Blue Star', logo: '❄️', active: true },
+  { id: 'br_ac_carrier',  categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Carrier',   logo: '❄️', active: true },
+  { id: 'br_ac_haier',    categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Haier',     logo: '❄️', active: true },
+  { id: 'br_ac_lloyd',    categoryId: 'cat_ac', categoryName: 'AC Parts',               name: 'Lloyd',     logo: '❄️', active: true },
+  // Refrigerator Parts Brands
+  { id: 'br_fr_lg',       categoryId: 'cat_fridge', categoryName: 'Refrigerator Parts', name: 'LG',        logo: '🧊', active: true },
+  { id: 'br_fr_samsung',  categoryId: 'cat_fridge', categoryName: 'Refrigerator Parts', name: 'Samsung',   logo: '🧊', active: true },
+  { id: 'br_fr_whirlpool',categoryId: 'cat_fridge', categoryName: 'Refrigerator Parts', name: 'Whirlpool', logo: '🧊', active: true },
+  { id: 'br_fr_godrej',   categoryId: 'cat_fridge', categoryName: 'Refrigerator Parts', name: 'Godrej',    logo: '🧊', active: true },
+  { id: 'br_fr_haier',    categoryId: 'cat_fridge', categoryName: 'Refrigerator Parts', name: 'Haier',     logo: '🧊', active: true },
+  // Washing Machine Parts Brands
+  { id: 'br_wm_lg',       categoryId: 'cat_wash', categoryName: 'Washing Machine Parts',name: 'LG',        logo: '🧺', active: true },
+  { id: 'br_wm_samsung',  categoryId: 'cat_wash', categoryName: 'Washing Machine Parts',name: 'Samsung',   logo: '🧺', active: true },
+  { id: 'br_wm_ifb',      categoryId: 'cat_wash', categoryName: 'Washing Machine Parts',name: 'IFB',       logo: '🧺', active: true },
+  { id: 'br_wm_whirlpool',categoryId: 'cat_wash', categoryName: 'Washing Machine Parts',name: 'Whirlpool', logo: '🧺', active: true },
+  { id: 'br_wm_bosch',    categoryId: 'cat_wash', categoryName: 'Washing Machine Parts',name: 'Bosch',     logo: '🧺', active: true },
+  // Fan Spare Parts Brands
+  { id: 'br_fan_crompton',categoryId: 'cat_fan', categoryName: 'Fan Parts',             name: 'Crompton',  logo: '🌀', active: true },
+  { id: 'br_fan_havells', categoryId: 'cat_fan', categoryName: 'Fan Parts',             name: 'Havells',   logo: '🌀', active: true },
+  { id: 'br_fan_orient',  categoryId: 'cat_fan', categoryName: 'Fan Parts',             name: 'Orient',    logo: '🌀', active: true },
+  { id: 'br_fan_usha',    categoryId: 'cat_fan', categoryName: 'Fan Parts',             name: 'Usha',      logo: '🌀', active: true },
+  { id: 'br_fan_bajaj',   categoryId: 'cat_fan', categoryName: 'Fan Parts',             name: 'Bajaj',     logo: '🌀', active: true },
+  // Geyser/Water Heater Parts Brands
+  { id: 'br_gy_ao_smith', categoryId: 'cat_geyser', categoryName: 'Geyser Parts',       name: 'AO Smith',  logo: '🔥', active: true },
+  { id: 'br_gy_racold',   categoryId: 'cat_geyser', categoryName: 'Geyser Parts',       name: 'Racold',    logo: '🔥', active: true },
+  { id: 'br_gy_havells',  categoryId: 'cat_geyser', categoryName: 'Geyser Parts',       name: 'Havells',   logo: '🔥', active: true },
+  { id: 'br_gy_bajaj',    categoryId: 'cat_geyser', categoryName: 'Geyser Parts',       name: 'Bajaj',     logo: '🔥', active: true },
+  // TV Parts Brands
+  { id: 'br_tv_lg',       categoryId: 'cat_tv',  categoryName: 'TV Parts',             name: 'LG',        logo: '📺', active: true },
+  { id: 'br_tv_samsung',  categoryId: 'cat_tv',  categoryName: 'TV Parts',             name: 'Samsung',   logo: '📺', active: true },
+  { id: 'br_tv_sony',     categoryId: 'cat_tv',  categoryName: 'TV Parts',             name: 'Sony',      logo: '📺', active: true },
+  // Electrical Parts Brands
+  { id: 'br_el_havells',  categoryId: 'cat_elec', categoryName: 'Electrical Parts',    name: 'Havells',   logo: '⚡', active: true },
+  { id: 'br_el_legrand',  categoryId: 'cat_elec', categoryName: 'Electrical Parts',    name: 'Legrand',   logo: '⚡', active: true },
+  // Plumbing Parts Brands
+  { id: 'br_pl_astral',   categoryId: 'cat_plumb', categoryName: 'Plumbing Parts',     name: 'Astral',    logo: '🚰', active: true },
+  { id: 'br_pl_finolex',  categoryId: 'cat_plumb', categoryName: 'Plumbing Parts',     name: 'Finolex',   logo: '🚰', active: true },
+];
+
 let adminWorkers = [
   { _id: 'W_DEFAULT_1', name: 'VARUN',            phone: '9000853346', email: 'ADITHYAVARUN@GMAIL.COM',  category: 'Plumbing',   skills: ['Plumbing','Pipe Repair','Bathroom','Leak Fix'],         rating: 5.0, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_PLM_1001', workerPassword: 'FXN1001', createdAt: new Date().toISOString() },
   { _id: 'W_DEFAULT_2', name: 'ADITHYA',          phone: '8179712126', email: 'varunpittala@gmail.com',  category: 'Electrical', skills: ['Electrical','Wiring','Fan Installation','Switch Repair'],  rating: 4.8, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '7 years',  workerId: 'FIXON_ELC_1001', workerPassword: 'FXN1002', createdAt: new Date().toISOString() },
@@ -205,25 +256,27 @@ let adminWorkers = [
   { _id: 'W_DEFAULT_15', name: 'Royal Travels',   phone: '9876543224', email: 'royal@fixon.com',         category: 'Vehicle Rental', skills: ['Vehicle Rental','Luxury Car','Wedding Car'],           rating: 4.7, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '6 years',  workerId: 'FIXON_VHR_1001', workerPassword: 'FXN1015', createdAt: new Date().toISOString() },
   { _id: 'W_DEFAULT_16', name: 'Priya Studio',    phone: '9876543225', email: 'priya@fixon.com',         category: 'Makeup Artist', skills: ['Makeup Artist','Bridal Makeup','Styling'],              rating: 4.9, active: true, isAvailable: true, isActive: true, isOnline: false, experience: '5 years',  workerId: 'FIXON_MKP_1001', workerPassword: 'FXN1016', createdAt: new Date().toISOString() },
 ];
+
 let services = [
-  { _id: 'SV1',  name: 'Plumbing',            icon: 'ðŸ”§', color: '#7C3AED', price: 499,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
-  { _id: 'SV2',  name: 'Electrical',           icon: 'âš¡', color: '#F59E0B', price: 599,  active: true, packages: [{name: 'Single Point Fix', price: 599}, {name: 'Home Safety Check', price: 1999}] },
-  { _id: 'SV3',  name: 'Cleaning',             icon: 'ðŸ§¹', color: '#10B981', price: 1299, active: true, packages: [{name: '1 BHK', price: 1299}, {name: '2 BHK', price: 2199}, {name: 'Villa', price: 4999}] },
-  { _id: 'SV4',  name: 'AC Repair',            icon: 'â„ï¸', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
-  { _id: 'SV5',  name: 'Carpentry',            icon: 'ðŸªš', color: '#EC4899', price: 699,  active: true, packages: [] },
-  { _id: 'SV6',  name: 'Painting',             icon: 'ðŸŽ¨', color: '#EF4444', price: 2499, active: true, packages: [] },
-  { _id: 'SV7',  name: 'Pest Control',         icon: 'ðŸ›', color: '#8B5CF6', price: 999,  active: true, packages: [] },
-  { _id: 'SV8',  name: 'CCTV Setup',           icon: 'ðŸ“¹', color: '#059669', price: 3499, active: true, packages: [] },
-  // ðŸŽ‰ Wedding & Event Services
-  { _id: 'SV9',  name: 'Photo Studio',         icon: 'ðŸ“¸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
-  { _id: 'SV10', name: 'Wedding Tent House',   icon: 'ðŸŽª', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
-  { _id: 'SV11', name: 'Catering Services',    icon: 'ðŸ½', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
-  { _id: 'SV12', name: 'Decoration Services',  icon: 'ðŸŽ€', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
-  { _id: 'SV13', name: 'DJ & Music',           icon: 'ðŸŽµ', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
-  { _id: 'SV14', name: 'Videography',          icon: 'ðŸŽ¥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
-  { _id: 'SV15', name: 'Vehicle Rental',       icon: 'ðŸš—', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
-  { _id: 'SV16', name: 'Makeup Artist',        icon: 'ðŸ’„', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
+  { _id: 'SV1',  name: 'Plumbing',            icon: '🔧', color: '#7C3AED', price: 799,  active: true, packages: [{name: 'Leaky Tap Repair', price: 499}, {name: 'Full Bathroom Polish', price: 1499}] },
+  { _id: 'SV2',  name: 'Electrical',           icon: '⚡', color: '#F59E0B', price: 499,  active: true, packages: [{name: 'Single Point Fix', price: 159}, {name: 'Home Safety Check', price: 250}] },
+  { _id: 'SV3',  name: 'Cleaning',             icon: '🧹', color: '#10B981', price: 549,  active: true, packages: [{name: '1 BHK', price: 599}, {name: '2 BHK', price: 699}, {name: 'Villa', price: 799}] },
+  { _id: 'SV4',  name: 'AC Repair',            icon: '❄️', color: '#06B6D4', price: 799,  active: true, packages: [{name: 'Basic Service', price: 799}, {name: 'Gas Refill & Check', price: 2499}] },
+  { _id: 'SV5',  name: 'Carpentry',            icon: '🪚', color: '#EC4899', price: 699,  active: true, packages: [] },
+  { _id: 'SV6',  name: 'Painting',             icon: '🎨', color: '#EF4444', price: 2499, active: true, packages: [] },
+  { _id: 'SV7',  name: 'Pest Control',         icon: '🐛', color: '#8B5CF6', price: 999,  active: true, packages: [] },
+  { _id: 'SV8',  name: 'CCTV Setup',           icon: '📹', color: '#059669', price: 3499, active: true, packages: [] },
+  // 🎉 Wedding & Event Services
+  { _id: 'SV9',  name: 'Photo Studio',         icon: '📸', color: '#E11D48', price: 4999, active: true, packages: [{name: 'Wedding Photography', price: 14999}, {name: 'Pre Wedding Shoot', price: 7999}, {name: 'Post Wedding Shoot', price: 5999}, {name: 'Drone Photography', price: 9999}, {name: 'Cinematic Video', price: 19999}, {name: 'Album Design', price: 3999}, {name: 'Live Streaming', price: 4999}] },
+  { _id: 'SV10', name: 'Wedding Tent House',   icon: '🎪', color: '#D97706', price: 9999, active: true, packages: [{name: 'Tent Setup', price: 9999}, {name: 'Stage Decoration', price: 14999}, {name: 'Chairs & Tables', price: 4999}, {name: 'Lighting', price: 7999}, {name: 'Generator', price: 5999}, {name: 'Sound System', price: 8999}, {name: 'LED Wall', price: 12999}, {name: 'Flower Decoration', price: 6999}] },
+  { _id: 'SV11', name: 'Catering Services',    icon: '🍽', color: '#059669', price: 299,  active: true, packages: [{name: 'Veg Catering (per plate)', price: 299}, {name: 'Non-Veg Catering (per plate)', price: 399}, {name: 'Sweets Package', price: 4999}, {name: 'Snacks Package', price: 2999}, {name: 'Live Counters', price: 9999}] },
+  { _id: 'SV12', name: 'Decoration Services',  icon: '🎀', color: '#9333EA', price: 2999, active: true, packages: [{name: 'Wedding Decoration', price: 24999}, {name: 'Birthday Decoration', price: 2999}, {name: 'Balloon Decoration', price: 1999}, {name: 'Flower Decoration', price: 4999}, {name: 'Reception Decoration', price: 14999}] },
+  { _id: 'SV13', name: 'DJ & Music',           icon: '🎵', color: '#2563EB', price: 4999, active: true, packages: [{name: 'DJ Sound', price: 4999}, {name: 'Orchestra', price: 14999}, {name: 'Live Band', price: 19999}, {name: 'Traditional Music', price: 7999}] },
+  { _id: 'SV14', name: 'Videography',          icon: '🎥', color: '#DC2626', price: 5999, active: true, packages: [{name: 'Wedding Video', price: 14999}, {name: 'Birthday Video', price: 3999}, {name: 'Drone Video', price: 7999}, {name: 'Cinematic Editing', price: 4999}] },
+  { _id: 'SV15', name: 'Vehicle Rental',       icon: '🚗', color: '#4F46E5', price: 3499, active: true, packages: [{name: 'Wedding Car', price: 3499}, {name: 'Luxury Car', price: 7999}, {name: 'Bus', price: 9999}, {name: 'Traveller', price: 5999}] },
+  { _id: 'SV16', name: 'Makeup Artist',        icon: '💄', color: '#DB2777', price: 1999, active: true, packages: [{name: 'Bridal Makeup', price: 4999}, {name: 'Groom Makeup', price: 2499}, {name: 'Hair Styling', price: 1999}, {name: 'Mehendi', price: 2999}] },
 ];
+
 let coupons = [
   { _id: 'CP1', code: 'FIXON10',  discount: 10, type: 'percent', minOrder: 300, expiry: '2026-12-31', active: true, used: 0 },
   { _id: 'CP2', code: 'FIRST50',  discount: 50, type: 'flat',    minOrder: 200, expiry: '2026-12-31', active: true, used: 0 },
@@ -317,37 +370,67 @@ function mergeDefaultWorkers() {
 }
 
 async function loadData() {
-  // 1. Try MongoDB first (Render cloud)
-  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+  if (MONGODB_URI) {
     try {
-      const doc = await AppData.findOne({ key: 'main' }).lean();
-      if (doc) {
-        if (doc.registeredUsers && doc.registeredUsers.length > 0) registeredUsers = doc.registeredUsers;
-        if (doc.bookings) bookings = doc.bookings;
-        if (doc.messages) messages = doc.messages;
-        if (doc.notificationsList) notificationsList = doc.notificationsList;
-        if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = doc.adminWorkers;
-        if (doc.services && doc.services.length > 0) services = doc.services;
-        if (doc.coupons && doc.coupons.length > 0) coupons = doc.coupons;
-        if (doc.spareParts && doc.spareParts.length > 0) spareParts = doc.spareParts;
-        if (doc.sparePartOrders && doc.sparePartOrders.length > 0) sparePartOrders = doc.sparePartOrders;
-        if (doc.sparePartCategories && doc.sparePartCategories.length > 0) sparePartCategories = doc.sparePartCategories;
-        if (doc.sparePartSuppliers && doc.sparePartSuppliers.length > 0) sparePartSuppliers = doc.sparePartSuppliers;
-        if (doc.sparePartRequests && doc.sparePartRequests.length > 0) sparePartRequests = doc.sparePartRequests;
-        if (doc.sparePartAuditHistory && doc.sparePartAuditHistory.length > 0) sparePartAuditHistory = doc.sparePartAuditHistory;
-        console.log('âœ… Data loaded from MongoDB Atlas! Users:', registeredUsers.length);
-        adminWorkers = applyDefaultCreds(adminWorkers);
-        mergeDefaultWorkers();
-        mergeDefaultServices();
-        console.log('âœ… Workers loaded:', adminWorkers.length);
-        return;
+      if (mongoose.connection.readyState !== 1) {
+        await mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true, serverSelectionTimeoutMS: 5000 }).catch(() => {});
       }
-    } catch (err) {
-      console.error('âš ï¸ MongoDB load failed, falling back to file:', err.message);
+      if (mongoose.connection.readyState === 1) {
+        const doc = await AppData.findOne({ key: 'main' }).lean();
+        if (doc) {
+          if (doc.users) Object.assign(users, doc.users);
+          if (doc.bookings) bookings = doc.bookings;
+          if (doc.messages) messages = doc.messages;
+          if (doc.registeredUsers) registeredUsers = doc.registeredUsers;
+          if (doc.notificationsList) notificationsList = doc.notificationsList;
+          if (doc.adminWorkers && doc.adminWorkers.length > 0) adminWorkers = doc.adminWorkers;
+          if (doc.services && doc.services.length > 0) services = doc.services;
+          if (doc.coupons && doc.coupons.length > 0) coupons = doc.coupons;
+          if (doc.spareParts && doc.spareParts.length > 0) spareParts = doc.spareParts;
+          if (doc.sparePartOrders && doc.sparePartOrders.length > 0) sparePartOrders = doc.sparePartOrders;
+          if (doc.sparePartCategories && doc.sparePartCategories.length > 0) sparePartCategories = doc.sparePartCategories;
+          if (doc.sparePartSuppliers && doc.sparePartSuppliers.length > 0) sparePartSuppliers = doc.sparePartSuppliers;
+          if (doc.sparePartRequests && doc.sparePartRequests.length > 0) sparePartRequests = doc.sparePartRequests;
+          if (doc.sparePartAuditHistory && doc.sparePartAuditHistory.length > 0) sparePartAuditHistory = doc.sparePartAuditHistory;
+          if (doc.sparePartBrands && doc.sparePartBrands.length > 0) sparePartBrands = doc.sparePartBrands;
+          console.log('✅ Loaded fresh persistent app data from MongoDB Atlas Cloud!');
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ MongoDB Atlas load notice:', e.message);
     }
   }
 
-  // 2. Fallback: local file (for local dev / MongoDB not connected yet)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   try {
     if (fs.existsSync(DATA_FILE)) {
       const text = fs.readFileSync(DATA_FILE, 'utf-8');
@@ -367,6 +450,7 @@ async function loadData() {
         if (parsed.sparePartSuppliers && parsed.sparePartSuppliers.length > 0) sparePartSuppliers = parsed.sparePartSuppliers;
         if (parsed.sparePartRequests && parsed.sparePartRequests.length > 0) sparePartRequests = parsed.sparePartRequests;
         if (parsed.sparePartAuditHistory && parsed.sparePartAuditHistory.length > 0) sparePartAuditHistory = parsed.sparePartAuditHistory;
+        if (parsed.sparePartBrands && parsed.sparePartBrands.length > 0) sparePartBrands = parsed.sparePartBrands;
       }
     }
   } catch (error) {
@@ -516,12 +600,15 @@ async function _doSave() {
     sparePartCategories,
     sparePartSuppliers,
     sparePartRequests,
-    sparePartAuditHistory
+    sparePartAuditHistory,
+    sparePartBrands
   };
 
-  // 1. Save to MongoDB Atlas (primary)
-  if (MONGODB_URI && mongoose.connection.readyState === 1) {
+  if (MONGODB_URI) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        await mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true, serverSelectionTimeoutMS: 5000 }).catch(() => {});
+      }
       await AppData.findOneAndUpdate(
         { key: 'main' },
         { key: 'main', ...dataObj },
@@ -541,22 +628,23 @@ async function _doSave() {
   }
 }
 
-// â”€â”€ Start server: connect MongoDB first, THEN load data â”€â”€â”€â”€â”€â”€â”€â”€
 async function startServer() {
-  // 1. Connect to MongoDB Atlas first (await it!)
-  if (MONGODB_URI) {
-    try {
-      await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
-      console.log('âœ… MongoDB Atlas connected!');
-    } catch (err) {
-      console.error('âŒ MongoDB connect error:', err.message);
-      console.log('âš ï¸  Falling back to local file storage...');
-    }
-  }
 
-  // 2. Load data AFTER connection is established
+
+
+
+
+
+
+
+
+
+
+
+  // Load data from file storage
   await loadData();
   await loadPhotos();
+  await loadFestivalOffers();
   console.log('ðŸ”¥ Initial data loaded!');
 
   // 3. Start HTTP server
@@ -2576,6 +2664,7 @@ async function refreshSparePartsFromDb() {
         if (doc.sparePartSuppliers) sparePartSuppliers = doc.sparePartSuppliers;
         if (doc.sparePartRequests) sparePartRequests = doc.sparePartRequests;
         if (doc.sparePartAuditHistory) sparePartAuditHistory = doc.sparePartAuditHistory;
+        if (doc.sparePartBrands && doc.sparePartBrands.length > 0) sparePartBrands = doc.sparePartBrands;
       }
     } catch (e) {
       console.error('⚠️ Failed to refresh spare parts from MongoDB:', e.message);
@@ -2814,6 +2903,86 @@ app.post('/api/admin/spare-parts/categories', async (req, res) => {
   sparePartCategories.push(cat);
   await saveData();
   res.json({ success: true, category: cat, categories: sparePartCategories });
+});
+
+// 6b. Delete / Toggle Category
+app.delete('/api/admin/spare-parts/categories/:id', async (req, res) => {
+  const idx = sparePartCategories.findIndex(c => c.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Category not found' });
+  sparePartCategories[idx].active = false;
+  await saveData();
+  res.json({ success: true, categories: sparePartCategories });
+});
+
+// =========================================================================
+// 🏷️ SPARE PART BRANDS API
+// =========================================================================
+
+// Get all brands (optionally filter by categoryId or categoryName)
+app.get('/api/spare-parts/brands', (req, res) => {
+  const { categoryId, categoryName } = req.query;
+  let result = sparePartBrands.filter(b => b.active !== false);
+  if (categoryId) result = result.filter(b => b.categoryId === categoryId);
+  if (categoryName) result = result.filter(b => b.categoryName?.toLowerCase() === categoryName.toLowerCase());
+  // Deduplicate by name within category
+  res.json({ success: true, brands: result });
+});
+
+// Admin: Get all brands (including inactive)
+app.get('/api/admin/spare-parts/brands', (req, res) => {
+  const { categoryId, categoryName } = req.query;
+  let result = sparePartBrands;
+  if (categoryId) result = result.filter(b => b.categoryId === categoryId);
+  if (categoryName) result = result.filter(b => b.categoryName?.toLowerCase() === categoryName.toLowerCase());
+  res.json({ success: true, brands: result });
+});
+
+// Admin: Add a brand under a category
+app.post('/api/admin/spare-parts/brands', async (req, res) => {
+  const { categoryId, categoryName, name, logo } = req.body;
+  if (!name || !categoryId) return res.status(400).json({ success: false, message: 'Brand name and categoryId are required' });
+  const brand = {
+    id: 'br_' + Date.now(),
+    categoryId: categoryId.trim(),
+    categoryName: categoryName || '',
+    name: name.trim(),
+    logo: logo || '🔧',
+    active: true,
+    createdAt: new Date().toISOString()
+  };
+  sparePartBrands.push(brand);
+  await saveData();
+  res.json({ success: true, brand, brands: sparePartBrands });
+});
+
+// Admin: Update a brand
+app.put('/api/admin/spare-parts/brands/:id', async (req, res) => {
+  const idx = sparePartBrands.findIndex(b => b.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Brand not found' });
+  sparePartBrands[idx] = { ...sparePartBrands[idx], ...req.body, id: req.params.id };
+  await saveData();
+  res.json({ success: true, brand: sparePartBrands[idx] });
+});
+
+// Admin: Delete a brand (soft-delete)
+app.delete('/api/admin/spare-parts/brands/:id', async (req, res) => {
+  const idx = sparePartBrands.findIndex(b => b.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Brand not found' });
+  sparePartBrands[idx].active = false;
+  await saveData();
+  res.json({ success: true, message: 'Brand disabled' });
+});
+
+// Get distinct brands for a category (derived from products) — fallback
+app.get('/api/spare-parts/brands-from-products', async (req, res) => {
+  await refreshSparePartsFromDb();
+  const { categoryName } = req.query;
+  let parts = spareParts.filter(p => p.active !== false);
+  if (categoryName && categoryName !== 'All') {
+    parts = parts.filter(p => p.category?.toLowerCase() === categoryName.toLowerCase());
+  }
+  const brandSet = [...new Set(parts.map(p => p.brand).filter(Boolean))];
+  res.json({ success: true, brands: brandSet.map(name => ({ name, logo: '🔧' })) });
 });
 
 // 7. Spare Part Orders API
@@ -3652,6 +3821,7 @@ app.get('/api/chat/messages', (req, res) => {
 app.post('/api/chat/admin-reply', (req, res) => {
   const { receiverId, message, senderType } = req.body;
   const msgObj = {
+    _id: 'MSG' + Date.now() + Math.random().toString(36).slice(2),
     senderId: 'admin',
     receiverId,
     message,
@@ -3660,7 +3830,7 @@ app.post('/api/chat/admin-reply', (req, res) => {
   };
   messages.push(msgObj);
   io.emit('receive_message', msgObj);
-  saveData(); // Persist admin reply to MongoDB
+  saveData(); // Persist admin reply to MongoDB - deduplicated
   console.log(`ðŸ“¤ Admin â†’ ${receiverId}: ${message}`);
   res.json({ success: true, message: msgObj });
 });
@@ -3685,7 +3855,14 @@ app.post('/api/chat/send', (req, res) => {
     if (phone) users[sId].phone = phone;
   }
 
+  const msgId = 'MSG' + Date.now() + Math.random().toString(36).slice(2);
+  // Dedup: skip if same client-side id already stored
+  if (req.body.clientId && messages.some(m => m.clientId === req.body.clientId)) {
+    return res.json({ success: true, deduplicated: true });
+  }
   const msgObj = {
+    _id: msgId,
+    clientId: req.body.clientId || msgId,
     senderId,
     receiverId: 'admin',
     message,
@@ -3704,6 +3881,7 @@ app.post('/api/chat/send', (req, res) => {
   setTimeout(() => {
     const botReply = getBotReply(message);
     const botMsg = {
+      _id: 'BOT' + Date.now() + Math.random().toString(36).slice(2),
       senderId: 'bot',
       receiverId: senderId,
       message: botReply,
@@ -3717,6 +3895,95 @@ app.post('/api/chat/send', (req, res) => {
 
   res.json({ success: true, message: msgObj });
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  FESTIVAL OFFERS API
+// ═══════════════════════════════════════════════════════════════
+let festivalOffers = [];
+
+const loadFestivalOffers = async () => {
+  try {
+    const doc = await AppData.findOne({ key: 'festivalOffers' });
+    if (doc && Array.isArray(doc.value)) festivalOffers = doc.value;
+    console.log('Festival Offers loaded: ' + festivalOffers.length);
+  } catch (e) { console.warn('Festival offers load failed:', e.message); }
+};
+
+const saveFestivalOffers = async () => {
+  try {
+    await AppData.findOneAndUpdate({ key: 'festivalOffers' }, { key: 'festivalOffers', value: festivalOffers }, { upsert: true });
+  } catch (e) { console.warn('Festival offers save failed:', e.message); }
+};
+
+// GET active offers for Flutter app
+app.get('/api/festival-offers', (req, res) => {
+  const now = new Date();
+  const active = festivalOffers.filter(o => {
+    if (!o.active) return false;
+    if (o.startDate && new Date(o.startDate) > now) return false;
+    if (o.endDate && new Date(o.endDate) < now) return false;
+    return true;
+  });
+  res.json({ success: true, offers: active });
+});
+
+// GET all offers for admin
+app.get('/api/admin/festival-offers', (req, res) => {
+  res.json({ success: true, offers: festivalOffers });
+});
+
+// POST create offer
+app.post('/api/admin/festival-offers', async (req, res) => {
+  const { title, festivalName, emoji, description, discountText, startDate, endDate, bgColor, active } = req.body;
+  const offer = {
+    _id: 'FEST' + Date.now(),
+    title: title || 'Special Offer',
+    festivalName: festivalName || '',
+    emoji: emoji || '🎉',
+    description: description || '',
+    discountText: discountText || '',
+    startDate: startDate || null,
+    endDate: endDate || null,
+    bgColor: bgColor || '#7C3AED',
+    active: active !== false,
+    createdAt: new Date().toISOString()
+  };
+  festivalOffers.unshift(offer);
+  await saveFestivalOffers();
+  io.emit('festival_offers_updated', { offers: festivalOffers.filter(o => o.active) });
+  res.json({ success: true, offer });
+});
+
+// PUT update offer
+app.put('/api/admin/festival-offers/:id', async (req, res) => {
+  const idx = festivalOffers.findIndex(o => o._id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Offer not found' });
+  festivalOffers[idx] = { ...festivalOffers[idx], ...req.body, _id: req.params.id };
+  await saveFestivalOffers();
+  io.emit('festival_offers_updated', { offers: festivalOffers.filter(o => o.active) });
+  res.json({ success: true, offer: festivalOffers[idx] });
+});
+
+// PATCH toggle active/inactive
+app.patch('/api/admin/festival-offers/:id/toggle', async (req, res) => {
+  const idx = festivalOffers.findIndex(o => o._id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Offer not found' });
+  festivalOffers[idx].active = !festivalOffers[idx].active;
+  await saveFestivalOffers();
+  io.emit('festival_offers_updated', { offers: festivalOffers.filter(o => o.active) });
+  res.json({ success: true, offer: festivalOffers[idx] });
+});
+
+// DELETE offer
+app.delete('/api/admin/festival-offers/:id', async (req, res) => {
+  const idx = festivalOffers.findIndex(o => o._id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Offer not found' });
+  festivalOffers.splice(idx, 1);
+  await saveFestivalOffers();
+  io.emit('festival_offers_updated', { offers: festivalOffers.filter(o => o.active) });
+  res.json({ success: true });
+});
+
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  SOCKET.IO
@@ -3776,7 +4043,14 @@ io.on('connection', (socket) => {
       };
       io.emit('new_user', users[sId]);
     }
+    // Dedup via clientId from Flutter
+    if (data?.clientId && messages.some(m => m.clientId === data.clientId)) {
+      console.log('Duplicate message blocked (clientId):', data.clientId);
+      return;
+    }
     const msgObj = {
+      _id: 'MSG' + Date.now() + Math.random().toString(36).slice(2),
+      clientId: data?.clientId || null,
       senderId: sId,
       receiverId: 'admin',
       message: data?.message || '',
@@ -4561,3 +4835,4 @@ app.use((req, res, next) => {
     res.send('FixoN Admin Control Panel Backend Server Running');
   }
 });
+

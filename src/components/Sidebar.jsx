@@ -20,9 +20,10 @@ const navGroups = [
   {
     label: 'Services & Store',
     items: [
-      { id: 'services',   icon: '🛠️', label: 'Services' },
+      { id: 'services',    icon: '🛠️', label: 'Services' },
       { id: 'spare_parts', icon: '🛒', label: 'Spare Parts Store', badge: 'NEW', badgeStyle: 'live' },
-      { id: 'coupons',    icon: '🎟️', label: 'Coupons' },
+      { id: 'coupons',     icon: '🎟️', label: 'Coupons' },
+      { id: 'festival',    icon: '🎉', label: 'Festival Offers' },
     ]
   },
   {

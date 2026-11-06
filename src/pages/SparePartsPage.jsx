@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
 
 // Valid state machine transitions matching backend SPARE_ORDER_TRANSITIONS
@@ -23,11 +23,15 @@ const ALL_STATUS_OPTIONS = [
 ];
 
 export default function SparePartsPage({ socket }) {
-  const [activeTab, setActiveTab] = useState('products');
+  const [activeTab, setActiveTab] = useState('categories');
+  const [expandedCatBrands, setExpandedCatBrands] = useState({});
+  // { categoryId, categoryName, categoryIcon, brand } — when set, show brand detail view inside Categories tab
+  const [selectedBrandView, setSelectedBrandView] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [spareParts, setSpareParts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [orders, setOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -42,6 +46,7 @@ export default function SparePartsPage({ socket }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPart, setEditingPart] = useState(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showBrandModal, setShowBrandModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
   // Quick Edit Stock / Price state
@@ -56,6 +61,8 @@ export default function SparePartsPage({ socket }) {
     brand: '',
     partNumber: '',
     quality: 'Original',
+    acType: 'All Types',
+    acCapacity: '1 Ton, 1.5 Ton, 2 Ton',
     price: '',
     discountPrice: '',
     stock: '10',
@@ -75,6 +82,9 @@ export default function SparePartsPage({ socket }) {
   const [catName, setCatName] = useState('');
   const [catIcon, setCatIcon] = useState('🔧');
 
+  // New Brand Form State
+  const [brandForm, setBrandForm] = useState({ categoryId: '', categoryName: '', name: '', logo: '🔧' });
+
   // New Supplier Form State
   const [supplierForm, setSupplierForm] = useState({
     name: '',
@@ -91,9 +101,10 @@ export default function SparePartsPage({ socket }) {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [partsRes, catRes, ordersRes, suppRes, reqRes, anaRes, workersRes] = await Promise.all([
+      const [partsRes, catRes, brandsRes, ordersRes, suppRes, reqRes, anaRes, workersRes] = await Promise.all([
         adminApi.getSpareParts(),
         adminApi.getSparePartCategories(),
+        adminApi.getSparePartBrands(),
         adminApi.getSparePartOrders(),
         adminApi.getSparePartSuppliers(),
         adminApi.getSparePartRequests(),
@@ -103,6 +114,7 @@ export default function SparePartsPage({ socket }) {
 
       if (partsRes?.success) setSpareParts(partsRes.spareParts || []);
       if (catRes?.success) setCategories(catRes.categories || []);
+      if (brandsRes?.success) setBrands(brandsRes.brands || []);
       if (ordersRes?.success) setOrders(ordersRes.orders || []);
       if (suppRes?.success) setSuppliers(suppRes.suppliers || []);
       if (reqRes?.success) setRequests(reqRes.requests || []);
@@ -147,6 +159,22 @@ export default function SparePartsPage({ socket }) {
     };
   }, [socket]);
 
+
+  // Real-time new orders from customers
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewOrder = (order) => {
+      if (!order || !order._id) return;
+      setOrders(prev => {
+        const exists = prev.some(o => o._id === order._id || o.orderId === order.orderId);
+        if (exists) return prev;
+        try { require('react-hot-toast').default.success('New Spare Part Order: ' + order.orderId + ' from ' + order.customerName, { duration: 6000 }); } catch {}
+        return [order, ...prev];
+      });
+    };
+    socket.on('spare_part_order', handleNewOrder);
+    return () => { socket.off('spare_part_order', handleNewOrder); };
+  }, [socket]);
 
   const initiateStatusChange = (orderId, orderNum, targetStatus) => {
     setConfirmModal({
@@ -278,6 +306,36 @@ export default function SparePartsPage({ socket }) {
     }
   };
 
+  const handleAddBrand = async (e) => {
+    e.preventDefault();
+    if (!brandForm.name || !brandForm.categoryId) {
+      alert('Please select a category and enter a brand name.');
+      return;
+    }
+    try {
+      const res = await adminApi.addSparePartBrand(brandForm);
+      if (res?.success) {
+        setBrandForm({ categoryId: '', categoryName: '', name: '', logo: '🔧' });
+        setShowBrandModal(false);
+        loadAllData();
+      } else {
+        alert(res?.message || 'Failed to add brand');
+      }
+    } catch (err) {
+      alert('Error adding brand');
+    }
+  };
+
+  const handleDeleteBrand = async (brandId, brandName) => {
+    if (!window.confirm(`Remove brand "${brandName}"? It won't appear in the customer app.`)) return;
+    try {
+      const res = await adminApi.deleteSparePartBrand(brandId);
+      if (res?.success) loadAllData();
+    } catch (err) {
+      alert('Error removing brand');
+    }
+  };
+
   const handleAddSupplier = async (e) => {
     e.preventDefault();
     if (!supplierForm.name) return;
@@ -309,6 +367,8 @@ export default function SparePartsPage({ socket }) {
       brand: '',
       partNumber: '',
       quality: 'Original',
+      acType: 'All Types',
+      acCapacity: '1 Ton, 1.5 Ton, 2 Ton',
       price: '',
       discountPrice: '',
       stock: '10',
@@ -333,6 +393,8 @@ export default function SparePartsPage({ socket }) {
       brand: part.brand || '',
       partNumber: part.partNumber || '',
       quality: part.quality || 'Original',
+      acType: part.acType || 'All Types',
+      acCapacity: part.acCapacity || '',
       price: part.price || '',
       discountPrice: part.discountPrice || '',
       stock: part.stock !== undefined ? String(part.stock) : '10',
@@ -435,9 +497,8 @@ export default function SparePartsPage({ socket }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #334155', marginBottom: '24px', gap: '8px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #334155', marginBottom: '24px', gap: '8px', flexWrap: 'wrap' }}>
         {[
-          { id: 'products', label: '📦 Products Catalog', badge: spareParts.length },
           { id: 'categories', label: '📁 Categories', badge: categories.length },
           { id: 'inventory', label: '🏬 Inventory & Stock Alerts', badge: spareParts.filter(p => p.stock <= (p.lowStockThreshold || 5)).length },
           { id: 'orders', label: '🛒 Customer Orders', badge: orders.filter(o => o.orderStatus === 'NEW').length },
@@ -446,7 +507,7 @@ export default function SparePartsPage({ socket }) {
         ].map(t => (
           <button
             key={t.id}
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => { setActiveTab(t.id); setSelectedBrandView(null); }}
             style={{
               padding: '12px 20px',
               background: activeTab === t.id ? '#1E293B' : 'transparent',
@@ -547,6 +608,11 @@ export default function SparePartsPage({ socket }) {
                     <div style={{ color: '#38BDF8', fontSize: '13px', fontWeight: '600' }}>{part.category}</div>
                     <div style={{ color: '#94A3B8', fontSize: '12px' }}>Brand: {part.brand || 'Generic'} | Part #{part.partNumber}</div>
                     <div style={{ color: '#94A3B8', fontSize: '12px' }}>Warranty: {part.warranty}</div>
+                    {(part.acType || part.acCapacity) && (
+                      <div style={{ color: '#A78BFA', fontSize: '11px', marginTop: '2px' }}>
+                        {part.acType && `⚡ ${part.acType}`}{part.acType && part.acCapacity && ' · '}{part.acCapacity && `🌡️ ${part.acCapacity}`}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -559,30 +625,52 @@ export default function SparePartsPage({ socket }) {
                 )}
 
                 {/* Stock & Pricing Bar */}
-                <div style={{ background: '#0F172A', padding: '12px', borderRadius: '12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>CUSTOMER PRICE</div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                      <span style={{ fontSize: '18px', fontWeight: '800', color: '#10B981' }}>
-                        ₹{part.discountPrice || part.price}
-                      </span>
-                      {part.discountPrice && (
-                        <span style={{ fontSize: '12px', textDecoration: 'line-through', color: '#64748B' }}>
-                          ₹{part.price}
+                <div style={{ background: '#0F172A', padding: '12px', borderRadius: '12px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>SELLING PRICE</div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span style={{ fontSize: '18px', fontWeight: '800', color: '#10B981' }}>
+                          ₹{part.discountPrice || part.price}
                         </span>
-                      )}
+                        {part.discountPrice && (
+                          <span style={{ fontSize: '12px', textDecoration: 'line-through', color: '#64748B' }}>
+                            ₹{part.price}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>STOCK LEVEL</div>
+                      <div style={{
+                        fontSize: '14px', fontWeight: '800',
+                        color: part.stock === 0 ? '#EF4444' : (part.stock <= (part.lowStockThreshold || 5) ? '#F59E0B' : '#10B981')
+                      }}>
+                        {part.stock === 0 ? '❌ Out of Stock' : (part.stock <= (part.lowStockThreshold || 5) ? `⚠️ ${part.stock} left` : `✅ ${part.stock} in stock`)}
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>STOCK LEVEL</div>
-                    <div style={{
-                      fontSize: '14px', fontWeight: '800',
-                      color: part.stock === 0 ? '#EF4444' : (part.stock <= (part.lowStockThreshold || 5) ? '#F59E0B' : '#10B981')
-                    }}>
-                      {part.stock === 0 ? '❌ Out of Stock' : (part.stock <= (part.lowStockThreshold || 5) ? `⚠️ ${part.stock} left` : `✅ ${part.stock} in stock`)}
-                    </div>
-                  </div>
+                  {/* Purchase Price + Profit */}
+                  {part.purchasePrice > 0 && (() => {
+                    const sell = part.discountPrice || part.price || 0;
+                    const buy = part.purchasePrice || 0;
+                    const profit = sell - buy;
+                    const margin = buy > 0 ? Math.round((profit / sell) * 100) : 0;
+                    return (
+                      <div style={{ display: 'flex', gap: '12px', paddingTop: '8px', borderTop: '1px solid #1E293B' }}>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>PURCHASE COST</div>
+                          <div style={{ fontSize: '13px', color: '#F59E0B', fontWeight: '700' }}>₹{buy}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>PROFIT</div>
+                          <div style={{ fontSize: '13px', color: profit >= 0 ? '#10B981' : '#EF4444', fontWeight: '700' }}>₹{profit} ({margin}%)</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Quick Edit or Action Buttons */}
@@ -627,36 +715,312 @@ export default function SparePartsPage({ socket }) {
         </div>
       )}
 
-      {/* TAB 2: CATEGORIES */}
+      {/* TAB 2: CATEGORIES — with inline brand drill-down */}
       {activeTab === 'categories' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '20px', margin: 0 }}>Appliance Categories</h2>
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              style={{ padding: '10px 18px', background: '#38BDF8', color: '#0F172A', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}
-            >
-              ➕ Add Category
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-            {categories.map(cat => (
-              <div key={cat.id} style={{ background: '#1E293B', padding: '20px', borderRadius: '16px', border: '1px solid #334155', textAlign: 'center' }}>
-                <div style={{ fontSize: '40px', marginBottom: '10px' }}>{cat.icon || '🔧'}</div>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 6px 0' }}>{cat.name}</h3>
-                <div style={{ color: '#94A3B8', fontSize: '13px' }}>
-                  {spareParts.filter(p => p.category?.toLowerCase() === cat.name.toLowerCase()).length} products listed
+          {/* ── BRAND DETAIL VIEW (shown after clicking a brand) ── */}
+          {selectedBrandView ? (() => {
+            const { categoryName, categoryIcon, brand } = selectedBrandView;
+            const brandParts = spareParts.filter(
+              p => p.brand?.toLowerCase() === brand.name.toLowerCase() &&
+                   p.category?.toLowerCase() === categoryName.toLowerCase()
+            );
+            return (
+              <div>
+                {/* Breadcrumb back bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                  <button
+                    onClick={() => setSelectedBrandView(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '8px 16px', background: '#334155', color: '#fff',
+                      border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '13px'
+                    }}
+                  >
+                    ← Back to Categories
+                  </button>
+                  <span style={{ color: '#64748B' }}>›</span>
+                  <span style={{ color: '#94A3B8', fontSize: '14px' }}>{categoryIcon} {categoryName}</span>
+                  <span style={{ color: '#64748B' }}>›</span>
+                  <span style={{ color: '#38BDF8', fontWeight: '700', fontSize: '14px' }}>{brand.logo} {brand.name}</span>
                 </div>
+
+                {/* Brand header banner */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #1E293B, #0F172A)',
+                  border: '1px solid #334155', borderRadius: '16px',
+                  padding: '24px', marginBottom: '24px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ fontSize: '52px', lineHeight: 1 }}>{brand.logo || '🔧'}</div>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '26px', fontWeight: '800', color: '#F8FAFC' }}>{brand.name}</h2>
+                      <div style={{ color: '#94A3B8', fontSize: '14px', marginTop: '4px' }}>
+                        {categoryIcon} {categoryName} &nbsp;·&nbsp;
+                        <span style={{ color: '#38BDF8', fontWeight: '700' }}>{brandParts.length} product{brandParts.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ background: '#0F172A', padding: '12px 20px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#10B981' }}>{brandParts.filter(p => p.active !== false).length}</div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Active</div>
+                    </div>
+                    <div style={{ background: '#0F172A', padding: '12px 20px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#F59E0B' }}>{brandParts.filter(p => p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length}</div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Low Stock</div>
+                    </div>
+                    <div style={{ background: '#0F172A', padding: '12px 20px', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#EF4444' }}>{brandParts.filter(p => p.stock === 0).length}</div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Out of Stock</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        resetPartForm();
+                        setPartForm(prev => ({ ...prev, category: categoryName, brand: brand.name }));
+                        setEditingPart(null);
+                        setShowAddModal(true);
+                      }}
+                      style={{
+                        padding: '12px 18px', background: 'linear-gradient(135deg, #7C3AED, #6366F1)',
+                        color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer',
+                        fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px'
+                      }}
+                    >
+                      ➕ Add {brand.name} Product
+                    </button>
+                  </div>
+                </div>
+
+                {/* Products grid */}
+                {brandParts.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center', padding: '60px 20px',
+                    background: '#1E293B', borderRadius: '16px', border: '1px dashed #334155'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+                    <div style={{ color: '#94A3B8', fontSize: '16px', fontWeight: '600' }}>No products yet for {brand.name} in {categoryName}</div>
+                    <div style={{ color: '#64748B', fontSize: '13px', marginTop: '6px' }}>Click "Add {brand.name} Product" above to add the first one.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                    {brandParts.map(part => (
+                      <div key={part._id} style={{
+                        background: '#1E293B', borderRadius: '16px', padding: '16px',
+                        border: '1px solid #334155', display: 'flex', flexDirection: 'column'
+                      }}>
+                        {/* Top row: quality badge + visibility */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <span style={{
+                            padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                            background: part.quality === 'Original' ? '#065F46' : (part.quality === 'OEM' ? '#1E40AF' : '#374151'),
+                            color: '#fff'
+                          }}>{part.quality || 'Original'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: part.active !== false ? '#10B981' : '#EF4444', fontWeight: '700' }}>
+                              {part.active !== false ? '● Visible' : '○ Hidden'}
+                            </span>
+                            <button
+                              onClick={() => handleToggleActive(part)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px' }}
+                            >{part.active !== false ? '👁️' : '🙈'}</button>
+                          </div>
+                        </div>
+
+                        {/* Photo + details */}
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                          <img
+                            src={part.photo || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=60'}
+                            alt={part.name}
+                            style={{ width: '72px', height: '72px', borderRadius: '10px', objectFit: 'cover', background: '#0F172A' }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '700', fontSize: '15px', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{part.name}</div>
+                            <div style={{ color: '#94A3B8', fontSize: '12px' }}>Part #{part.partNumber || '—'}</div>
+                            <div style={{ color: '#94A3B8', fontSize: '12px' }}>Warranty: {part.warranty || '—'}</div>
+                            {(part.acType || part.acCapacity) && (
+                              <div style={{ color: '#A78BFA', fontSize: '11px', marginTop: '2px' }}>
+                                {part.acType && `⚡ ${part.acType}`}{part.acType && part.acCapacity && ' · '}{part.acCapacity && `🌡️ ${part.acCapacity}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Price + stock */}
+                        <div style={{ background: '#0F172A', padding: '10px 12px', borderRadius: '10px', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>PRICE</div>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                                <span style={{ fontSize: '17px', fontWeight: '800', color: '#10B981' }}>₹{part.discountPrice || part.price}</span>
+                                {part.discountPrice && <span style={{ fontSize: '11px', textDecoration: 'line-through', color: '#64748B' }}>₹{part.price}</span>}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700' }}>STOCK</div>
+                              <div style={{
+                                fontSize: '13px', fontWeight: '800',
+                                color: part.stock === 0 ? '#EF4444' : (part.stock <= (part.lowStockThreshold || 5) ? '#F59E0B' : '#10B981')
+                              }}>
+                                {part.stock === 0 ? '❌ Out of Stock' : (part.stock <= (part.lowStockThreshold || 5) ? `⚠️ ${part.stock} left` : `✅ ${part.stock} in stock`)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Compatible models */}
+                        {Array.isArray(part.compatibleModels) && part.compatibleModels.length > 0 && (
+                          <div style={{ background: '#0F172A', padding: '7px 10px', borderRadius: '8px', marginBottom: '10px', fontSize: '11px', color: '#CBD5E1' }}>
+                            <span style={{ color: '#94A3B8', fontWeight: '700' }}>Fits: </span>{part.compatibleModels.join(', ')}
+                          </div>
+                        )}
+
+                        {/* Edit button */}
+                        <button
+                          onClick={() => startEditPart(part)}
+                          style={{
+                            marginTop: 'auto', width: '100%', padding: '8px',
+                            background: '#475569', color: '#fff', border: 'none',
+                            borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px'
+                          }}
+                        >✏️ Edit Product</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })() : (
+            /* ── CATEGORIES GRID VIEW (default) ── */
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ fontSize: '20px', margin: 0 }}>Appliance Categories</h2>
+                <button
+                  onClick={() => setShowCategoryModal(true)}
+                  style={{ padding: '10px 18px', background: '#38BDF8', color: '#0F172A', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}
+                >
+                  ➕ Add Category
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                {categories.map(cat => {
+                  const catBrands = brands.filter(b => b.categoryName?.toLowerCase() === cat.name.toLowerCase() || b.categoryId === cat.id);
+                  const catParts = spareParts.filter(p => p.category?.toLowerCase() === cat.name.toLowerCase());
+                  const brandsExpanded = !!expandedCatBrands[cat.id];
+                  return (
+                    <div key={cat.id} style={{ background: '#1E293B', padding: '20px', borderRadius: '16px', border: '1px solid #334155', position: 'relative' }}>
+                      {/* Category Header */}
+                      <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+                        <div style={{ fontSize: '40px', marginBottom: '8px' }}>{cat.icon || '🔧'}</div>
+                        <h3 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 8px 0' }}>{cat.name}</h3>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ background: '#0F172A', color: '#38BDF8', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', fontWeight: '600' }}>
+                            📦 {catParts.length} parts
+                          </span>
+                          <span style={{ background: '#0F172A', color: '#A855F7', fontSize: '11px', padding: '3px 10px', borderRadius: '20px', fontWeight: '600' }}>
+                            🏷️ {catBrands.length} brands
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Choose Brand Toggle */}
+                      <button
+                        onClick={() => setExpandedCatBrands(prev => ({ ...prev, [cat.id]: !prev[cat.id] }))}
+                        style={{
+                          width: '100%', padding: '8px 12px', marginBottom: brandsExpanded ? '10px' : '12px',
+                          background: '#0F172A',
+                          color: brandsExpanded ? '#38BDF8' : '#94A3B8',
+                          border: `1px solid ${brandsExpanded ? '#38BDF8' : '#334155'}`,
+                          borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '13px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span>🏷️ Choose Brand</span>
+                        <span style={{ fontSize: '11px' }}>{brandsExpanded ? '▲ Hide' : `▼ Show (${catBrands.length})`}</span>
+                      </button>
+
+                      {/* Brand list — each brand is clickable → opens brand detail view */}
+                      {brandsExpanded && (
+                        <div style={{ marginBottom: '12px' }}>
+                          {catBrands.length === 0 ? (
+                            <div style={{
+                              textAlign: 'center', color: '#64748B', fontSize: '12px',
+                              padding: '12px', background: '#0F172A', borderRadius: '10px',
+                              border: '1px dashed #334155'
+                            }}>
+                              No brands yet — click "Add Brand" below
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {catBrands.map(brand => {
+                                const count = spareParts.filter(
+                                  p => p.brand?.toLowerCase() === brand.name.toLowerCase() &&
+                                       p.category?.toLowerCase() === cat.name.toLowerCase()
+                                ).length;
+                                return (
+                                  <div key={brand.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {/* Clickable brand row → brand detail view */}
+                                    <button
+                                      onClick={() => setSelectedBrandView({ categoryId: cat.id, categoryName: cat.name, categoryIcon: cat.icon || '🔧', brand })}
+                                      style={{
+                                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        background: '#0F172A', padding: '9px 12px', borderRadius: '10px',
+                                        border: '1px solid #334155', cursor: 'pointer', textAlign: 'left',
+                                        transition: 'border-color 0.15s'
+                                      }}
+                                      onMouseEnter={e => e.currentTarget.style.borderColor = '#38BDF8'}
+                                      onMouseLeave={e => e.currentTarget.style.borderColor = '#334155'}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '18px' }}>{brand.logo || '🔧'}</span>
+                                        <div>
+                                          <div style={{ fontWeight: '700', fontSize: '13px', color: '#F8FAFC' }}>{brand.name}</div>
+                                          <div style={{ fontSize: '11px', color: '#64748B' }}>{count} product{count !== 1 ? 's' : ''}</div>
+                                        </div>
+                                      </div>
+                                      <span style={{ color: '#38BDF8', fontSize: '12px', fontWeight: '700' }}>View →</span>
+                                    </button>
+                                    {/* Delete brand */}
+                                    <button
+                                      onClick={() => handleDeleteBrand(brand.id, brand.name)}
+                                      title="Remove Brand"
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: '14px', padding: '4px 6px', flexShrink: 0 }}
+                                    >✖</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => { setBrandForm({ categoryId: cat.id, categoryName: cat.name, name: '', logo: '🔧' }); setShowBrandModal(true); }}
+                          style={{ flex: 1, padding: '7px 10px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}
+                        >➕ Add Brand</button>
+                        <button
+                          onClick={() => adminApi.deleteSparePartCategory(cat.id).then(() => loadAllData())}
+                          style={{ padding: '7px 12px', background: '#1E293B', color: '#EF4444', border: '1px solid #EF4444', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}
+                        >🗑️</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* TAB 3: INVENTORY & STOCK ALERTS */}
-      {activeTab === 'inventory' && (
-        <div>
+      {/* TAB 3: BRANDS MANAGEMENT — REMOVED (brands are now managed inside Categories tab) */}
+
+      {/* TAB (INVENTORY): INVENTORY & STOCK ALERTS */}
+      {activeTab === 'inventory' && (        <div>
           <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>⚠️ Inventory Low Stock & Out of Stock Monitor</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
             {spareParts.filter(p => p.stock <= (p.lowStockThreshold || 5)).map(part => (
@@ -979,14 +1343,36 @@ export default function SparePartsPage({ socket }) {
 
               <div>
                 <label style={labelStyle}>Category *</label>
-                <select value={partForm.category} onChange={e => setPartForm({ ...partForm, category: e.target.value })} style={selectStyle}>
-                  {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                <select value={partForm.category} onChange={e => setPartForm({ ...partForm, category: e.target.value, brand: '' })} style={selectStyle}>
+                  {categories.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
                 </select>
               </div>
 
               <div>
                 <label style={labelStyle}>Brand / Manufacturer</label>
-                <input type="text" value={partForm.brand} onChange={e => setPartForm({ ...partForm, brand: e.target.value })} style={inputStyle} placeholder="e.g. LG, Samsung, IFB" />
+                {(() => {
+                  const catBrands = brands.filter(b =>
+                    b.categoryName?.toLowerCase() === partForm.category?.toLowerCase() ||
+                    categories.find(c => c.name === partForm.category)?.id === b.categoryId
+                  );
+                  return catBrands.length > 0 ? (
+                    <select value={partForm.brand} onChange={e => setPartForm({ ...partForm, brand: e.target.value })} style={selectStyle}>
+                      <option value="">-- Select Brand --</option>
+                      {catBrands.map(b => <option key={b.id} value={b.name}>{b.logo} {b.name}</option>)}
+                      <option value="__other__">➕ Other (type manually)</option>
+                    </select>
+                  ) : (
+                    <div>
+                      <input type="text" value={partForm.brand} onChange={e => setPartForm({ ...partForm, brand: e.target.value })} style={inputStyle} placeholder="e.g. LG, Samsung, IFB" />
+                      <div style={{ color: '#64748B', fontSize: '11px', marginTop: '4px' }}>
+                        💡 No brands added for this category yet. <span style={{ color: '#38BDF8', cursor: 'pointer' }} onClick={() => { setShowAddModal(false); setShowBrandModal(true); setBrandForm({ ...brandForm, categoryName: partForm.category, categoryId: categories.find(c => c.name === partForm.category)?.id || '' }); }}>Add brands in Brands tab →</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {partForm.brand === '__other__' && (
+                  <input type="text" onChange={e => setPartForm({ ...partForm, brand: e.target.value })} style={{ ...inputStyle, marginTop: '8px' }} placeholder="Type brand name manually..." autoFocus />
+                )}
               </div>
 
               <div>
@@ -1026,6 +1412,33 @@ export default function SparePartsPage({ socket }) {
               <div>
                 <label style={labelStyle}>Warranty Period</label>
                 <input type="text" value={partForm.warranty} onChange={e => setPartForm({ ...partForm, warranty: e.target.value })} style={inputStyle} placeholder="6 Months Warranty" />
+              </div>
+
+              <div>
+                <label style={labelStyle}>AC Type</label>
+                <select value={partForm.acType || 'All Types'} onChange={e => setPartForm({ ...partForm, acType: e.target.value })} style={selectStyle}>
+                  <option value="All Types">All Types</option>
+                  <option value="Inverter">Inverter</option>
+                  <option value="Non-Inverter">Non-Inverter</option>
+                  <option value="Heat Pump">Heat Pump</option>
+                  <option value="Cassette">Cassette AC</option>
+                  <option value="Window AC">Window AC</option>
+                  <option value="Portable">Portable AC</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>AC Capacity</label>
+                <select value={partForm.acCapacity || ''} onChange={e => setPartForm({ ...partForm, acCapacity: e.target.value })} style={selectStyle}>
+                  <option value="">Universal (All Tons)</option>
+                  <option value="0.75 Ton">0.75 Ton</option>
+                  <option value="1 Ton">1 Ton</option>
+                  <option value="1.5 Ton">1.5 Ton</option>
+                  <option value="2 Ton">2 Ton</option>
+                  <option value="2.5 Ton">2.5 Ton</option>
+                  <option value="1 Ton, 1.5 Ton">1 Ton, 1.5 Ton</option>
+                  <option value="1 Ton, 1.5 Ton, 2 Ton">1 Ton, 1.5 Ton, 2 Ton</option>
+                </select>
               </div>
 
               <div style={{ gridColumn: 'span 2' }}>
@@ -1085,9 +1498,61 @@ export default function SparePartsPage({ socket }) {
         </div>
       )}
 
-      {/* MODAL: ADD SUPPLIER */}
-      {showSupplierModal && (
+      {/* MODAL: ADD BRAND */}
+      {showBrandModal && (
         <div style={modalOverlayStyle}>
+          <div style={{ ...modalContentStyle, maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0 }}>🏷️ Add Brand to Category</h3>
+              <button onClick={() => setShowBrandModal(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer' }}>✖</button>
+            </div>
+            <form onSubmit={handleAddBrand}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Category *</label>
+                <select
+                  required
+                  value={brandForm.categoryId}
+                  onChange={e => {
+                    const cat = categories.find(c => c.id === e.target.value);
+                    setBrandForm({ ...brandForm, categoryId: e.target.value, categoryName: cat?.name || '' });
+                  }}
+                  style={{ ...selectStyle, width: '100%' }}
+                >
+                  <option value="">Select a Category...</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Brand Name *</label>
+                <input
+                  type="text" required
+                  value={brandForm.name}
+                  onChange={e => setBrandForm({ ...brandForm, name: e.target.value })}
+                  style={inputStyle}
+                  placeholder="e.g. LG, Samsung, Voltas"
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={labelStyle}>Logo / Icon Emoji</label>
+                <input
+                  type="text"
+                  value={brandForm.logo}
+                  onChange={e => setBrandForm({ ...brandForm, logo: e.target.value })}
+                  style={inputStyle}
+                  placeholder="🔧"
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" onClick={() => setShowBrandModal(false)} style={btnCancelStyle}>Cancel</button>
+                <button type="submit" style={btnSaveStyle}>Add Brand</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD SUPPLIER */}
+      {showSupplierModal && (        <div style={modalOverlayStyle}>
           <div style={{ ...modalContentStyle, maxWidth: '500px' }}>
             <h3 style={{ margin: '0 0 16px 0' }}>➕ Add Private Supplier</h3>
             <form onSubmit={handleAddSupplier}>

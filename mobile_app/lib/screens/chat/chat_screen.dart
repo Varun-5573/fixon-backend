@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import '../../utils/constants.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -21,8 +22,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
   Timer? _refreshTimer;
 
-  String _userId = 'guest';
+  String _userId   = 'guest';
   String _userName = 'Customer';
+
+  /// Generate a unique client-side message ID for deduplication
+  String _newClientId() =>
+      'C${DateTime.now().millisecondsSinceEpoch}${Random().nextInt(99999)}';
 
   @override
   void initState() {
@@ -33,12 +38,12 @@ class _ChatScreenState extends State<ChatScreen> {
   /// Load real user from SharedPreferences (set during login/register)
   Future<void> _initUser() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs    = await SharedPreferences.getInstance();
       final userJson = prefs.getString('fixon_user');
       if (userJson != null) {
         final user = jsonDecode(userJson) as Map<String, dynamic>;
-        _userId   = user['_id']?.toString()   ?? 'guest';
-        _userName = user['name']?.toString()  ?? 'Customer';
+        _userId   = user['_id']?.toString()  ?? 'guest';
+        _userName = user['name']?.toString() ?? 'Customer';
       }
     } catch (e) {
       debugPrint('⚠️ Could not load user: $e');
@@ -62,7 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (data['success'] == true && data['messages'] != null) {
-          final all = List<Map<String, dynamic>>.from(data['messages'] as List);
+          final all      = List<Map<String, dynamic>>.from(data['messages'] as List);
           final filtered = all.where((m) {
             final sender   = m['senderId']?.toString()   ?? '';
             final receiver = m['receiverId']?.toString() ?? '';
@@ -74,7 +79,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
           if (mounted) {
             setState(() {
-              _messages  = filtered;
+              // Merge: keep any unsaved optimistic messages not yet returned by server
+              final serverIds = filtered
+                  .where((m) => m['_id'] != null)
+                  .map((m) => m['_id'].toString())
+                  .toSet();
+              final optimistic = _messages.where(
+                (m) => m['_id'] == null || !serverIds.contains(m['_id'].toString()),
+              ).toList();
+              _messages  = [...filtered, ...optimistic];
               if (!silent) _isLoading = false;
             });
             _scrollToBottom();
@@ -89,16 +102,18 @@ class _ChatScreenState extends State<ChatScreen> {
     // First time or no messages → show welcome bot message
     if (mounted) {
       setState(() {
-        _messages = [
-          {
-            'senderId'  : 'bot',
-            'receiverId': _userId,
-            'message'   : '👋 Hello $_userName! Welcome to FixoN Support. '
-                'How can I help you today? Ask me about bookings, payments, or services!',
-            'senderType': 'bot',
-            'createdAt' : DateTime.now().toIso8601String(),
-          }
-        ];
+        if (_messages.isEmpty) {
+          _messages = [
+            {
+              'senderId'  : 'bot',
+              'receiverId': _userId,
+              'message'   : '👋 Hello $_userName! Welcome to FixoN Support. '
+                  'How can I help you today? Ask me about bookings, payments, or services!',
+              'senderType': 'bot',
+              'createdAt' : DateTime.now().toIso8601String(),
+            }
+          ];
+        }
         _isLoading = false;
       });
     }
@@ -120,14 +135,30 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _socket.on('receive_message', (data) {
       if (!mounted) return;
-      final sender   = data['senderId']?.toString()   ?? '';
-      final receiver = data['receiverId']?.toString() ?? '';
-      final type     = data['senderType']?.toString() ?? '';
+      final msgMap   = Map<String, dynamic>.from(data as Map);
+      final sender   = msgMap['senderId']?.toString()   ?? '';
+      final receiver = msgMap['receiverId']?.toString() ?? '';
+      final type     = msgMap['senderType']?.toString() ?? '';
 
       if (sender == _userId ||
           receiver == _userId ||
           (type == 'bot' && receiver == _userId)) {
-        setState(() => _messages.add(Map<String, dynamic>.from(data as Map)));
+
+        setState(() {
+          // Deduplicate: skip if _id already in list
+          final incomingId = msgMap['_id']?.toString() ?? '';
+          final clientId   = msgMap['clientId']?.toString() ?? '';
+
+          final alreadyExists = _messages.any((m) {
+            if (incomingId.isNotEmpty && m['_id']?.toString() == incomingId) return true;
+            if (clientId.isNotEmpty   && m['clientId']?.toString() == clientId) return true;
+            return false;
+          });
+
+          if (!alreadyExists) {
+            _messages.add(msgMap);
+          }
+        });
         _scrollToBottom();
       }
     });
@@ -153,7 +184,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (txt.isEmpty) return;
     _textCtrl.clear();
 
+    final clientId = _newClientId();
+
     final msgObj = {
+      'clientId'  : clientId,
       'senderId'  : _userId,
       'receiverId': 'admin',
       'message'   : txt,
@@ -161,23 +195,23 @@ class _ChatScreenState extends State<ChatScreen> {
       'name'      : _userName,
       'createdAt' : DateTime.now().toIso8601String(),
     };
+
+    // Add optimistically to UI immediately
     setState(() => _messages.add(msgObj));
     _scrollToBottom();
 
+    // Send ONLY via socket (removes duplicate HTTP + socket problem)
     try {
       if (_socket.connected) {
         _socket.emit('send_message', msgObj);
+      } else {
+        // Fallback to HTTP if socket not connected
+        await http.post(
+          Uri.parse('$kBaseUrl/api/chat/send'),
+          headers: kHeaders,
+          body: jsonEncode(msgObj),
+        ).timeout(const Duration(seconds: 45));
       }
-    } catch (e) {
-      debugPrint('Socket emit error: $e');
-    }
-
-    try {
-      await http.post(
-        Uri.parse('$kBaseUrl/api/chat/send'),
-        headers: kHeaders,
-        body: jsonEncode(msgObj),
-      ).timeout(const Duration(seconds: 45));
     } catch (e) {
       debugPrint('Send error: $e');
     }
@@ -225,9 +259,9 @@ class _ChatScreenState extends State<ChatScreen> {
             ]),
             const SizedBox(width: 12),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Support Chatbot',
+              Text('Support Chat',
                   style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
-              Text('We usually reply in minutes',
+              Text('Real-time • Admin + AI support',
                   style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSub)),
             ]),
           ],
@@ -315,7 +349,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final timeStr = t != null
         ? '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'
         : '';
-    final isBot = msg['senderType'] == 'bot';
+    final isBot  = msg['senderType'] == 'bot';
+    final isAdmin = msg['senderType'] == 'admin';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -329,10 +364,12 @@ class _ChatScreenState extends State<ChatScreen> {
               decoration: BoxDecoration(
                 color: isBot
                     ? AppColors.secondary.withValues(alpha: 0.2)
-                    : AppColors.primary.withValues(alpha: 0.2),
+                    : isAdmin
+                        ? AppColors.primary.withValues(alpha: 0.2)
+                        : AppColors.card2,
                 shape: BoxShape.circle,
               ),
-              child: Center(child: Text(isBot ? '🤖' : '🎧', style: TextStyle(fontSize: 14))),
+              child: Center(child: Text(isBot ? '🤖' : isAdmin ? '👑' : '🎧', style: TextStyle(fontSize: 14))),
             ),
             const SizedBox(width: 8),
           ],
@@ -341,9 +378,9 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isMe ? 16 : 4),
+                  topLeft:    const Radius.circular(16),
+                  topRight:   const Radius.circular(16),
+                  bottomLeft:  Radius.circular(isMe ? 16 : 4),
                   bottomRight: Radius.circular(isMe ? 4 : 16),
                 ),
                 gradient: isMe ? AppColors.primaryGradient : null,
@@ -356,6 +393,12 @@ class _ChatScreenState extends State<ChatScreen> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text('AI Assistant',
                         style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.secondary)),
+                  ),
+                if (isAdmin)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('Support Team',
+                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary)),
                   ),
                 Text(msg['message']?.toString() ?? '',
                     style: GoogleFonts.inter(fontSize: 14, color: Colors.white, height: 1.4)),
@@ -380,4 +423,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-

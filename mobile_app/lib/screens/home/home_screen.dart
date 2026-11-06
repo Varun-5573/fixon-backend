@@ -15,11 +15,11 @@ import '../notifications/notifications_screen.dart';
 import '../chat/chat_screen.dart';
 import '../location/location_picker_screen.dart';
 import '../profile/worker_verification_screen.dart';
-import '../shop/spare_parts_store_screen.dart';
 import '../../widgets/smart_recommendations_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math' as math;
+import '../shop/spare_parts_categories_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,6 +39,9 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
   int _bannerIndex = 0;
 
+  // Festival offers from backend
+  List<Map<String, dynamic>> _festivalOffers = [];
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _loadCachedServices();
       _initLocation();
       _loadServices(); // Load live services from server
+      _loadFestivalOffers(); // Load festival banners
       final auth = context.read<AuthProvider>();
       if (auth.isLoggedIn) {
         context.read<BookingProvider>().fetchBookings(auth.token!, userId: auth.user?['_id']);
@@ -212,6 +216,27 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> get _filteredServices => _search.isEmpty
       ? _services
       : _services.where((s) => s['name'].toString().toLowerCase().contains(_search.toLowerCase())).toList();
+
+  Future<void> _loadFestivalOffers() async {
+    try {
+      final baseUrl = await resolveBaseUrl();
+      final res = await http.get(
+        Uri.parse('$baseUrl/api/festival-offers'),
+        headers: {'Cache-Control': 'no-cache', ...kHeaders},
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true && data['offers'] != null) {
+          final list = List<Map<String, dynamic>>.from(
+            (data['offers'] as List).map((o) => Map<String, dynamic>.from(o))
+          );
+          if (mounted) setState(() => _festivalOffers = list);
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Festival offers load error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -476,6 +501,79 @@ class _HomeScreenState extends State<HomeScreen> {
         )),
 
 
+        // ── Festival Offers ───────────────────────────────────
+        if (_search.isEmpty && _festivalOffers.isNotEmpty) SliverToBoxAdapter(child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text('🎉 Festival Offers', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                child: Text('LIMITED', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: 0.5)),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 140,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _festivalOffers.length,
+                itemBuilder: (ctx, i) {
+                  final o = _festivalOffers[i];
+                  Color bgColor = AppColors.primary;
+                  try {
+                    final hex = (o['bgColor'] as String? ?? '#7C3AED').replaceAll('#', '');
+                    bgColor = Color(int.parse('FF$hex', radix: 16));
+                  } catch (_) {}
+                  return Container(
+                    width: 280,
+                    margin: EdgeInsets.only(right: 12, left: i == 0 ? 0 : 0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: LinearGradient(
+                        colors: [bgColor, bgColor.withOpacity(0.75)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [BoxShadow(color: bgColor.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))],
+                    ),
+                    child: Stack(children: [
+                      // Decorative circles
+                      Positioned(top: -15, right: -15, child: Container(width: 70, height: 70, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)))),
+                      Positioned(bottom: -20, left: -10, child: Container(width: 60, height: 60, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.07)))),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Text(o['emoji'] ?? '🎉', style: const TextStyle(fontSize: 32)),
+                            const Spacer(),
+                            if (o['discountText'] != null && (o['discountText'] as String).isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), borderRadius: BorderRadius.circular(20)),
+                                child: Text(o['discountText'] as String, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                              ),
+                          ]),
+                          const SizedBox(height: 8),
+                          Text(o['festivalName'] ?? '', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white70, letterSpacing: 0.5)),
+                          Text(o['title'] ?? '', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                            child: Text('Shop Now →', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ]),
+                      ),
+                    ]),
+                  );
+                },
+              ),
+            ),
+          ]),
+        )),
+
         // ── Smart Recommendations ─────────────────────────────
         if (_search.isEmpty) SliverToBoxAdapter(
           child: SmartRecommendationsWidget(
@@ -491,89 +589,91 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── 🛒 Spare Parts Store Banner ─────────────────────
-        if (_search.isEmpty) SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SparePartsStoreScreen()));
-              },
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF065F46), Color(0xFF047857), Color(0xFF10B981)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+        // Spare Parts Store banner removed
+
+        // ── Spare Parts Store Banner ──────────────────────────
+        SliverToBoxAdapter(
+          child: GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => const SparePartsCategoriesScreen(),
+            )),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8B2CF5), Color(0xFF6D23C0)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8B2CF5).withOpacity(0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF10B981).withOpacity(0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 54, height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Center(
-                        child: Text('🛒', style: TextStyle(fontSize: 26)),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Spare Parts Store',
-                                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                    child: const Center(child: Text('🛒', style: TextStyle(fontSize: 28))),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text('Spare Parts Store',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                              )),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
+                              child: Text('NEW',
+                                style: GoogleFonts.inter(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'NEW',
-                                  style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF065F46)),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'Buy genuine AC, Washer, Fridge parts + optional technician installation!',
-                            style: GoogleFonts.inter(fontSize: 11, color: Colors.white70),
-                            maxLines: 2,
-                          ),
-                        ],
-                      ),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                )),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text('Buy genuine AC, Washer, Fridge parts\n+ optional technician installation!',
+                          style: GoogleFonts.inter(
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: 12,
+                            height: 1.4,
+                          )),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_forward_rounded, color: Color(0xFF065F46), size: 18),
+                  ),
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
+                    child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                  ),
+                ],
               ),
             ),
           ),
